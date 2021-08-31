@@ -1,0 +1,9 @@
+#container {
+  display: flex;
+}
+
+#display {
+  height: 800px;
+  width: 400px;
+}
+

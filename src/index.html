@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+	</head>
+  <body>
+    <div class="box">
+      <iframe src="editor/index.html" frameborder="0" scrolling="no" width="50%" height="800" align="left" sandbox="allow-scripts allow-same-origin" id="editor"> </iframe>
+    </div>
+    <div class="box">    
+      <iframe src="display/index.html" frameborder="0" scrolling="yes" width="50%" height="800" align="right" sandbox="allow-scripts allow-same-origin" id="display"></iframe>
+    </div>
+    <div class="clear"></div>
+    <script>
+      const editor = document.getElementById('editor');
+      const display = document.getElementById('display');
+      window.onmessage = function(e) {
+          // if (e.data == 'hello') {
+            console.log(e);
+            display.contentWindow.postMessage(e.data, '*');
+          // }
+      };
+    </script>
+  </body>
+</html>

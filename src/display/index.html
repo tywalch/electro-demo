@@ -1,0 +1,65 @@
+<!doctype html>
+<html class="no-js" lang="">
+
+<head>
+  <meta charset="utf-8">
+  <title></title>
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta property="og:title" content="">
+  <meta property="og:type" content="">
+  <meta property="og:url" content="">
+  <meta property="og:image" content="">
+
+  <link rel="apple-touch-icon" href="icon.png">
+  <!-- Place favicon.ico in the root directory -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital@1&display=swap" rel="stylesheet">
+  <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/styles/default.min.css"> -->
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/highlight.min.js"></script> -->
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="prisim.css">
+</head>
+<body>
+  <div class="wrapper" id="app">
+    <img src="https://github.com/tywalch/electrodb/blob/master/assets/electrodb-drk.png?raw=true"></h1>
+    <p>
+      Write queries to the left, view the generated parameters below.
+    </p>
+    <p>
+      Reference the ElectroDB documentation <a href="https://github.com/tywalch/electrodb">here</a>, play with this
+      example <a
+        href="https://stackblitz.com/edit/electrodb?embed=1&file=code.ts&hideExplorer=1&hideNavigation=1">here</a>.
+    </p>
+    <div id="param-container">
+    </div>  
+  </div>
+  <script src="prisim.js"></script>
+  <script src="electrodb.js"></script>
+  <script type="module">
+    console.log("window.Prism", window.Prism);
+    window.onmessage = function(e) {
+      if (typeof e.data === "string") {
+        let code = e.data;
+        code = code.replace(/import.*from .*/gi, "")
+        code = code.replace(/Entity/g, "window.ElectroDB.Entity");
+        code = code.replace(/Service/g, "window.ElectroDB.Service");
+        window.ElectroDB.clearScreen();
+        try {
+          eval(code);
+        } catch (e) {
+            window.ElectroDB.printToScreen(JSON.stringify({ message: e.message, stack: e.stack }, null, 2));
+        }
+        try {
+          window.Prism.highlightAll();
+        } catch(err) {
+          console.log("err", err);
+        }
+      }
+    };
+  </script>
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js" integrity="sha512-axJX7DJduStuBB8ePC8ryGzacZPr3rdLaIDZitiEgWWk2gsXxEFlm4UW0iNzj2h3wp5mOylgHAzBzM4nRSvTZA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script> -->
+</body>
+</html>

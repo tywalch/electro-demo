@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+  </head>
+  <div id="container">
+  <div id="loader">Loading...</div>
+  <div id="monaco-editor-embed" style="height: 800px;" />
+  </div>
+  <script>
+    // First set up the VSCode loader in a script tag
+    const getLoaderScript = document.createElement('script')
+    getLoaderScript.src = 'https://www.typescriptlang.org/js/vs.loader.js'
+    getLoaderScript.async = true
+    getLoaderScript.onload = () => {
+      // Now the loader is ready, tell require where it can get the version of monaco, and the sandbox
+      // This version uses the latest version of the sandbox, which is used on the TypeScript website
+
+      // For the monaco version you can use unpkg or the TypeSCript web infra CDN
+      // You can see the available releases for TypeScript here:
+      // https://typescript.azureedge.net/indexes/releases.json
+      //
+      require.config({
+        paths: {
+          vs: 'https://typescript.azureedge.net/cdn/4.0.5/monaco/min/vs',
+          // vs: 'https://unpkg.com/@typescript-deploys/monaco-editor@4.0.5/min/vs',
+          sandbox: 'https://www.typescriptlang.org/js/sandbox',
+        },
+        // This is something you need for monaco to work
+        ignoreDuplicateModules: ['vs/editor/editor.main'],
+      })
+
+      // Grab a copy of monaco, TypeScript and the sandbox
+      require(['vs/editor/editor.main', 'vs/language/typescript/tsWorker', 'sandbox/index'], (
+        main,
+        _tsWorker,
+        sandboxFactory
+      ) => {
+        const initialCode = `import { Entity, Service } from 'electrodb';
+
+/* Scroll to the bottom to find queries using these Entities */
+
+const table = 'your_table_name';
+
+/* Tasks Entity */
+const tasks = new Entity(
+  {
+    model: {
+      entity: 'tasks',
+      version: '1',
+      service: 'taskapp'
+    },
+    attributes: {
+      organizationId: {
+        type: 'string',
+        required: true
+      },
+      task: {
+        type: 'string',
+        required: true
+      },
+      project: {
+        type: 'string',
+        required: true
+      },
+      userId: {
+        type: 'string',
+        required: true
+      },
+      title: {
+        type: 'string'
+      },
+      description: {
+        type: 'string'
+      },
+      status: {
+        type: ['open', 'in-progress', 'closed'] as const,
+        default: 'open'
+      },
+      points: {
+        type: 'number',
+        required: true
+      },
+      tags: {
+        type: 'set',
+        items: 'string'
+      },
+      comments: {
+        type: 'list',
+        items: {
+          type: 'map',
+          properties: {
+            user: {
+              type: 'string'
+            },
+            body: {
+              type: 'string'
+            },
+            createdAt: {
+              type: 'number',
+              default: () => Date.now()
+            }
+          }
+        }
+      },
+      createdAt: {
+        type: 'number',
+        default: () => Date.now(),
+        readOnly: true
+      },
+      updatedAt: {
+        type: 'number',
+        watch: '*',
+        set: () => Date.now(),
+        readOnly: true
+      }
+    },
+    indexes: {
+      projects: {
+        pk: {
+          field: 'pk',
+          composite: ['organizationId']
+        },
+        sk: {
+          field: 'sk',
+          composite: ['project', 'task']
+        }
+      },
+      assigned: {
+        collection: 'assignments',
+        index: 'gsi1pk-gsi1sk-index',
+        pk: {
+          field: 'gsi1pk',
+          composite: ['organizationId', 'userId']
+        },
+        sk: {
+          field: 'gsi1sk',
+          composite: ['status']
+        }
+      }
+    }
+  },
+  { table }
+);
+
+/* Users Entity */
+const users = new Entity(
+  {
+    model: {
+      entity: 'user',
+      service: 'taskapp',
+      version: '1'
+    },
+    attributes: {
+      organizationId: {
+        type: 'string'
+      },
+      userId: {
+        type: 'string'
+      },
+      fullName: {
+        type: 'string'
+      },
+      detail: {
+        type: 'map',
+        properties: {
+          photo: {
+            type: 'string'
+          },
+          bio: {
+            type: 'string'
+          },
+          location: {
+            type: 'string'
+          }
+        }
+      },
+      pinned: {
+        type: 'any'
+      },
+      following: {
+        type: 'set',
+        items: 'string'
+      },
+      followers: {
+        type: 'set',
+        items: 'string'
+      },
+      createdAt: {
+        type: 'number',
+        default: () => Date.now(),
+        readOnly: true
+      },
+      updatedAt: {
+        type: 'number',
+        watch: '*',
+        set: () => Date.now(),
+        readOnly: true
+      }
+    },
+    indexes: {
+      users: {
+        collection: 'organization',
+        pk: {
+          composite: ['organizationId'],
+          field: 'pk'
+        },
+        sk: {
+          composite: ['userId'],
+          field: 'sk'
+        }
+      },
+      lookup: {
+        collection: 'assignments',
+        index: 'gsi1pk-gsi1sk-index',
+        pk: {
+          composite: ['organizationId', 'userId'],
+          field: 'gsi1pk'
+        },
+        sk: {
+          field: 'gsi1sk',
+          composite: []
+        }
+      }
+    }
+  },
+  { table }
+);
+
+const app = new Service({ users, tasks });
+
+/* End your queries in ".params()" to output JSON to the right! */
+
+tasks
+  .update({
+    task: '45-662',
+    project: 'core',
+    organizationId: 'tinkertamper'
+  })
+  .append({
+    comments: [
+      {
+        user: 'janet',
+        body: 'This seems half-baked.'
+      }
+    ]
+  })
+  .add({ tags: ['half-baked'] })
+  .params();
+
+
+app.collections
+  .assignments({
+    organizationId: 'tinkertamper',
+    userId: 'bill'
+  })
+  .where(
+    ({ points }, { notExists, gte }) => \`
+    \${notExists(points)} OR \${gte(points, 5)}
+  \`
+  )
+  .params();
+`
+
+        const isOK = main && window.ts && sandboxFactory
+        if (isOK) {
+          document.getElementById('loader').parentNode.removeChild(document.getElementById('loader'))
+        } else {
+          console.error('Could not get all the dependencies of sandbox set up!');
+          console.error('main', !!main, 'ts', !!window.ts, 'sandbox', !!sandbox);
+          return;
+        }
+
+        // Create a sandbox and embed it into the the div #monaco-editor-embed
+        const sandboxConfig = {
+          text: initialCode,
+          compilerOptions: {},
+          domID: 'monaco-editor-embed',
+        }
+
+        function sendChanges(code) {
+          window.top.postMessage(code, '*');
+        }
+
+        const sandbox = sandboxFactory.createTypeScriptSandbox(sandboxConfig, main, window.ts);
+        sandbox.languageServiceDefaults.addExtraLib('./electrodb.d.ts');
+        sandbox.editor.onDidType(() => {
+          sandbox.getRunnableJS().then(sendChanges);
+        });
+        sandbox.editor.focus();
+        sandbox.getRunnableJS().then(sendChanges);
+      });
+    }
+
+    document.body.appendChild(getLoaderScript);
+    window.onmessage = function(e) {
+        // if (e.data == 'hello') {
+            // console.log('It works inside editor!' + e.data);
+        // }
+    };
+    // setInterval(() => {
+    //   window.top.postMessage('{"hello": "from editor"}', '*');
+    // }, 5000);
+  </script>
+</html>

@@ -1,0 +1,23 @@
+{
+  "name": "electro-demo",
+  "version": "1.0.0",
+  "description": "Source for the ElectroDB in-browser demo",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tywalch/electro-demo.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/tywalch/electro-demo/issues"
+  },
+  "homepage": "https://github.com/tywalch/electro-demo#readme",
+  "dependencies": {
+    "electrodb": "^1.4.1"
+  }
+}
