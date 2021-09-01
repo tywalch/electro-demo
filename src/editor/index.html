@@ -2,10 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <link rel="stylesheet" href="style.css">
   </head>
   <div id="container">
-  <div id="loader">Loading...</div>
-  <div id="monaco-editor-embed" style="height: 800px;" />
+    <div id="loader">Loading...</div>
+    <div id="editor" style="height: 800px;"></div>
   </div>
   <script>
     // First set up the VSCode loader in a script tag
@@ -271,11 +272,15 @@ app.collections
           return;
         }
 
-        // Create a sandbox and embed it into the the div #monaco-editor-embed
+        // Create a sandbox and embed it into the the div #editor
         const sandboxConfig = {
           text: initialCode,
           compilerOptions: {},
-          domID: 'monaco-editor-embed',
+          domID: 'editor',
+          automaticLayout: true,
+          monacoSettings: {
+            theme: 'vs-dark',
+          }
         }
 
         function sendChanges(code) {
@@ -298,8 +303,5 @@ app.collections
             // console.log('It works inside editor!' + e.data);
         // }
     };
-    // setInterval(() => {
-    //   window.top.postMessage('{"hello": "from editor"}', '*');
-    // }, 5000);
   </script>
 </html>

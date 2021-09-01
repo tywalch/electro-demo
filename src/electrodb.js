@@ -1,4 +1,4 @@
-const ElectroDB = require("./index");
+const ElectroDB = require("electrodb");
 window.Prism = window.Prism || {};
 const appDiv = document.getElementById('param-container');
 
