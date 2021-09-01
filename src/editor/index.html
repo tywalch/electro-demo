@@ -37,9 +37,9 @@
         _tsWorker,
         sandboxFactory
       ) => {
-        const initialCode = `import { Entity, Service } from 'electrodb';
+        const initialCode = `/* Scroll to the bottom to find queries using these Entities */
 
-/* Scroll to the bottom to find queries using these Entities */
+import { Entity, Service } from 'electrodb';
 
 const table = 'your_table_name';
 
@@ -280,6 +280,9 @@ app.collections
           automaticLayout: true,
           monacoSettings: {
             theme: 'electrodb',
+            fontSize: 14,
+            fontFamily: 'JetBrains Mono',
+            // lineNumbers: "off"
           }
         }
 
@@ -388,18 +391,18 @@ app.collections
               "token": "support.class.component"
             },
             {
-              // "foreground": "#ff7b72",
-              "foreground": "#f08d49",
+              "foreground": "#ff7b72",
+              // "foreground": "#f08d49",
               "token": "keyword"
             },
             {
-              // "foreground": "#ff7b72",
-              "foreground": "#f08d49",
+              "foreground": "#ff7b72",
+              // "foreground": "#f08d49",
               "token": "storage"
             },
             {
-              // "foreground": "#ff7b72",
-              "foreground": "#f08d49",
+              "foreground": "#ff7b72",
+              // "foreground": "#f08d49",
               "token": "storage.type"
             },
             {
@@ -464,8 +467,8 @@ app.collections
             },
             {
               "fontStyle": "italic underline",
-              // "background": "#ff7b72",
-              "background": "#f08d49",
+              "background": "#ff7b72",
+              // "background": "#f08d49",
               "foreground": "#0d1117",
               "content": "^M",
               "token": "carriage-return"

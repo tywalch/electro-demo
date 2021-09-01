@@ -24,6 +24,10 @@
   align-items: center;
 }
 
+#editor {
+  margin-left: 25px;
+}
+
 iframe { flex-grow: 1; border: none; margin: 0; padding: 0; }
 
 body, html, .container {

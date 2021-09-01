@@ -4,6 +4,8 @@
   height: 100%;
   flex-direction: column;
   overflow: hidden;
+  margin-top: 30px;
+  margin-left: 30px;
 }
 
 /*#editor {*/

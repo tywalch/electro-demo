@@ -24,13 +24,71 @@
 </head>
 <body>
   <div class="wrapper" id="app">
+<!--    <p>-->
+<!--      Write queries to the left, view the generated parameters below.-->
+<!--    </p>-->
+<!--    <p>-->
+<!--      Reference the ElectroDB documentation <a href="https://github.com/tywalch/electrodb">here</a>, play with this-->
+<!--      example <a-->
+<!--            href="https://stackblitz.com/edit/electrodb?embed=1&file=code.ts&hideExplorer=1&hideNavigation=1">here</a>.-->
+<!--    </p>-->
     <div id="param-container">
     </div>  
   </div>
   <script src="prisim.js"></script>
   <script src="electrodb.js"></script>
   <script type="module">
-    console.log("window.Prism", window.Prism);
+    const defaultParams = [
+      {
+        "UpdateExpression": "SET #comments = list_append(#comments, :comments_u0), #updatedAt = :updatedAt_u0 ADD #tags :tags_u0",
+        "ExpressionAttributeNames": {
+          "#comments": "comments",
+          "#tags": "tags",
+          "#updatedAt": "updatedAt"
+        },
+        "ExpressionAttributeValues": {
+          ":comments_u0": [
+            {
+              "user": "janet",
+              "body": "This seems half-baked."
+            }
+          ],
+          ":tags_u0": [
+            "half-baked"
+          ],
+          ":updatedAt_u0": 1630529057071
+        },
+        "TableName": "your_table_name",
+        "Key": {
+          "pk": "$taskapp#organizationid_tinkertamper",
+          "sk": "$tasks_1#project_core#task_45-662"
+        }
+      },
+      {
+        "KeyConditionExpression": "#pk = :pk and begins_with(#sk1, :sk1)",
+        "TableName": "your_table_name",
+        "ExpressionAttributeNames": {
+          "#points": "points",
+          "#pk": "gsi1pk",
+          "#sk1": "gsi1sk"
+        },
+        "ExpressionAttributeValues": {
+          ":points0": 5,
+          ":pk": "$taskapp#organizationid_tinkertamper#userid_bill",
+          ":sk1": "$assignments"
+        },
+        "IndexName": "gsi1pk-gsi1sk-index",
+        "FilterExpression": "attribute_not_exists(#points) OR #points >= :points0"
+      },
+    ];
+    for (const param of defaultParams) {
+      window.ElectroDB.printToScreen(JSON.stringify(param, null, 4));
+    }
+    try {
+      window.Prism.highlightAll();
+    } catch(err) {
+      console.log("err", err);
+    }
     window.onmessage = function(e) {
       if (typeof e.data === "string") {
         let code = e.data;
@@ -41,7 +99,7 @@
         try {
           eval(code);
         } catch (e) {
-            window.ElectroDB.printToScreen(JSON.stringify({ message: e.message, stack: e.stack }, null, 2));
+            window.ElectroDB.printToScreen(JSON.stringify({ message: e.message, stack: e.stack }, null, 4));
         }
         try {
           window.Prism.highlightAll();

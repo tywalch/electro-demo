@@ -9920,7 +9920,7 @@ function printToScreen(val) {
     //     console.log("FUUUU", window, window.Prism);
     // }
     // appDiv.innerHTML = innerHtml + Prism.highlight(val, Prism.languages.json, 'json');
-    appDiv.innerHTML = innerHtml + `<hr><pre><code class="language-json">${val}</code></pre>`;
+    appDiv.innerHTML = innerHtml + `<pre><code class="language-json">${val}</code></pre><hr>`;
 }
 
 function clearScreen() {

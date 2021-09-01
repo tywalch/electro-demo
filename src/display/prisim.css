@@ -6,7 +6,9 @@ pre[class*='language-'] {
   background: none;
   font-family: 'JetBrains Mono', Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono',
     monospace;
-  font-size: 1.2rem;
+  /*font-size: 1.2rem;*/
+  /*font-size: 1rem;*/
+  font-size: 14px;
   text-align: left;
   white-space: pre;
   word-spacing: normal;
@@ -27,7 +29,8 @@ pre[class*='language-'] {
 /* Code blocks */
 pre[class*='language-'] {
   padding: 1em;
-  margin: 0.5em 0;
+  /*margin: 0.5em 0;*/
+
   overflow: auto;
 }
 
