@@ -1,7 +1,7 @@
 .container {
   display: grid;
   grid-template-columns: 1fr 1.75fr;
-  grid-template-rows: 0.03fr 0.20fr 1fr 0.03fr;
+  grid-template-rows: 0.02fr 0.20fr 1fr 0.03fr;
   gap: 2px 8px;
   grid-auto-flow: row;
   grid-template-areas:
@@ -76,7 +76,7 @@ footer > h4 {
   text-align: center;
   color: #999999;
   font-size: 12px;
-  margin: 15px;
+  margin: 12px;
   font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-weight: 300;
   line-height: 1.1;

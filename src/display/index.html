@@ -16,7 +16,7 @@
   <!-- Place favicon.ico in the root directory -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital@1&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@500&family=JetBrains+Mono&display=swap" rel="stylesheet">
   <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/styles/default.min.css"> -->
   <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/highlight.min.js"></script> -->
   <link rel="stylesheet" href="style.css">
@@ -31,7 +31,7 @@
   <script src="electrodb.js"></script>
   <script type="module">
     const defaultParams = [
-      ["Performs <b>Update</b> operation on entity <b>Tasks</b>", {
+      ["<h2>Performs an <b>Update</b> operation, on the entity <b>Tasks</b></h2>", {
         "UpdateExpression": "SET #comments = list_append(#comments, :comments_u0), #updatedAt = :updatedAt_u0 ADD #tags :tags_u0",
         "ExpressionAttributeNames": {
           "#comments": "comments",
@@ -56,7 +56,7 @@
           "sk": "$tasks_1#project_core#task_45-662"
         }
       }],
-      ["Queries collection <b>Assignments</b> on service <b>Taskapp</b> by <b>organizationId</b>, <b>userId</b>",{
+      ["<h2>Queries the collection <b>Assignments</b>, on the service <b>Taskapp</b>, by <b>organizationId</b> and <b>userId</b></h2>",{
         "KeyConditionExpression": "#pk = :pk and begins_with(#sk1, :sk1)",
         "TableName": "your_table_name",
         "ExpressionAttributeNames": {

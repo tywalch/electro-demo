@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono&family=Poppins:wght@500&display=swap');
 
 *,
 *::before,
@@ -43,8 +43,10 @@ h2 {
   font-size: 1.3rem;
   text-align: left;
   color: #eaecec;
-  font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial,
-    sans-serif, Apple Color Emoji, Segoe UI Emoji;
+  /*font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial,*/
+  /*  sans-serif, Apple Color Emoji, Segoe UI Emoji;*/
+  font-family: 'Poppins';
+  text-transform: uppercase;
   /*color: #4781b7;*/
 }
 
@@ -54,7 +56,14 @@ a {
 }
 
 b {
-  color: #eaecec;
+  color: #4781b7;
+  font-weight: bolder;
+  /*font-family: 'JetBrains Mono';*/
+  /*background: #4781b7;*/
+  /*font-weight: bolder;*/
+  /*color: #0d1117;*/
+  /*padding: 5px 5px;*/
+  /*font-style: italic;*/
 }
 
 p {
@@ -62,8 +71,9 @@ p {
   line-height: 1.25;
   color: #eaecec;
   word-wrap: break-word;
-  font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial,
-    sans-serif, Apple Color Emoji, Segoe UI Emoji;
+  /*font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial,*/
+  /*  sans-serif, Apple Color Emoji, Segoe UI Emoji;*/
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
   font-size: 16px;
 }
 

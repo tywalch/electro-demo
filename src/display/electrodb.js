@@ -9910,6 +9910,12 @@ const ElectroDB = require("electrodb");
 window.Prism = window.Prism || {};
 const appDiv = document.getElementById('param-container');
 
+function aOrAn(value = "") {
+	return ["a", "e", "i", "o", "u"].includes(value[0].toLowerCase())
+		? "an"
+		: "a"
+}
+
 function properCase(str = "") {
 	let newStr = "";
 	for (let i = 0; i < str.length; i++) {
@@ -9934,7 +9940,17 @@ function formatProvidedKeys(pk = {}, sks = []) {
 	for (const sk of sks) {
 		keys = {...keys, ...sk};
 	}
-	return Object.keys(keys).map(key => formatStrict(key));
+	const provided = Object.keys(keys).map(key => formatStrict(key));
+	if (provided.length === 0) {
+		return "";
+	} else if (provided.length === 1) {
+		return provided[0];
+	} else if (provided.length === 2) {
+		return provided.join(" and ");
+	} else {
+		provided[provided.length - 1] = `and ${provided[provided.length - 1]}`;
+		return provided.join(", ");
+	}
 }
 
 function formatParamLabel(state, entity) {
@@ -9948,12 +9964,13 @@ function formatParamLabel(state, entity) {
 		const collection = state.query.collection;
 		const accessPattern = entity.model.translations.indexes.fromIndexToAccessPattern[state.query.index];
 		const keys = formatProvidedKeys(state.query.keys.pk, state.query.keys.sk);
+		console.log(keys);
 		if (collection) {
-			return `<h2>Queries collection ${formatProper(collection)} on service ${formatProper(entity.model.service)} by ${keys.join(", ")}</h2>`;
+			return `<h2>Queries the collection ${formatProper(collection)}, on the service ${formatProper(entity.model.service)}, by ${keys}</h2>`;
 		} else if (method === "query") {
-			return `<h2>Queryies access pattern ${formatProper(accessPattern)} on entity ${formatProper(entity.model.name)}</h2>`;
+			return `<h2>Queryies the access pattern ${formatProper(accessPattern)}, on the entity ${formatProper(entity.model.name)}</h2>`;
 		} else {
-			return `<h2>Performs ${formatProper(method)} operation on entity ${formatProper(entity.model.name)}</h2>`;
+			return `<h2>Performs ${aOrAn(method)} ${formatProper(method)} operation, on the entity ${formatProper(entity.model.name)}</h2>`;
 		}
 	}
 }
@@ -9963,12 +9980,11 @@ function printToScreen(params, state, entity) {
 	const label = formatParamLabel(state, entity);
 	let code = `<pre><code class="language-json">${JSON.stringify(params, null, 4)}</code></pre>`;
 	if (label) {
-		code = `<hr><h2>${label}</h2>${code}`;
+		code = `<hr>${label}${code}`;
 	} else {
 		code = `<hr>${code}`;
 	}
 	appDiv.innerHTML = innerHtml + code;
-    // appDiv.innerHTML = innerHtml + `<pre><code class="language-json">${JSON.stringify(params, null, 4)}</code></pre><hr>`;
 }
 
 function clearScreen() {
@@ -9982,48 +9998,32 @@ class Entity extends ElectroDB.Entity {
     }
 
     _queryParams(state, config) {
-    	console.log(state);
         const params = super._queryParams(state, config);
         printToScreen(params, state, this);
         return params;
     }
 
 	_batchWriteParams(state, config) {
-    	console.log(state);
 		const params = super._batchWriteParams(state, config);
 		printToScreen(params, state, this);
 		return params;
 	}
 
 	_batchGetParams(state, config) {
-    	console.log(state);
 		const params = super._batchGetParams(state, config);
 		printToScreen(params, state, this);
 		return params;
 	}
 
     _params(state, config) {
-    	console.log(state);
-        // @ts-ignore
         const params = super._params(state, config);
         printToScreen(params, state, this);
         return params;
     }
 
     go(type, params) {
-        // printToScreen(JSON.stringify(params, null, 4));
-    }
 
-	// _makeChain(index, clauses, rootClause, options = {}) {
-    // 	const action = clauses.params.action;
-    // 	clauses.params.action = function (entity, state, options = {}) {
-    // 		const params = action(entity, state, options);
-    // 		console.log({entity, state, options, stack: new Error().stack});
-	// 		printToScreen(JSON.stringify(params, null, 4));
-    // 		return params;
-	// 	};
-    // 	return super._makeChain(index, clauses, rootClause, options = {});
-	// }
+    }
 }
 
 class Service extends ElectroDB.Service {}
