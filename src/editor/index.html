@@ -256,11 +256,9 @@ app.collections
     organizationId: 'tinkertamper',
     userId: 'bill'
   })
-  .where(
-    ({ points }, { notExists, gte }) => \`
+  .where(({ points }, { notExists, gte }) => \`
     \${notExists(points)} OR \${gte(points, 5)}
-  \`
-  )
+  \`)
   .go();
 `
 
