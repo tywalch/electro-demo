@@ -9910,17 +9910,65 @@ const ElectroDB = require("electrodb");
 window.Prism = window.Prism || {};
 const appDiv = document.getElementById('param-container');
 
-function printToScreen(val) {
-    const innerHtml = appDiv.innerHTML;
-    // if (window.Prism) {
-    //     console.log("fn", window.Prism.highlight, window.Prism.highlight.toString());
-    //     console.log("window.Prism.languages.json", Object.keys(window.Prism.languages), window.Prism.languages.JSON);
-    //     // appDiv.innerHTML = innerHtml + window.Prism.highlight(val, window.Prism.languages.json, 'json');
-    // } else {
-    //     console.log("FUUUU", window, window.Prism);
-    // }
-    // appDiv.innerHTML = innerHtml + Prism.highlight(val, Prism.languages.json, 'json');
-    appDiv.innerHTML = innerHtml + `<pre><code class="language-json">${val}</code></pre><hr>`;
+function properCase(str = "") {
+	let newStr = "";
+	for (let i = 0; i < str.length; i++) {
+		let value = i === 0
+			? str[i].toUpperCase()
+			: str[i];
+		newStr += value;
+	}
+	return newStr;
+}
+
+function formatProper(value) {
+	return formatStrict(properCase(value));
+}
+
+function formatStrict(value) {
+	return `<b>${value}</b>`
+}
+
+function formatProvidedKeys(pk = {}, sks = []) {
+	let keys = {...pk};
+	for (const sk of sks) {
+		keys = {...keys, ...sk};
+	}
+	return Object.keys(keys).map(key => formatStrict(key));
+}
+
+function formatParamLabel(state, entity) {
+	if (!state) {
+		return null;
+	} else if (typeof state === "string") {
+		return state;
+	} else {
+		const method = state.query.method;
+		const type = state.query.type;
+		const collection = state.query.collection;
+		const accessPattern = entity.model.translations.indexes.fromIndexToAccessPattern[state.query.index];
+		const keys = formatProvidedKeys(state.query.keys.pk, state.query.keys.sk);
+		if (collection) {
+			return `<h2>Queries collection ${formatProper(collection)} on service ${formatProper(entity.model.service)} by ${keys.join(", ")}</h2>`;
+		} else if (method === "query") {
+			return `<h2>Queryies access pattern ${formatProper(accessPattern)} on entity ${formatProper(entity.model.name)}</h2>`;
+		} else {
+			return `<h2>Performs ${formatProper(method)} operation on entity ${formatProper(entity.model.name)}</h2>`;
+		}
+	}
+}
+
+function printToScreen(params, state, entity) {
+	const innerHtml = appDiv.innerHTML;
+	const label = formatParamLabel(state, entity);
+	let code = `<pre><code class="language-json">${JSON.stringify(params, null, 4)}</code></pre>`;
+	if (label) {
+		code = `<hr><h2>${label}</h2>${code}`;
+	} else {
+		code = `<hr>${code}`;
+	}
+	appDiv.innerHTML = innerHtml + code;
+    // appDiv.innerHTML = innerHtml + `<pre><code class="language-json">${JSON.stringify(params, null, 4)}</code></pre><hr>`;
 }
 
 function clearScreen() {
@@ -9932,22 +9980,50 @@ class Entity extends ElectroDB.Entity {
         super(...params);
         this.client = {};
     }
+
     _queryParams(state, config) {
+    	console.log(state);
         const params = super._queryParams(state, config);
-        printToScreen(JSON.stringify(params, null, 4));
+        printToScreen(params, state, this);
         return params;
     }
 
+	_batchWriteParams(state, config) {
+    	console.log(state);
+		const params = super._batchWriteParams(state, config);
+		printToScreen(params, state, this);
+		return params;
+	}
+
+	_batchGetParams(state, config) {
+    	console.log(state);
+		const params = super._batchGetParams(state, config);
+		printToScreen(params, state, this);
+		return params;
+	}
+
     _params(state, config) {
+    	console.log(state);
         // @ts-ignore
         const params = super._params(state, config);
-        printToScreen(JSON.stringify(params, null, 4));
+        printToScreen(params, state, this);
         return params;
     }
 
     go(type, params) {
-        printToScreen(JSON.stringify(params, null, 4));
+        // printToScreen(JSON.stringify(params, null, 4));
     }
+
+	// _makeChain(index, clauses, rootClause, options = {}) {
+    // 	const action = clauses.params.action;
+    // 	clauses.params.action = function (entity, state, options = {}) {
+    // 		const params = action(entity, state, options);
+    // 		console.log({entity, state, options, stack: new Error().stack});
+	// 		printToScreen(JSON.stringify(params, null, 4));
+    // 		return params;
+	// 	};
+    // 	return super._makeChain(index, clauses, rootClause, options = {});
+	// }
 }
 
 class Service extends ElectroDB.Service {}

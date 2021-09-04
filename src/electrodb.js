@@ -4,14 +4,6 @@ const appDiv = document.getElementById('param-container');
 
 function printToScreen(val) {
     const innerHtml = appDiv.innerHTML;
-    // if (window.Prism) {
-    //     console.log("fn", window.Prism.highlight, window.Prism.highlight.toString());
-    //     console.log("window.Prism.languages.json", Object.keys(window.Prism.languages), window.Prism.languages.JSON);
-    //     // appDiv.innerHTML = innerHtml + window.Prism.highlight(val, window.Prism.languages.json, 'json');
-    // } else {
-    //     console.log("FUUUU", window, window.Prism);
-    // }
-    // appDiv.innerHTML = innerHtml + Prism.highlight(val, Prism.languages.json, 'json');
     appDiv.innerHTML = innerHtml + `<pre><code class="language-json">${val}</code></pre><hr>`;
 }
 

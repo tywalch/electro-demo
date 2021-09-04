@@ -1,13 +1,14 @@
 .container {
   display: grid;
   grid-template-columns: 1fr 1.75fr;
-  grid-template-rows: 0.05fr 0.15fr 1fr;
+  grid-template-rows: 0.03fr 0.20fr 1fr 0.03fr;
   gap: 2px 8px;
   grid-auto-flow: row;
   grid-template-areas:
     "gap gap"
     "header header"
-    "code display";
+    "code display"
+    "footer footer";
 }
 
 .gap { grid-area: gap; }
@@ -17,6 +18,8 @@
 .code { grid-area: code; }
 
 .display { grid-area: display; }
+
+footer { grid-area: footer; }
 
 .header {
   display: flex;
@@ -50,7 +53,7 @@ body, html, .container {
 }
 
 a {
-  color: #53a3ff;
+  color: #4781b7;
   font-style: italic;
 }
 
@@ -67,4 +70,27 @@ p {
 img {
   max-width: 600px;
   width: 100%;
+}
+
+footer > h4 {
+  text-align: center;
+  color: #999999;
+  font-size: 12px;
+  margin: 15px;
+  font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 300;
+  line-height: 1.1;
+}
+
+footer > h4 > a {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+  cursor:default;
+  text-decoration: none;
+  color: #999999;
 }
