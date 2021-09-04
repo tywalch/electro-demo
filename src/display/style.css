@@ -18,7 +18,7 @@ body {
 body {
   display: grid;
   align-items: center;
-  justify-items: center;
+  /*justify-items: center;*/
   text-align: center;
   font: 1.25rem/1 'Rubik', sans-serif;
 }
@@ -98,6 +98,8 @@ hr {
     rgba(0, 0, 0, 0)
   );
 }
+
+#param-container > :last-child { background-color: #0d1117 !important; }
 
 /* code:focus {
   outline: none;

@@ -291,6 +291,7 @@ app.collections
         }
         main.editor.defineTheme("electrodb", {
           base: 'vs-dark',
+          // base: "hc-black",
           inherit: true,
           colors: {
             "focusBorder": "#388bfd",
@@ -298,14 +299,21 @@ app.collections
             "descriptionForeground": "#8b949e",
             "errorForeground": "#f85149",
             "editor.foreground": "#c9d1d9",
-            "editor.background": "#0d1117",
-            "scrollbar.shadow": "#0008",
+            // "editor.background": "#0d1117",
+            "editor.background": "#1a212a",
+            // "scrollbar.shadow": "#0008",
+            "scrollbar.shadow": "#0d1117",
             "scrollbarSlider.background": "#484F5833",
             "scrollbarSlider.hoverBackground": "#484F5844",
             "scrollbarSlider.activeBackground": "#484F5888",
             "editorOverviewRuler.border": "#010409",
           },
           rules: [
+            {
+              "token": "type",
+              // "foreground": "3DC9B0"
+              "foreground": "#f08d49"
+            },
             {
               "foreground": "#8b949e",
               "token": "comment"
@@ -351,9 +359,13 @@ app.collections
               "token": "meta.definition.variable"
             },
             {
-              "foreground": "#c9d1d9",
+              // "foreground": "#c9d1d9",
+              "foreground": "#f08d49",
               "token": "variable.parameter.function"
             },
+            { "token": "variable.parameter", "foreground": "#f08d39" },
+            { "token": "parameter.variable", "foreground": "#f08d39" },
+            { "token": "meta.function.parameter variable", "foreground": "#f08d39" },
             {
               "foreground": "#c9d1d9",
               "token": "meta.jsx.children"
