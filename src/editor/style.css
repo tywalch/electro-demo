@@ -3,7 +3,8 @@ body, html, .container {
   height: 100%;
   margin: 0;
   padding: 0;
-  background-color: #1a212a;
+  /*background-color: #1a212a;*/
+  background-color: #0d1117;
 }
 
 #container {

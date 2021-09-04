@@ -9,6 +9,7 @@
     <div id="editor" style="height: 800px;"></div>
   </div>
   <script>
+    document.getElementById("editor").style.height = window.innerHeight + "px";
     // First set up the VSCode loader in a script tag
     const getLoaderScript = document.createElement('script')
     getLoaderScript.src = 'https://www.typescriptlang.org/js/vs.loader.js'
@@ -299,8 +300,8 @@ app.collections
             "descriptionForeground": "#8b949e",
             "errorForeground": "#f85149",
             "editor.foreground": "#c9d1d9",
-            // "editor.background": "#0d1117",
-            "editor.background": "#1a212a",
+            "editor.background": "#0d1117",
+            // "editor.background": "#1a212a",
             // "scrollbar.shadow": "#0008",
             "scrollbar.shadow": "#0d1117",
             "scrollbarSlider.background": "#484F5833",
@@ -684,7 +685,7 @@ app.collections
           sandbox.getRunnableJS().then(sendChanges);
         });
         sandbox.editor.focus();
-        sandbox.getRunnableJS().then(sendChanges);
+
       });
     }
 
