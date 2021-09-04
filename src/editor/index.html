@@ -231,7 +231,7 @@ const users = new Entity(
 
 const app = new Service({ users, tasks });
 
-/* End your queries in ".params()" to output JSON to the right! */
+/* Write queries to generate parameters on the right */
 
 tasks
   .update({
@@ -248,7 +248,7 @@ tasks
     ]
   })
   .add({ tags: ['half-baked'] })
-  .params();
+  .go();
 
 
 app.collections
@@ -261,7 +261,7 @@ app.collections
     \${notExists(points)} OR \${gte(points, 5)}
   \`
   )
-  .params();
+  .go();
 `
 
         const isOK = main && window.ts && sandboxFactory
@@ -431,15 +431,15 @@ app.collections
               "token": "storage.type.java"
             },
             {
-              "foreground": "#a5d6ff",
+              "foreground": "#79c0ff",
               "token": "string"
             },
             {
-              "foreground": "#a5d6ff",
+              "foreground": "#79c0ff",
               "token": "punctuation.definition.string"
             },
             {
-              "foreground": "#a5d6ff",
+              "foreground": "#79c0ff",
               "token": "string punctuation.section.embedded source"
             },
             {
@@ -499,27 +499,27 @@ app.collections
               "token": "string variable"
             },
             {
-              "foreground": "#a5d6ff",
+              "foreground": "#79c0ff",
               "token": "source.regexp"
             },
             {
-              "foreground": "#a5d6ff",
+              "foreground": "#79c0ff",
               "token": "string.regexp"
             },
             {
-              "foreground": "#a5d6ff",
+              "foreground": "#79c0ff",
               "token": "string.regexp.character-class"
             },
             {
-              "foreground": "#a5d6ff",
+              "foreground": "#79c0ff",
               "token": "string.regexp constant.character.escape"
             },
             {
-              "foreground": "#a5d6ff",
+              "foreground": "#79c0ff",
               "token": "string.regexp source.ruby.embedded"
             },
             {
-              "foreground": "#a5d6ff",
+              "foreground": "#79c0ff",
               "token": "string.regexp string.regexp.arbitrary-repitition"
             },
             {
@@ -668,12 +668,12 @@ app.collections
               "token": "brackethighlighter.unmatched"
             },
             {
-              "foreground": "#a5d6ff",
+              "foreground": "#79c0ff",
               "fontStyle": "underline",
               "token": "constant.other.reference.link"
             },
             {
-              "foreground": "#a5d6ff",
+              "foreground": "#79c0ff",
               "fontStyle": "underline",
               "token": "string.other.link"
             }

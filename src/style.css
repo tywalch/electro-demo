@@ -22,6 +22,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  flex-direction: column;
 }
 
 #editor {
@@ -54,7 +55,7 @@ a {
 }
 
 p {
-  margin: 0 0 20px;
+  margin: -10px 0 20px;
   line-height: 1.25;
   color: #eaecec;
   word-wrap: break-word;
