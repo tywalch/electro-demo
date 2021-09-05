@@ -3,7 +3,6 @@ body, html, .container {
   height: 100%;
   margin: 0;
   padding: 0;
-  /*background-color: #1a212a;*/
   background-color: #0d1117;
 }
 
@@ -13,16 +12,6 @@ body, html, .container {
   height: 100%;
   flex-direction: column;
   overflow: hidden;
-  /*padding-top: 1px;*/
-  /*padding-right: 20px;*/
-  /*margin-left: 30px;*/
+  margin-top: 2px;
 }
-
-/*#editor {*/
-/*  width: 100%;*/
-/*  height: 100%;*/
-/*  margin: 0;*/
-/*  padding: 0;*/
-/*  background-color: #0d1117;*/
-/*}*/
 

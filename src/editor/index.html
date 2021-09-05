@@ -54,7 +54,7 @@ const tasks = new Entity(
       service: "taskapp"
     },
     attributes: {
-      organization: {
+      team: {
         type: "string",
         required: true
       },
@@ -71,7 +71,23 @@ const tasks = new Entity(
         required: true
       },
       title: {
-        type: "string"
+        type: "string",
+        required: true,
+      },
+      // lowercased version of title for user search
+      titleLowerCase: {
+        type: "string",
+        // trigger when title is put/updated
+        watch: ["title"],
+        // hidden so it is not returned to the user
+        hidden: true,
+        set: (_, {title}) => {
+          if (typeof title === "string") {
+            return title.toLowerCase();
+          }
+          // returning undefined skips value from update
+          return undefined;
+        }
       },
       description: {
         type: "string"
@@ -83,7 +99,6 @@ const tasks = new Entity(
       },
       points: {
         type: "number",
-        required: true
       },
       tags: {
         type: "set",
@@ -99,13 +114,27 @@ const tasks = new Entity(
             },
             body: {
               type: "string"
-            },
-            createdAt: {
-              type: "number",
-              default: () => Date.now()
             }
           }
         }
+      },
+      closed: {
+        type: "string",
+        // watch for changes to status
+        watch: ["status"],
+        readOnly: true,
+        set: (_, {status}) => {
+          // return YYYY-MM-DD if status is closed
+          if (status === "closed") {
+            const d = new Date();
+            return [
+              d.getFullYear(),
+              ('0' + (d.getMonth() + 1)).slice(-2),
+              ('0' + d.getDate()).slice(-2)
+            ].join('-');
+          }
+          return undefined;
+        },
       },
       createdAt: {
         type: "number",
@@ -117,7 +146,7 @@ const tasks = new Entity(
         type: "number",
         // watch for changes to any attribute
         watch: "*",
-        // set value by default
+        // set current timestamp when updated
         set: () => Date.now(),
         readOnly: true
       }
@@ -126,7 +155,7 @@ const tasks = new Entity(
       projects: {
         pk: {
           field: "pk",
-          composite: ["organization"]
+          composite: ["team"]
         },
         sk: {
           field: "sk",
@@ -141,7 +170,7 @@ const tasks = new Entity(
         pk: {
           // map to your GSI Hash/Partition key
           field: "gsi1pk",
-          composite: ["organization", "user"]
+          composite: ["user"]
         },
         sk: {
           // map to your GSI Range/Sort key
@@ -149,7 +178,7 @@ const tasks = new Entity(
           composite: ["status"]
         }
       },
-      recent: {
+      backlog: {
         // map to the GSI name on your DynamoDB table
         index: "gsi2pk-gsi2sk-index",
         pk: {
@@ -158,9 +187,7 @@ const tasks = new Entity(
         },
         sk: {
           field: "gsi2sk",
-          composite: ["updatedAt"],
-          // templates allow for greater control of keys
-          template: "\${updatedAt}"
+          composite: ["team", "closed"],
         }
       }
     }
@@ -177,14 +204,49 @@ const users = new Entity(
       version: "1"
     },
     attributes: {
-      organization: {
+      team: {
         type: "string"
       },
       user: {
         type: "string"
       },
-      fullName: {
+      title: {
+        type: ["dev", "senior", "staff", "principal"] as const,
+        set: (title: string) => {
+          // save as index for comparison
+          return [
+            "dev",
+            "senior",
+            "staff",
+            "principal"
+          ].indexOf(title);
+        },
+        get: (index: number) => {
+          return [
+            "dev",
+            "senior",
+            "staff",
+            "principal"
+          ][index];
+        }
+      },
+      manager: {
+        type: "string",
+      },
+      firstName: {
         type: "string"
+      },
+      lastName: {
+        type: "string"
+      },
+      fullName: {
+        type: "string",
+        // never set value to the database
+        set: () => undefined,
+        // calculate full name on retrieval
+        get: (_, {firstName, lastName}) => {
+          return \`\${firstName ?? ""} \${lastName ?? ""}\`.trim();
+        }
       },
       profile: {
         type: "map",
@@ -227,7 +289,7 @@ const users = new Entity(
       users: {
         collection: "organization",
         pk: {
-          composite: ["organization"],
+          composite: ["team"],
           field: "pk"
         },
         sk: {
@@ -239,7 +301,7 @@ const users = new Entity(
         collection: "assignments",
         index: "gsi1pk-gsi1sk-index",
         pk: {
-          composite: ["organization", "user"],
+          composite: ["user"],
           field: "gsi1pk"
         },
         sk: {
@@ -256,42 +318,63 @@ const app = new Service({ users, tasks });
 
 /* Write queries to generate parameters on the right */
 
+const team = "green";
 const user = "d.huynh";
 const project = "core";
-const task = "45-662";
-const organization = "nike";
+const task = "45-6620";
 
+// complex objects are supported and typed in ElectroDB
 const comment = {
   user: "janet",
   body: "This seems half-baked."
 };
 
+// add a comment, tag, and update item's status with a condition
 tasks
-  .patch({ task, project, organization })
+  .patch({ task, project, team })
   .set({ status: "on-hold" })
-  .add({ tags: ["half-baked"]})
+  .add({ tags: ["half-baked"] })
   .append({ comments: [comment] })
-  .where(({status}, {eq}) => eq(status, "in-progress"))
+  .where(( {status}, {eq} ) => eq(status, "in-progress"))
   .go();
 
-const hour = 1000 * 60 & 60;
-const today = Date.now();
-const yesterday = today - 24 * hour;
+const january = "2021-01";
+const july = "2021-07";
 
+// sort key query conditions are first class in ElectroDB
 tasks.query
-  .recent({project})
+  .backlog({ project })
   .between(
-    { updatedAt: yesterday },
-    { updatedAt: today },
+    { team, closed: january },
+    { team, closed: july },
   )
-  .go()
+  .where(({titleLowerCase}, {contains}) => contains(titleLowerCase, "database"))
+  .go();
 
+// use a collection to query more than one entity at a time
 app.collections
-  .assignments({ organization, user })
-  .where(({ points }, { notExists, gte }) => \`
-    \${notExists(points)} OR \${gte(points, 5)}
+  .assignments({ user })
+  .where(({ points }, { notExists, between }) => \`
+    \${notExists(points)} OR \${between(points, 1, 5)}
   \`)
   .go();
+
+// \`create\` is like \`put\` except it uses "attribute_not_exists"
+users.create({
+  team: "purple",
+  user: "t.walch",
+  title: "senior",
+  lastName: "walch",
+  firstName: "tyler",
+  manager: "d.purdy",
+  profile: {
+    bio: "makes things",
+    photo: "selfie.jpg",
+    location: "atlanta"
+  },
+  // interact with DynamoDB sets like arrays
+  following: ["d.purdy"]
+}).go()
 `
 
         const isOK = main && window.ts && sandboxFactory

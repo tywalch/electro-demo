@@ -32,14 +32,13 @@
   <script type="module">
     const defaultParams = [
       ["<h2>Performs an <b>Update</b> operation, on the entity <b>Tasks</b></h2>", {
-        "UpdateExpression": "SET #status = :status_u0, #comments = list_append(#comments, :comments_u0), #updatedAt = :updatedAt_u0, #gsi1sk = :gsi1sk_u0, #gsi2sk = :gsi2sk_u0 ADD #tags :tags_u0",
+        "UpdateExpression": "SET #status = :status_u0, #comments = list_append(#comments, :comments_u0), #updatedAt = :updatedAt_u0, #gsi1sk = :gsi1sk_u0 ADD #tags :tags_u0",
         "ExpressionAttributeNames": {
           "#status": "status",
           "#tags": "tags",
           "#comments": "comments",
           "#updatedAt": "updatedAt",
-          "#gsi1sk": "gsi1sk",
-          "#gsi2sk": "gsi2sk"
+          "#gsi1sk": "gsi1sk"
         },
         "ExpressionAttributeValues": {
           ":status0": "in-progress",
@@ -53,32 +52,34 @@
               "body": "This seems half-baked."
             }
           ],
-          ":updatedAt_u0": 1630818209653,
-          ":gsi1sk_u0": "$assignments#tasks_1#status_on-hold",
-          ":gsi2sk_u0": 1630818209653
+          ":updatedAt_u0": 1630822569618,
+          ":gsi1sk_u0": "$assignments#tasks_1#status_on-hold"
         },
         "TableName": "your_table_name",
         "Key": {
-          "pk": "$taskapp#organization_nike",
-          "sk": "$tasks_1#project_core#task_45-662"
+          "pk": "$taskapp#team_green",
+          "sk": "$tasks_1#project_core#task_45-6620"
         },
         "ConditionExpression": "attribute_exists(pk) AND attribute_exists(sk) AND #status = :status0"
       }],
-      ["<h2>QUERiIES THE ACCESS PATTERN <b>ACTIVE</b>, ON THE ENTITY <b>TASKS</b></h2>", {
+      ["<h2>QUERIES THE ACCESS PATTERN <b>BACKLOG</b>, ON THE ENTITY <b>TASKS</b></h2>", {
         "TableName": "your_table_name",
         "ExpressionAttributeNames": {
+          "#titleLowerCase": "titleLowerCase",
           "#pk": "gsi2pk",
           "#sk1": "gsi2sk"
         },
         "ExpressionAttributeValues": {
+          ":titleLowerCase0": "database",
           ":pk": "$taskapp#project_core",
-          ":sk1": 1630818208886,
-          ":sk2": 1630818209654
+          ":sk1": "$tasks_1#team_green#closed_2021-01",
+          ":sk2": "$tasks_1#team_green#closed_2021-07"
         },
         "KeyConditionExpression": "#pk = :pk and #sk1 BETWEEN :sk1 AND :sk2",
-        "IndexName": "gsi2pk-gsi2sk-index"
+        "IndexName": "gsi2pk-gsi2sk-index",
+        "FilterExpression": "contains(#titleLowerCase, :titleLowerCase0)"
       }],
-      ["<h2>Queries the collection <b>Assignments</b>, on the service <b>Taskapp</b>, by <b>organizationId</b> and <b>userId</b></h2>",{
+      ["<h2>Queries the collection <b>Assignments</b>, on the service <b>Taskapp</b>, by <b>user</b></h2>",{
         "KeyConditionExpression": "#pk = :pk and begins_with(#sk1, :sk1)",
         "TableName": "your_table_name",
         "ExpressionAttributeNames": {
@@ -87,13 +88,42 @@
           "#sk1": "gsi1sk"
         },
         "ExpressionAttributeValues": {
-          ":points0": 5,
-          ":pk": "$taskapp#organization_nike#user_d.huynh",
+          ":points0": 1,
+          ":points1": 5,
+          ":pk": "$taskapp#user_d.huynh",
           ":sk1": "$assignments"
         },
         "IndexName": "gsi1pk-gsi1sk-index",
-        "FilterExpression": "attribute_not_exists(#points) OR #points >= :points0"
+        "FilterExpression": "attribute_not_exists(#points) OR (#points between :points0 and :points1)"
       }],
+      ["PERFORMS A <b>PUT</b> OPERATION, ON THE ENTITY <b>USER</b>", {
+        "Item": {
+          "team": "purple",
+          "user": "t.walch",
+          "title": 1,
+          "manager": "d.purdy",
+          "firstName": "tyler",
+          "lastName": "walch",
+          "profile": {
+            "photo": "selfie.jpg",
+            "bio": "makes things",
+            "location": "atlanta"
+          },
+          "following": [
+            "d.purdy"
+          ],
+          "createdAt": 1630850314247,
+          "updatedAt": 1630850314247,
+          "pk": "$taskapp#team_purple",
+          "sk": "$organization#user_1#user_t.walch",
+          "gsi1pk": "$taskapp#user_t.walch",
+          "gsi1sk": "$assignments#user_1",
+          "__edb_e__": "user",
+          "__edb_v__": "1"
+        },
+        "TableName": "your_table_name",
+        "ConditionExpression": "attribute_not_exists(pk) AND attribute_not_exists(sk)"
+      }]
     ];
     for (const [label, param] of defaultParams) {
       window.ElectroDB.printToScreen(param, label);
