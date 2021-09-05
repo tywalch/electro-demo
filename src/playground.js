@@ -2,11 +2,6 @@ const display = document.getElementById('display');
 const editor = document.getElementById("editor");
 let existingUrl = document.location.href;
 
-if (location.hash.startsWith('#code')) {
-    editor.src = editor.src + location.hash;
-    display.src = display.src + location.hash;
-}
-
 function sendCode(message) {
     display.contentWindow.postMessage(JSON.stringify(message), '*');
 }
@@ -26,6 +21,13 @@ function sendRedirect(message) {
 function sendError(message) {
     display.contentWindow.postMessage(JSON.stringify(message), '*');
 }
+
+(function main() {
+    if (location.hash.startsWith('#code')) {
+        editor.src = editor.src + location.hash;
+        display.src = display.src + location.hash;
+    }
+})();
 
 window.onmessage = function handleUpdates(e) {
     try {
