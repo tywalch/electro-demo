@@ -9910,6 +9910,13 @@ const ElectroDB = require("electrodb");
 window.Prism = window.Prism || {};
 const appDiv = document.getElementById('param-container');
 
+window.notifyRedirect = function notifyRedirect(e) {
+	if (top.location !== self.location) {
+		e.preventDefault();
+		window.top.postMessage(JSON.stringify({type: "redirect", data: e.target.href}), "*");
+	}
+}
+
 function aOrAn(value = "") {
 	return ["a", "e", "i", "o", "u"].includes(value[0].toLowerCase())
 		? "an"
@@ -9975,7 +9982,6 @@ function formatParamLabel(state, entity) {
 }
 
 function printToScreen({params, state, entity} = {}, ...rest) {
-	console.log({params, state, entity, rest});
 	const innerHtml = appDiv.innerHTML;
 	const label = formatParamLabel(state, entity);
 	let code = `<pre><code class="language-json">${JSON.stringify(params, null, 4)}</code></pre>`;
@@ -9987,9 +9993,20 @@ function printToScreen({params, state, entity} = {}, ...rest) {
 	appDiv.innerHTML = innerHtml + code;
 }
 
+function formatError(message) {
+	const electroErrorPattern = "- For more detail on this error reference:";
+	const isElectroError = message.match(electroErrorPattern);
+	if (!isElectroError) {
+		return `<h3>${message}</h3>`;
+	}
+	const [description, link] = message.split(electroErrorPattern);
+	return `<h3>${description}</h3><br><h3>For more detail on this error reference <a href="${link}" onclick="notifyRedirect(event)">${link}</a></h3>`
+}
+
 function printError(message) {
+	const error = formatError(message);
 	const innerHtml = appDiv.innerHTML;
-	const code = `<hr><pre class="error"><code>${message}</code></pre>`;
+	const code = `<hr><h2>Query Error</h2><div class="error">${error}</div>`;
 	appDiv.innerHTML = innerHtml + code;
 }
 
@@ -10003,7 +10020,7 @@ class Entity extends ElectroDB.Entity {
         this.client = {};
     }
 
-    _queryParams(state, config) {
+    _demoParams(state, config) {
 		try {
 			const params = super._params(state, config);
 			if (params && typeof params.catch === "function") {
@@ -10016,51 +10033,22 @@ class Entity extends ElectroDB.Entity {
 		} catch(err) {
 			printError(err.message)
 		}
+	}
+
+    _queryParams(state, config) {
+		return this._demoParams(state, config);
     }
 
 	_batchWriteParams(state, config) {
-		try {
-			const params = super._params(state, config);
-			if (params && typeof params.catch === "function") {
-				params.catch(err => {
-					printError(err.message);
-				});
-			}
-			printToScreen({params, state, entity: this});
-			return params;
-		} catch(err) {
-			printError(err.message)
-		}
+		return this._demoParams(state, config);
 	}
 
 	_batchGetParams(state, config) {
-		try {
-			const params = super._params(state, config);
-			if (params && typeof params.catch === "function") {
-				params.catch(err => {
-					printError(err.message);
-				});
-			}
-			printToScreen({params, state, entity: this});
-			return params;
-		} catch(err) {
-			printError(err.message)
-		}
+		return this._demoParams(state, config);
 	}
 
     _params(state, config) {
-    	try {
-			const params = super._params(state, config);
-			if (params && typeof params.catch === "function") {
-				params.catch(err => {
-					printError(err.message);
-				});
-			}
-			printToScreen({params, state, entity: this});
-			return params;
-		} catch(err) {
-			printError(err.message)
-		}
+		return this._demoParams(state, config);
     }
 
     go(type, params) {

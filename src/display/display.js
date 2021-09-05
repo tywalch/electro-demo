@@ -147,21 +147,30 @@ try {
 }
 
 window.onmessage = function(e) {
-    if (typeof e.data === "string") {
-        let code = e.data;
-        code = code.replace(/import.*from .*/gi, "")
-        code = code.replace(/Entity/g, "window.ElectroDB.Entity");
-        code = code.replace(/Service/g, "window.ElectroDB.Service");
-        window.ElectroDB.clearScreen();
-        try {
-            eval(code);
-        } catch (e) {
-            window.ElectroDB.printError(e.message);
+    try {
+        const message = typeof e.data === "string"
+            ? JSON.parse(e.data)
+            : e.data;
+        if (message.type === "code") {
+            let code = message.data;
+            code = code.replace(/import.*from .*/gi, "")
+            code = code.replace(/Entity/g, "window.ElectroDB.Entity");
+            code = code.replace(/Service/g, "window.ElectroDB.Service");
+            window.ElectroDB.clearScreen();
+            try {
+                eval(code);
+            } catch (e) {
+                window.ElectroDB.printError(e.message);
+            }
+            try {
+                window.Prism.highlightAll();
+            } catch (err) {
+                console.log("err", err);
+            }
+        } else if (message.type === "error") {
+            window.ElectroDB.printError(message.data);
         }
-        try {
-            window.Prism.highlightAll();
-        } catch(err) {
-            console.log("err", err);
-        }
+    } catch(err) {
+        console.log(err);
     }
 };

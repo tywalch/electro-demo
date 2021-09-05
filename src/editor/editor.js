@@ -746,11 +746,28 @@ function sendSharable(sandbox) {
     window.top.postMessage(JSON.stringify({type: "query", data: query}), '*');
 }
 
-function onType(sandbox) {
-    sandbox.getRunnableJS().then((js) => {
-        sendChanges(js);
-        sendSharable(sandbox);
-    });
+function sendError(error) {
+    let data;
+    if (error instanceof Error) {
+        data = error.message
+    } else if (typeof error === "string") {
+        data = error;
+    } else {
+        data = JSON.stringify(error, null, 4);
+    }
+    window.top.postMessage(JSON.stringify({type: "error", data: data}), '*');
+}
+
+function processCode(sandbox) {
+    sandbox.getRunnableJS()
+        .then((js) => {
+            sendChanges(js);
+            sendSharable(sandbox);
+        })
+        .catch(err => {
+            console.log({err});
+            sendError(err);
+        })
 }
 
 function setup(main, _tsWorker, sandboxFactory) {
@@ -780,7 +797,9 @@ function setup(main, _tsWorker, sandboxFactory) {
 
     main.editor.defineTheme("electrodb", theme);
     const sandbox = sandboxFactory.createTypeScriptSandbox(config, main, window.ts);
-    sandbox.editor.onDidType(() => onType(sandbox));
+    sandbox.languageServiceDefaults.addExtraLib('./electrodb.d.ts');
+    sandbox.editor.onDidType(() => processCode(sandbox));
+    sandbox.editor.onDidBlurEditorText(() => processCode(sandbox));
     sandbox.editor.focus();
 }
 

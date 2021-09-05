@@ -101,7 +101,24 @@ code {
 }
 
 .error {
-  background-color: #790101;
+  background-color: #ffc107;
+  color: #0d1117;
+  font: 16px 'JetBrains Mono', monospace;
+  font-family: 'JetBrains Mono', monospace;
+  display: block;
+  padding: 16px;
+  overflow: auto;
+  box-shadow: 6px 6px 6px -4px #0d1117;
+  text-align: left;
+}
+
+.error > h3 {
+  margin: 0;
+}
+
+.error > h3 > a {
+  font-style: italic;
+  color: #464c52;
 }
 
 hr {
@@ -109,7 +126,7 @@ hr {
   margin-bottom: 25px;
   border: 0;
   height: 1px;
-  background: #ffc107;
+  background-color: #ffc107;
   background-image: linear-gradient(
     to right,
     rgba(0, 0, 0, 0),

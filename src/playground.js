@@ -7,7 +7,7 @@ if (location.hash.startsWith('#code')) {
 }
 
 function sendCode(message) {
-    display.contentWindow.postMessage(message.data, '*');
+    display.contentWindow.postMessage(JSON.stringify(message), '*');
 }
 
 function sendLink(message) {
@@ -18,13 +18,30 @@ function sendLink(message) {
     }
 }
 
+function sendRedirect(message) {
+    window.open(message.data, '_blank').focus();
+}
+
+function sendError(message) {
+    display.contentWindow.postMessage(JSON.stringify(message), '*');
+}
+
 window.onmessage = function handleUpdates(e) {
     try {
-        const message = JSON.parse(e.data);
-        if (message.type === "code") {
-            sendCode(message);
-        } else if (message.type === "query") {
-            sendLink(message)
+        const message = JSON.parse(e.data) || {};
+        switch(message.type) {
+            case "code":
+                sendCode(message);
+                break;
+            case "query":
+                sendLink(message);
+                break;
+            case "redirect":
+                sendRedirect(message);
+                break;
+            case "error":
+                sendError(message);
+                break;
         }
     } catch(err) {
         console.log({err, e});
