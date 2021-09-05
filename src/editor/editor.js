@@ -353,7 +353,7 @@ const theme = {
         "scrollbarSlider.background": "#484F5833",
         "scrollbarSlider.hoverBackground": "#484F5844",
         "scrollbarSlider.activeBackground": "#484F5888",
-        "editorOverviewRuler.border": "#010409",
+        "editorOverviewRuler.border": "#0d1117",
     },
     rules: [
         {
@@ -774,7 +774,6 @@ function processCode(sandbox) {
 function setup(main, _tsWorker, sandboxFactory) {
     const isOK = main && window.ts && sandboxFactory
     if (isOK) {
-        // document.getElementById('loader').style.opacity = 0;
         document.getElementById("editor").style.opacity = 100;
     } else {
         console.error('Could not get all the dependencies of sandbox set up!');
@@ -793,7 +792,7 @@ function setup(main, _tsWorker, sandboxFactory) {
         monacoSettings: {
             theme: 'electrodb',
             fontSize: 14,
-            fontFamily: 'JetBrains Mono',
+            fontFamily: 'JetBrains Mono, monospace',
         }
     }
 
