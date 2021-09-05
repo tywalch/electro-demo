@@ -9974,7 +9974,8 @@ function formatParamLabel(state, entity) {
 	}
 }
 
-function printToScreen(params, state, entity) {
+function printToScreen({params, state, entity} = {}, ...rest) {
+	console.log({params, state, entity, rest});
 	const innerHtml = appDiv.innerHTML;
 	const label = formatParamLabel(state, entity);
 	let code = `<pre><code class="language-json">${JSON.stringify(params, null, 4)}</code></pre>`;
@@ -9983,6 +9984,12 @@ function printToScreen(params, state, entity) {
 	} else {
 		code = `<hr>${code}`;
 	}
+	appDiv.innerHTML = innerHtml + code;
+}
+
+function printError(message) {
+	const innerHtml = appDiv.innerHTML;
+	const code = `<hr><pre class="error"><code>${message}</code></pre>`;
 	appDiv.innerHTML = innerHtml + code;
 }
 
@@ -9997,27 +10004,63 @@ class Entity extends ElectroDB.Entity {
     }
 
     _queryParams(state, config) {
-        const params = super._queryParams(state, config);
-        printToScreen(params, state, this);
-        return params;
+		try {
+			const params = super._params(state, config);
+			if (params && typeof params.catch === "function") {
+				params.catch(err => {
+					printError(err.message);
+				});
+			}
+			printToScreen({params, state, entity: this});
+			return params;
+		} catch(err) {
+			printError(err.message)
+		}
     }
 
 	_batchWriteParams(state, config) {
-		const params = super._batchWriteParams(state, config);
-		printToScreen(params, state, this);
-		return params;
+		try {
+			const params = super._params(state, config);
+			if (params && typeof params.catch === "function") {
+				params.catch(err => {
+					printError(err.message);
+				});
+			}
+			printToScreen({params, state, entity: this});
+			return params;
+		} catch(err) {
+			printError(err.message)
+		}
 	}
 
 	_batchGetParams(state, config) {
-		const params = super._batchGetParams(state, config);
-		printToScreen(params, state, this);
-		return params;
+		try {
+			const params = super._params(state, config);
+			if (params && typeof params.catch === "function") {
+				params.catch(err => {
+					printError(err.message);
+				});
+			}
+			printToScreen({params, state, entity: this});
+			return params;
+		} catch(err) {
+			printError(err.message)
+		}
 	}
 
     _params(state, config) {
-        const params = super._params(state, config);
-        printToScreen(params, state, this);
-        return params;
+    	try {
+			const params = super._params(state, config);
+			if (params && typeof params.catch === "function") {
+				params.catch(err => {
+					printError(err.message);
+				});
+			}
+			printToScreen({params, state, entity: this});
+			return params;
+		} catch(err) {
+			printError(err.message)
+		}
     }
 
     go(type, params) {
@@ -10031,7 +10074,8 @@ class Service extends ElectroDB.Service {}
 window.ElectroDB = {
     Entity,
     Service,
-    printToScreen,
-    clearScreen
+	printError,
+	clearScreen,
+	printToScreen
 };
 },{"electrodb":1}]},{},[26]);

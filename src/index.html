@@ -17,7 +17,7 @@
         <div class="container">
             <div class="gap"></div>
             <div class="header">
-                <img src="https://github.com/tywalch/electrodb/blob/master/assets/electrodb-drk.png?raw=true" style="height: 128.88px;"></h1>
+                <img src="https://github.com/tywalch/electrodb/blob/master/assets/electrodb-drk-compressed.png?raw=true" style="height: 128.88px;"></h1>
 <!--                <p>Reference the <i>ElectroDB</i> documentation <a href="https://github.com/tywalch/electrodb">here</a></p>-->
             </div>
             <div class="code">
@@ -32,39 +32,5 @@
             </footer>
         </div>
     </body>
-    <script>
-        const display = document.getElementById('display');
-        const editor = document.getElementById("editor");
-        let existingUrl = document.location.href;
-
-        if (location.hash.startsWith('#code')) {
-            editor.src = editor.src + location.hash;
-        }
-
-        function sendCode(message) {
-            display.contentWindow.postMessage(message.data, '*');
-        }
-
-        function sendLink(message) {
-            const url = `${document.location.protocol}//${document.location.host}${document.location.pathname}${message.data}`;
-            console.log("replaceState", existingUrl !== url);
-            if (existingUrl !== url) {
-                existingUrl = url;
-                window.history.replaceState({}, "", url);
-            }
-        }
-
-        window.onmessage = function handleUpdates(e) {
-            try {
-                const message = JSON.parse(e.data);
-                if (message.type === "code") {
-                    sendCode(message);
-                } else if (message.type === "query") {
-                    sendLink(message)
-                }
-            } catch(err) {
-                console.log({err, e});
-            }
-        }
-    </script>
+    <script src="playground.js"></script>
 </html>
