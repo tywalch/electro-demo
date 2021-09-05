@@ -1,4 +1,5 @@
-const parameters = [
+window.electroParams = window.electroParams || [];
+const defaultParameters = [
     {
         title: "<h2>Performs an <b>Update</b> operation, on the entity <b>Tasks</b></h2>",
         json: {
@@ -136,15 +137,35 @@ const parameters = [
     }
 ];
 
-for (const param of parameters) {
-    window.ElectroDB.printToScreen({params: param.json, state: param.title});
+function getCurrentHash(val) {
+    if (typeof val === "string") {
+        return val.substring(0, 20);
+    } else if (location.hash.startsWith('#code')) {
+        return `?${location.hash}`.substring(0, 20);
+    }
 }
 
-try {
-    window.Prism.highlightAll();
-} catch(err) {
-    console.log("err", err);
+function getStartingParams() {
+    const hash = getCurrentHash();
+    if (hash) {
+        return JSON.parse(window.sessionStorage.getItem(hash) || "[]");
+    } else {
+        return defaultParameters || [];
+    }
 }
+
+function saveStartingParams(incoming, params) {
+    const hash = getCurrentHash(incoming);
+    window.sessionStorage.setItem(hash, JSON.stringify(params));
+}
+
+(function load() {
+    const parameters = getStartingParams();
+    for (const param of parameters) {
+        window.ElectroDB.printToScreen({params: param.json, state: param.title});
+    }
+    window.Prism.highlightAll();
+})();
 
 window.onmessage = function(e) {
     try {
@@ -152,13 +173,14 @@ window.onmessage = function(e) {
             ? JSON.parse(e.data)
             : e.data;
         if (message.type === "code") {
-            let code = message.data;
+            let {code, query} = message.data;
             code = code.replace(/import.*from .*/gi, "")
             code = code.replace(/Entity/g, "window.ElectroDB.Entity");
             code = code.replace(/Service/g, "window.ElectroDB.Service");
             window.ElectroDB.clearScreen();
             try {
                 eval(code);
+                saveStartingParams(query, window.electroParams);
             } catch (e) {
                 window.ElectroDB.printError(e.message);
             }

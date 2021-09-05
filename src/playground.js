@@ -4,6 +4,7 @@ let existingUrl = document.location.href;
 
 if (location.hash.startsWith('#code')) {
     editor.src = editor.src + location.hash;
+    display.src = display.src + location.hash;
 }
 
 function sendCode(message) {

@@ -737,8 +737,9 @@ function getInitialText() {
         : initialCode;
 }
 
-function sendChanges(code) {
-    window.top.postMessage(JSON.stringify({type: "code", data: code}), '*');
+function sendChanges(sandbox, code) {
+    const query = sandbox.createURLQueryWithCompilerOptions(sandbox);
+    window.top.postMessage(JSON.stringify({type: "code", data: {code, query}}), '*');
 }
 
 function sendSharable(sandbox) {
@@ -761,7 +762,7 @@ function sendError(error) {
 function processCode(sandbox) {
     sandbox.getRunnableJS()
         .then((js) => {
-            sendChanges(js);
+            sendChanges(sandbox, js);
             sendSharable(sandbox);
         })
         .catch(err => {
@@ -798,6 +799,9 @@ function setup(main, _tsWorker, sandboxFactory) {
 
     main.editor.defineTheme("electrodb", theme);
     const sandbox = sandboxFactory.createTypeScriptSandbox(config, main, window.ts);
+    if (getInitialText()) {
+        processCode(sandbox);
+    }
     sandbox.languageServiceDefaults.addExtraLib('./electrodb.d.ts');
     sandbox.editor.onDidType(() => processCode(sandbox));
     sandbox.editor.onDidBlurEditorText(() => processCode(sandbox));

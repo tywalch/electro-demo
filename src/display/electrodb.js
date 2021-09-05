@@ -9908,6 +9908,7 @@ module.exports = {
 },{}],26:[function(require,module,exports){
 const ElectroDB = require("electrodb");
 window.Prism = window.Prism || {};
+window.electroParams = window.electroParams || [];
 const appDiv = document.getElementById('param-container');
 
 window.notifyRedirect = function notifyRedirect(e) {
@@ -9981,9 +9982,12 @@ function formatParamLabel(state, entity) {
 	}
 }
 
-function printToScreen({params, state, entity} = {}, ...rest) {
+function printToScreen({params, state, entity, cache} = {}) {
 	const innerHtml = appDiv.innerHTML;
 	const label = formatParamLabel(state, entity);
+	if (cache) {
+		window.electroParams.push({title: label, json: params});
+	}
 	let code = `<pre><code class="language-json">${JSON.stringify(params, null, 4)}</code></pre>`;
 	if (label) {
 		code = `<hr>${label}${code}`;
@@ -10012,6 +10016,7 @@ function printError(message) {
 
 function clearScreen() {
     appDiv.innerHTML = '';
+	window.electroParams = [];
 }
 
 class Entity extends ElectroDB.Entity {
@@ -10028,7 +10033,7 @@ class Entity extends ElectroDB.Entity {
 					printError(err.message);
 				});
 			}
-			printToScreen({params, state, entity: this});
+			printToScreen({params, state, entity: this, cache: true});
 			return params;
 		} catch(err) {
 			console.log(err);
