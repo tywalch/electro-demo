@@ -389,7 +389,10 @@ users.create({
         // Create a sandbox and embed it into the the div #editor
         const sandboxConfig = {
           text: initialCode,
-          compilerOptions: {},
+          compilerOptions: {
+            strict: true,
+            noImplicitAny: true
+          },
           domID: 'editor',
           automaticLayout: true,
           monacoSettings: {
@@ -401,8 +404,15 @@ users.create({
         }
 
         function sendChanges(code) {
-          window.top.postMessage(code, '*');
+          window.top.postMessage(JSON.stringify({type: "code", data: code}), '*');
         }
+
+        function sendSharable(sandbox) {
+          const query = sandbox.createURLQueryWithCompilerOptions(sandbox);
+          window.top.postMessage(JSON.stringify({type: "query", data: query}), '*');
+          // const fullURL = `${document.location.protocol}//${document.location.host}${document.location.pathname}${query}`
+        }
+
         main.editor.defineTheme("electrodb", {
           base: 'vs-dark',
           // base: "hc-black",
@@ -800,10 +810,12 @@ users.create({
         const sandbox = sandboxFactory.createTypeScriptSandbox(sandboxConfig, main, window.ts);
         sandbox.languageServiceDefaults.addExtraLib('./electrodb.d.ts');
         sandbox.editor.onDidType(() => {
-          sandbox.getRunnableJS().then(sendChanges);
+          sandbox.getRunnableJS().then((js) => {
+            sendChanges(js);
+            sendSharable(sandbox);
+          });
         });
         sandbox.editor.focus();
-
       });
     }
 
