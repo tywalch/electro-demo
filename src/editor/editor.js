@@ -1,4 +1,4 @@
-const initialCode = `/* Play with queries below and see the results! */
+const initialCode = `/* Model queries, see results, share with friends */
 
 import { Entity, Service } from "electrodb";
 
