@@ -10020,9 +10020,9 @@ class Entity extends ElectroDB.Entity {
         this.client = {};
     }
 
-    _demoParams(state, config) {
+    _demoParams(method, state, config) {
 		try {
-			const params = super._params(state, config);
+			const params = super[method](state, config);
 			if (params && typeof params.catch === "function") {
 				params.catch(err => {
 					printError(err.message);
@@ -10031,24 +10031,25 @@ class Entity extends ElectroDB.Entity {
 			printToScreen({params, state, entity: this});
 			return params;
 		} catch(err) {
+			console.log(err);
 			printError(err.message)
 		}
 	}
 
     _queryParams(state, config) {
-		return this._demoParams(state, config);
+		return this._demoParams("_queryParams", state, config);
     }
 
 	_batchWriteParams(state, config) {
-		return this._demoParams(state, config);
+		return this._demoParams("_batchWriteParams", state, config);
 	}
 
 	_batchGetParams(state, config) {
-		return this._demoParams(state, config);
+		return this._demoParams("_batchGetParams", state, config);
 	}
 
     _params(state, config) {
-		return this._demoParams(state, config);
+		return this._demoParams("_params", state, config);
     }
 
     go(type, params) {

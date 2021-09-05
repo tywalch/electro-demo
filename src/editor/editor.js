@@ -773,7 +773,8 @@ function processCode(sandbox) {
 function setup(main, _tsWorker, sandboxFactory) {
     const isOK = main && window.ts && sandboxFactory
     if (isOK) {
-        document.getElementById('loader').parentNode.removeChild(document.getElementById('loader'))
+        // document.getElementById('loader').style.opacity = 0;
+        document.getElementById("editor").style.opacity = 100;
     } else {
         console.error('Could not get all the dependencies of sandbox set up!');
         console.error('main', !!main, 'ts', !!window.ts, 'sandbox', !!sandbox);
