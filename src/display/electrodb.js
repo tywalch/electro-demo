@@ -9964,11 +9964,10 @@ function formatParamLabel(state, entity) {
 		const collection = state.query.collection;
 		const accessPattern = entity.model.translations.indexes.fromIndexToAccessPattern[state.query.index];
 		const keys = formatProvidedKeys(state.query.keys.pk, state.query.keys.sk);
-		console.log(keys);
 		if (collection) {
 			return `<h2>Queries the collection ${formatProper(collection)}, on the service ${formatProper(entity.model.service)}, by ${keys}</h2>`;
 		} else if (method === "query") {
-			return `<h2>Queryies the access pattern ${formatProper(accessPattern)}, on the entity ${formatProper(entity.model.name)}</h2>`;
+			return `<h2>Queries the access pattern ${formatProper(accessPattern)}, on the entity ${formatProper(entity.model.name)}</h2>`;
 		} else {
 			return `<h2>Performs ${aOrAn(method)} ${formatProper(method)} operation, on the entity ${formatProper(entity.model.name)}</h2>`;
 		}

@@ -32,29 +32,51 @@
   <script type="module">
     const defaultParams = [
       ["<h2>Performs an <b>Update</b> operation, on the entity <b>Tasks</b></h2>", {
-        "UpdateExpression": "SET #comments = list_append(#comments, :comments_u0), #updatedAt = :updatedAt_u0 ADD #tags :tags_u0",
+        "UpdateExpression": "SET #status = :status_u0, #comments = list_append(#comments, :comments_u0), #updatedAt = :updatedAt_u0, #gsi1sk = :gsi1sk_u0, #gsi2sk = :gsi2sk_u0 ADD #tags :tags_u0",
         "ExpressionAttributeNames": {
-          "#comments": "comments",
+          "#status": "status",
           "#tags": "tags",
-          "#updatedAt": "updatedAt"
+          "#comments": "comments",
+          "#updatedAt": "updatedAt",
+          "#gsi1sk": "gsi1sk",
+          "#gsi2sk": "gsi2sk"
         },
         "ExpressionAttributeValues": {
+          ":status0": "in-progress",
+          ":status_u0": "on-hold",
+          ":tags_u0": [
+            "half-baked"
+          ],
           ":comments_u0": [
             {
               "user": "janet",
               "body": "This seems half-baked."
             }
           ],
-          ":tags_u0": [
-            "half-baked"
-          ],
-          ":updatedAt_u0": 1630529057071
+          ":updatedAt_u0": 1630818209653,
+          ":gsi1sk_u0": "$assignments#tasks_1#status_on-hold",
+          ":gsi2sk_u0": 1630818209653
         },
         "TableName": "your_table_name",
         "Key": {
-          "pk": "$taskapp#organizationid_tinkertamper",
+          "pk": "$taskapp#organization_nike",
           "sk": "$tasks_1#project_core#task_45-662"
-        }
+        },
+        "ConditionExpression": "attribute_exists(pk) AND attribute_exists(sk) AND #status = :status0"
+      }],
+      ["<h2>QUERiIES THE ACCESS PATTERN <b>ACTIVE</b>, ON THE ENTITY <b>TASKS</b></h2>", {
+        "TableName": "your_table_name",
+        "ExpressionAttributeNames": {
+          "#pk": "gsi2pk",
+          "#sk1": "gsi2sk"
+        },
+        "ExpressionAttributeValues": {
+          ":pk": "$taskapp#project_core",
+          ":sk1": 1630818208886,
+          ":sk2": 1630818209654
+        },
+        "KeyConditionExpression": "#pk = :pk and #sk1 BETWEEN :sk1 AND :sk2",
+        "IndexName": "gsi2pk-gsi2sk-index"
       }],
       ["<h2>Queries the collection <b>Assignments</b>, on the service <b>Taskapp</b>, by <b>organizationId</b> and <b>userId</b></h2>",{
         "KeyConditionExpression": "#pk = :pk and begins_with(#sk1, :sk1)",
@@ -66,7 +88,7 @@
         },
         "ExpressionAttributeValues": {
           ":points0": 5,
-          ":pk": "$taskapp#organizationid_tinkertamper#userid_bill",
+          ":pk": "$taskapp#organization_nike#user_d.huynh",
           ":sk1": "$assignments"
         },
         "IndexName": "gsi1pk-gsi1sk-index",

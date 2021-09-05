@@ -41,79 +41,83 @@
         // Write queries on the left, generate parameters to the right
         const initialCode = `/* Play with queries below and see the results! */
 
-import { Entity, Service } from 'electrodb';
+import { Entity, Service } from "electrodb";
 
-const table = 'your_table_name';
+const table = "your_table_name";
 
 /* Tasks Entity */
 const tasks = new Entity(
   {
     model: {
-      entity: 'tasks',
-      version: '1',
-      service: 'taskapp'
+      entity: "tasks",
+      version: "1",
+      service: "taskapp"
     },
     attributes: {
-      organizationId: {
-        type: 'string',
+      organization: {
+        type: "string",
         required: true
       },
       task: {
-        type: 'string',
+        type: "string",
         required: true
       },
       project: {
-        type: 'string',
+        type: "string",
         required: true
       },
-      userId: {
-        type: 'string',
+      user: {
+        type: "string",
         required: true
       },
       title: {
-        type: 'string'
+        type: "string"
       },
       description: {
-        type: 'string'
+        type: "string"
       },
       status: {
-        type: ['open', 'in-progress', 'closed'] as const,
-        default: 'open'
+        // use an array to type an enum
+        type: ["open", "in-progress", "on-hold", "closed"] as const,
+        default: "open"
       },
       points: {
-        type: 'number',
+        type: "number",
         required: true
       },
       tags: {
-        type: 'set',
-        items: 'string'
+        type: "set",
+        items: "string"
       },
       comments: {
-        type: 'list',
+        type: "list",
         items: {
-          type: 'map',
+          type: "map",
           properties: {
             user: {
-              type: 'string'
+              type: "string"
             },
             body: {
-              type: 'string'
+              type: "string"
             },
             createdAt: {
-              type: 'number',
+              type: "number",
               default: () => Date.now()
             }
           }
         }
       },
       createdAt: {
-        type: 'number',
+        type: "number",
         default: () => Date.now(),
+        // cannot be modified after created
         readOnly: true
       },
       updatedAt: {
-        type: 'number',
-        watch: '*',
+        type: "number",
+        // watch for changes to any attribute
+        watch: "*",
+        // set value by default
         set: () => Date.now(),
         readOnly: true
       }
@@ -121,24 +125,42 @@ const tasks = new Entity(
     indexes: {
       projects: {
         pk: {
-          field: 'pk',
-          composite: ['organizationId']
+          field: "pk",
+          composite: ["organization"]
         },
         sk: {
-          field: 'sk',
-          composite: ['project', 'task']
+          field: "sk",
+          // create composite keys for partial sort key queries
+          composite: ["project", "task"]
         }
       },
       assigned: {
-        collection: 'assignments',
-        index: 'gsi1pk-gsi1sk-index',
+        // collections allow for queries across multiple entities
+        collection: "assignments",
+        index: "gsi1pk-gsi1sk-index",
         pk: {
-          field: 'gsi1pk',
-          composite: ['organizationId', 'userId']
+          // map to your GSI Hash/Partition key
+          field: "gsi1pk",
+          composite: ["organization", "user"]
         },
         sk: {
-          field: 'gsi1sk',
-          composite: ['status']
+          // map to your GSI Range/Sort key
+          field: "gsi1sk",
+          composite: ["status"]
+        }
+      },
+      recent: {
+        // map to the GSI name on your DynamoDB table
+        index: "gsi2pk-gsi2sk-index",
+        pk: {
+          field: "gsi2pk",
+          composite: ["project"]
+        },
+        sk: {
+          field: "gsi2sk",
+          composite: ["updatedAt"],
+          // templates allow for greater control of keys
+          template: "\${updatedAt}"
         }
       }
     }
@@ -150,78 +172,78 @@ const tasks = new Entity(
 const users = new Entity(
   {
     model: {
-      entity: 'user',
-      service: 'taskapp',
-      version: '1'
+      entity: "user",
+      service: "taskapp",
+      version: "1"
     },
     attributes: {
-      organizationId: {
-        type: 'string'
+      organization: {
+        type: "string"
       },
-      userId: {
-        type: 'string'
+      user: {
+        type: "string"
       },
       fullName: {
-        type: 'string'
+        type: "string"
       },
-      detail: {
-        type: 'map',
+      profile: {
+        type: "map",
         properties: {
           photo: {
-            type: 'string'
+            type: "string"
           },
           bio: {
-            type: 'string'
+            type: "string"
           },
           location: {
-            type: 'string'
+            type: "string"
           }
         }
       },
       pinned: {
-        type: 'any'
+        type: "any"
       },
       following: {
-        type: 'set',
-        items: 'string'
+        type: "set",
+        items: "string"
       },
       followers: {
-        type: 'set',
-        items: 'string'
+        type: "set",
+        items: "string"
       },
       createdAt: {
-        type: 'number',
+        type: "number",
         default: () => Date.now(),
         readOnly: true
       },
       updatedAt: {
-        type: 'number',
-        watch: '*',
+        type: "number",
+        watch: "*",
         set: () => Date.now(),
         readOnly: true
       }
     },
     indexes: {
       users: {
-        collection: 'organization',
+        collection: "organization",
         pk: {
-          composite: ['organizationId'],
-          field: 'pk'
+          composite: ["organization"],
+          field: "pk"
         },
         sk: {
-          composite: ['userId'],
-          field: 'sk'
+          composite: ["user"],
+          field: "sk"
         }
       },
       lookup: {
-        collection: 'assignments',
-        index: 'gsi1pk-gsi1sk-index',
+        collection: "assignments",
+        index: "gsi1pk-gsi1sk-index",
         pk: {
-          composite: ['organizationId', 'userId'],
-          field: 'gsi1pk'
+          composite: ["organization", "user"],
+          field: "gsi1pk"
         },
         sk: {
-          field: 'gsi1sk',
+          field: "gsi1sk",
           composite: []
         }
       }
@@ -234,29 +256,38 @@ const app = new Service({ users, tasks });
 
 /* Write queries to generate parameters on the right */
 
+const user = "d.huynh";
+const project = "core";
+const task = "45-662";
+const organization = "nike";
+
+const comment = {
+  user: "janet",
+  body: "This seems half-baked."
+};
+
 tasks
-  .update({
-    task: '45-662',
-    project: 'core',
-    organizationId: 'tinkertamper'
-  })
-  .append({
-    comments: [
-      {
-        user: 'janet',
-        body: 'This seems half-baked.'
-      }
-    ]
-  })
-  .add({ tags: ['half-baked'] })
+  .patch({ task, project, organization })
+  .set({ status: "on-hold" })
+  .add({ tags: ["half-baked"]})
+  .append({ comments: [comment] })
+  .where(({status}, {eq}) => eq(status, "in-progress"))
   .go();
 
+const hour = 1000 * 60 & 60;
+const today = Date.now();
+const yesterday = today - 24 * hour;
+
+tasks.query
+  .recent({project})
+  .between(
+    { updatedAt: yesterday },
+    { updatedAt: today },
+  )
+  .go()
 
 app.collections
-  .assignments({
-    organizationId: 'tinkertamper',
-    userId: 'bill'
-  })
+  .assignments({ organization, user })
   .where(({ points }, { notExists, gte }) => \`
     \${notExists(points)} OR \${gte(points, 5)}
   \`)
@@ -312,8 +343,12 @@ app.collections
             {
               "token": "type",
               // "foreground": "3DC9B0"
-              "foreground": "#f08d49"
+              "foreground": "#4781b7",
+              "fontStyle": "bold"
             },
+            { token: 'number', foreground: "#ffc107" },
+            { token: 'regexp', foreground: "#ffc107" },
+            { token: 'boolean', foreground: "#ffc107" },
             {
               "foreground": "#8b949e",
               "token": "comment"
@@ -360,7 +395,7 @@ app.collections
             },
             {
               // "foreground": "#c9d1d9",
-              "foreground": "#f08d49",
+              "foreground": "#ffc107",
               "token": "variable.parameter.function"
             },
             { "token": "variable.parameter", "foreground": "#f08d39" },
@@ -404,7 +439,8 @@ app.collections
             },
             {
               // "foreground": "#ff7b72",
-              "foreground": "#4781b7",
+              // "foreground": "#4781b7",
+              "foreground": "#ffc107",
               "token": "keyword"
             },
             {
@@ -480,7 +516,7 @@ app.collections
             {
               "fontStyle": "italic underline",
               "background": "#ff7b72",
-              // "background": "#f08d49",
+              // "background": "#ffc107",
               "foreground": "#0d1117",
               "content": "^M",
               "token": "carriage-return"
