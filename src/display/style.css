@@ -17,9 +17,9 @@ body {
 
 body {
   display: grid;
-  align-items: center;
-  /*justify-items: center;*/
-  text-align: center;
+  /*align-items: center;*/
+  justify-items: center;
+  /*text-align: center;*/
   font: 1.25rem/1 'Rubik', sans-serif;
 }
 .wrapper {
@@ -103,13 +103,22 @@ code {
 .error {
   background-color: #ffc107;
   color: #0d1117;
+}
+
+.info {
+  background-color: #1a212a;
+  color: #eaecec;
+}
+
+.message {
   font: 16px 'JetBrains Mono', monospace;
   font-family: 'JetBrains Mono', monospace;
   display: block;
-  padding: 16px;
+  padding: 16px 32px;
   overflow: auto;
   box-shadow: 6px 6px 6px -4px #0d1117;
   text-align: left;
+  width: 950px;
 }
 
 .error > h3 {

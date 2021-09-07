@@ -159,8 +159,40 @@ function saveStartingParams(incoming, params) {
     window.sessionStorage.setItem(hash, JSON.stringify(params));
 }
 
+function printEmpty() {
+    window.ElectroDB.printMessage("info", "Write Entity or Service queries in the left pane to see generated params appear here!");
+}
+
+function exec(code, query) {
+    window.ElectroDB.clearScreen();
+    try {
+        eval(code);
+        if (Array.isArray(window.electroParams) && window.electroParams.length === 0) {
+            printEmpty();
+        }
+        saveStartingParams(query, window.electroParams);
+    } catch (e) {
+        window.ElectroDB.printMessage("error", e.message);
+    }
+    try {
+        window.Prism.highlightAll();
+    } catch (err) {
+        console.log("err", err);
+    }
+}
+
+function prepare(code) {
+    code = code.replace(/import.*from .*/gi, "")
+    code = code.replace(/Entity/g, "window.ElectroDB.Entity");
+    code = code.replace(/Service/g, "window.ElectroDB.Service");
+    return code;
+}
+
 (function load() {
     const parameters = getStartingParams();
+    if (parameters.length === 0) {
+        printEmpty();
+    }
     for (const param of parameters) {
         window.ElectroDB.printToScreen({params: param.json, state: param.title});
     }
@@ -174,23 +206,10 @@ window.onmessage = function(e) {
             : e.data;
         if (message.type === "code") {
             let {code, query} = message.data;
-            code = code.replace(/import.*from .*/gi, "")
-            code = code.replace(/Entity/g, "window.ElectroDB.Entity");
-            code = code.replace(/Service/g, "window.ElectroDB.Service");
-            window.ElectroDB.clearScreen();
-            try {
-                eval(code);
-                saveStartingParams(query, window.electroParams);
-            } catch (e) {
-                window.ElectroDB.printError(e.message);
-            }
-            try {
-                window.Prism.highlightAll();
-            } catch (err) {
-                console.log("err", err);
-            }
+            code = prepare(code);
+            exec(code, query);
         } else if (message.type === "error") {
-            window.ElectroDB.printError(message.data);
+            window.ElectroDB.printMessage("error", message.data);
         }
     } catch(err) {
         console.log(err);

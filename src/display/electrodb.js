@@ -9946,7 +9946,7 @@ function formatStrict(value) {
 function formatProvidedKeys(pk = {}, sks = []) {
 	let keys = {...pk};
 	for (const sk of sks) {
-		keys = {...keys, ...sk};
+		keys = {...keys, ...sk.facets};
 	}
 	const provided = Object.keys(keys).map(key => formatStrict(key));
 	if (provided.length === 0) {
@@ -10007,10 +10007,11 @@ function formatError(message) {
 	return `<h3>${description}</h3><br><h3>For more detail on this error reference <a href="${link}" onclick="notifyRedirect(event)">${link}</a></h3>`
 }
 
-function printError(message) {
+function printMessage(type, message) {
 	const error = formatError(message);
 	const innerHtml = appDiv.innerHTML;
-	const code = `<hr><h2>Query Error</h2><div class="error">${error}</div>`;
+	const label = type === "info" ? "" : "<h2>Query Error</h2>";
+	const code = `<hr>${label}<div class="${type} message">${error}</div>`;
 	appDiv.innerHTML = innerHtml + code;
 }
 
@@ -10030,14 +10031,15 @@ class Entity extends ElectroDB.Entity {
 			const params = super[method](state, config);
 			if (params && typeof params.catch === "function") {
 				params.catch(err => {
-					printError(err.message);
+					console.log(err);
+					printMessage("error", err.message);
 				});
 			}
 			printToScreen({params, state, entity: this, cache: true});
 			return params;
 		} catch(err) {
 			console.log(err);
-			printError(err.message)
+			printMessage("error", err.message)
 		}
 	}
 
@@ -10068,8 +10070,8 @@ class Service extends ElectroDB.Service {}
 window.ElectroDB = {
     Entity,
     Service,
-	printError,
 	clearScreen,
+	printMessage,
 	printToScreen
 };
 },{"electrodb":1}]},{},[26]);
