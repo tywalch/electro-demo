@@ -766,7 +766,6 @@ function processCode(sandbox) {
             sendSharable(sandbox);
         })
         .catch(err => {
-            console.log({err});
             sendError(err);
         })
 }
@@ -798,10 +797,8 @@ function setup(main, _tsWorker, sandboxFactory) {
 
     main.editor.defineTheme("electrodb", theme);
     const sandbox = sandboxFactory.createTypeScriptSandbox(config, main, window.ts);
-    if (getInitialText()) {
-        processCode(sandbox);
-    }
     sandbox.languageServiceDefaults.addExtraLib('./electrodb.d.ts');
+    processCode(sandbox);
     sandbox.editor.onDidType(() => processCode(sandbox));
     sandbox.editor.onDidBlurEditorText(() => processCode(sandbox));
     sandbox.editor.focus();

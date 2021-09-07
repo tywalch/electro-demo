@@ -174,11 +174,7 @@ function exec(code, query) {
     } catch (e) {
         window.ElectroDB.printMessage("error", e.message);
     }
-    try {
-        window.Prism.highlightAll();
-    } catch (err) {
-        console.log("err", err);
-    }
+    window.Prism.highlightAll();
 }
 
 function prepare(code) {

@@ -10039,7 +10039,7 @@ class Entity extends ElectroDB.Entity {
 			return params;
 		} catch(err) {
 			console.log(err);
-			printMessage("error", err.message)
+			printMessage("error", err.message);
 		}
 	}
 
@@ -10062,6 +10062,26 @@ class Entity extends ElectroDB.Entity {
     go(type, params) {
 
     }
+
+    _makeChain(index, clauses, rootClause, options) {
+    	const params = clauses.params.action;
+    	const go = clauses.go.action;
+    	clauses.params.action = (entity, state, options) => {
+    		try {
+    			params(entity, state, options);
+			} catch(err) {
+				printMessage("error", err.message);
+			}
+		}
+		clauses.go.action = async (entity, state, options) => {
+			try {
+				return await go(entity, state, options);
+			} catch(err) {
+				printMessage("error", err.message);
+			}
+		}
+		return super._makeChain(index, clauses, rootClause, options);
+	}
 }
 
 class Service extends ElectroDB.Service {}
