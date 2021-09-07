@@ -212,6 +212,7 @@ window.onmessage = function(e) {
             window.ElectroDB.printMessage("error", message.data);
         }
     } catch(err) {
+        window.ElectroDB.printMessage("error", err.message);
         console.log(err);
     }
 };
