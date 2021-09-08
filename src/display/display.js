@@ -23,7 +23,7 @@ const defaultParameters = [
                         "body": "This seems half-baked."
                     }
                 ],
-                ":updatedAt_u0": 1630822569618,
+                ":updatedAt_u0": 1631064147023,
                 ":gsi1sk_u0": "$assignments#tasks_1#status_on-hold"
             },
             "TableName": "your_table_name",
@@ -34,40 +34,7 @@ const defaultParameters = [
             "ConditionExpression": "attribute_exists(pk) AND attribute_exists(sk) AND #status = :status0"
         }
     }, {
-        title: "<h2>QUERIES THE ACCESS PATTERN <b>BACKLOG</b>, ON THE ENTITY <b>TASKS</b></h2>",
-        json: {
-            "UpdateExpression": "SET #status = :status_u0, #comments = list_append(#comments, :comments_u0), #updatedAt = :updatedAt_u0, #gsi1sk = :gsi1sk_u0 ADD #tags :tags_u0",
-            "ExpressionAttributeNames": {
-                "#status": "status",
-                "#tags": "tags",
-                "#comments": "comments",
-                "#updatedAt": "updatedAt",
-                "#gsi1sk": "gsi1sk"
-            },
-            "ExpressionAttributeValues": {
-                ":status0": "in-progress",
-                ":status_u0": "on-hold",
-                ":tags_u0": [
-                    "half-baked"
-                ],
-                ":comments_u0": [
-                    {
-                        "user": "janet",
-                        "body": "This seems half-baked."
-                    }
-                ],
-                ":updatedAt_u0": 1630822569618,
-                ":gsi1sk_u0": "$assignments#tasks_1#status_on-hold"
-            },
-            "TableName": "your_table_name",
-            "Key": {
-                "pk": "$taskapp#team_green",
-                "sk": "$tasks_1#project_core#task_45-6620"
-            },
-            "ConditionExpression": "attribute_exists(pk) AND attribute_exists(sk) AND #status = :status0"
-        }
-    }, {
-        title: "<h2>PERFORMS A <b>PUT</b> OPERATION, ON THE ENTITY <b>USER</b></h2>",
+        title: "<h2>QUERIES THE ACCESS PATTERN <b>BACKLOG</b>, ON THE ENTITY <b>TASKS</b>, BY <b>PROJECT</b>, <b>TEAM</b>, AND <b>CLOSED</b></h2>",
         json: {
             "TableName": "your_table_name",
             "ExpressionAttributeNames": {
@@ -122,8 +89,8 @@ const defaultParameters = [
                 "following": [
                     "d.purdy"
                 ],
-                "createdAt": 1630850314247,
-                "updatedAt": 1630850314247,
+                "createdAt": 1631063640036,
+                "updatedAt": 1631063640036,
                 "pk": "$taskapp#team_purple",
                 "sk": "$organization#user_1#user_t.walch",
                 "gsi1pk": "$taskapp#user_t.walch",

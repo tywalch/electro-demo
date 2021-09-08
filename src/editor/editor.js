@@ -91,8 +91,9 @@ const tasks = new Entity(
               ('0' + (d.getMonth() + 1)).slice(-2),
               ('0' + d.getDate()).slice(-2)
             ].join('-');
+          } else {
+            return "";
           }
-          return undefined;
         },
       },
       createdAt: {
@@ -169,7 +170,7 @@ const users = new Entity(
       user: {
         type: "string"
       },
-      title: {
+      role: {
         type: ["dev", "senior", "staff", "principal"] as const,
         set: (title: string) => {
           // save as index for comparison
@@ -186,7 +187,7 @@ const users = new Entity(
             "senior",
             "staff",
             "principal"
-          ][index];
+          ][index] || "other";
         }
       },
       manager: {
@@ -322,7 +323,7 @@ app.collections
 users.create({
   team: "purple",
   user: "t.walch",
-  title: "senior",
+  role: "senior",
   lastName: "walch",
   firstName: "tyler",
   manager: "d.purdy",
@@ -333,8 +334,7 @@ users.create({
   },
   // interact with DynamoDB sets like arrays
   following: ["d.purdy"]
-}).go()
-`;
+}).go();`;
 
 const theme = {
     base: 'vs-dark',
