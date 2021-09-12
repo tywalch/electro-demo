@@ -103,19 +103,56 @@ const defaultParameters = [
         }
     }
 ];
+const RECENT_PARAMS_KEY = "recent";
+const LAST_PARAMS_KEY = "last";
+
+function trimHash(hash) {
+    const length = hash.length;
+    return hash.substring(length, length - 20);
+}
 
 function getCurrentHash(val) {
     if (typeof val === "string") {
-        return val.substring(0, 20);
+        return trimHash(val);
     } else if (location.hash.startsWith('#code')) {
-        return `?${location.hash}`.substring(0, 20);
+        return trimHash(location.hash);
+    }
+}
+
+function getRecentParams() {
+    try {
+        const stored = window.sessionStorage.getItem(LAST_PARAMS_KEY);
+        return JSON.parse(stored || "[]");
+    } catch(err) {
+        window.sessionStorage.setItem(LAST_PARAMS_KEY, "[]");
+    }
+}
+
+function setParamStorage(hash, params) {
+    const recent = getRecentParams();
+    const found = recent.find(stored => stored.hash === hash);
+    if (found) {
+        return found.params;
+    } else if (recent.length > 10) {
+        const [oldest, ...rest] = recent;
+        window.sessionStorage.setItem(LAST_PARAMS_KEY, JSON.stringify(rest.concat({hash, params})));
+        return params;
+    } else {
+        window.sessionStorage.setItem(LAST_PARAMS_KEY, JSON.stringify(recent.concat({hash, params})));
+        return params;
     }
 }
 
 function getStartingParams() {
     const hash = getCurrentHash();
     if (hash) {
-        return JSON.parse(window.sessionStorage.getItem(hash) || "[]");
+        const recent = getRecentParams();
+        const found = recent.find(stored => stored.hash === hash);
+        if (found) {
+            return found.params;
+        } else {
+            return [];
+        }
     } else {
         return defaultParameters || [];
     }
@@ -123,7 +160,7 @@ function getStartingParams() {
 
 function saveStartingParams(incoming, params) {
     const hash = getCurrentHash(incoming);
-    window.sessionStorage.setItem(hash, JSON.stringify(params));
+    setParamStorage(hash, params);
 }
 
 function printEmpty() {
