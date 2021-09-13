@@ -103,8 +103,8 @@ const defaultParameters = [
         }
     }
 ];
+
 const RECENT_PARAMS_KEY = "recent";
-const LAST_PARAMS_KEY = "last";
 
 function trimHash(hash) {
     const length = hash.length;
@@ -121,10 +121,10 @@ function getCurrentHash(val) {
 
 function getRecentParams() {
     try {
-        const stored = window.sessionStorage.getItem(LAST_PARAMS_KEY);
+        const stored = window.sessionStorage.getItem(RECENT_PARAMS_KEY);
         return JSON.parse(stored || "[]");
     } catch(err) {
-        window.sessionStorage.setItem(LAST_PARAMS_KEY, "[]");
+        window.sessionStorage.setItem(RECENT_PARAMS_KEY, "[]");
     }
 }
 
@@ -135,10 +135,10 @@ function setParamStorage(hash, params) {
         return found.params;
     } else if (recent.length > 10) {
         const [oldest, ...rest] = recent;
-        window.sessionStorage.setItem(LAST_PARAMS_KEY, JSON.stringify(rest.concat({hash, params})));
+        window.sessionStorage.setItem(RECENT_PARAMS_KEY, JSON.stringify(rest.concat({hash, params})));
         return params;
     } else {
-        window.sessionStorage.setItem(LAST_PARAMS_KEY, JSON.stringify(recent.concat({hash, params})));
+        window.sessionStorage.setItem(RECENT_PARAMS_KEY, JSON.stringify(recent.concat({hash, params})));
         return params;
     }
 }
@@ -176,7 +176,11 @@ function exec(code, query) {
         }
         saveStartingParams(query, window.electroParams);
     } catch (e) {
-        window.ElectroDB.printMessage("error", e.message);
+        if (e.message === "Unexpected token 'export'") {
+            printEmpty();
+        } else {
+            window.ElectroDB.printMessage("error", e.message);
+        }
     }
     window.Prism.highlightAll();
 }
