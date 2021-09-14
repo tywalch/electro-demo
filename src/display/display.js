@@ -106,6 +106,14 @@ const defaultParameters = [
 
 const RECENT_PARAMS_KEY = "recent";
 
+function debounce(func, timeout = 300){
+    let timer;
+    return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => { func.apply(this, args); }, timeout);
+    };
+}
+
 function trimHash(hash) {
     const length = hash.length;
     return hash.substring(length, length - 20);
@@ -163,6 +171,8 @@ function saveStartingParams(incoming, params) {
     setParamStorage(hash, params);
 }
 
+const saveParams = debounce(() => saveStartingParams());
+
 function printEmpty() {
     window.ElectroDB.printMessage("info", "Write Entity or Service queries in the left pane to see generated params appear here!");
 }
@@ -174,7 +184,7 @@ function exec(code, query) {
         if (Array.isArray(window.electroParams) && window.electroParams.length === 0) {
             printEmpty();
         }
-        saveStartingParams(query, window.electroParams);
+        saveParams(query, window.electroParams);
     } catch (e) {
         if (e.message === "Unexpected token 'export'") {
             printEmpty();
