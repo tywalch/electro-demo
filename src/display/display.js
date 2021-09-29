@@ -110,7 +110,9 @@ function debounce(func, timeout = 300){
     let timer;
     return (...args) => {
         clearTimeout(timer);
-        timer = setTimeout(() => { func.apply(this, args); }, timeout);
+        timer = setTimeout(() => {
+            func.apply(this, args);
+        }, timeout);
     };
 }
 
@@ -137,9 +139,13 @@ function getRecentParams() {
 }
 
 function setParamStorage(hash, params) {
-    const recent = getRecentParams();
-    const found = recent.find(stored => stored.hash === hash);
-    if (found) {
+    let recent = getRecentParams() || [];
+    let found = recent.find(stored => stored.hash === hash);
+    if (found && found.params === undefined) {
+        // incorrectly saved, clean up the hash
+        recent = recent.filter(stored => stored.hash !== hash);
+    }
+    if (found && found.params) {
         return found.params;
     } else if (recent.length > 10) {
         const [oldest, ...rest] = recent;
@@ -156,7 +162,7 @@ function getStartingParams() {
     if (hash) {
         const recent = getRecentParams();
         const found = recent.find(stored => stored.hash === hash);
-        if (found) {
+        if (found && found.params) {
             return found.params;
         } else {
             return [];
@@ -171,7 +177,7 @@ function saveStartingParams(incoming, params) {
     setParamStorage(hash, params);
 }
 
-const saveParams = debounce(() => saveStartingParams());
+const saveParams = debounce((incoming, params) => saveStartingParams(incoming, params));
 
 function printEmpty() {
     window.ElectroDB.printMessage("info", "Write Entity or Service queries in the left pane to see generated params appear here!");
@@ -203,7 +209,7 @@ function prepare(code) {
 }
 
 (function load() {
-    const parameters = getStartingParams();
+    const parameters = getStartingParams() || [];
     if (parameters.length === 0) {
         printEmpty();
     }

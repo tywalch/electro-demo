@@ -9988,13 +9988,14 @@ function printToScreen({params, state, entity, cache} = {}) {
 	if (cache) {
 		window.electroParams.push({title: label, json: params});
 	}
-	let code = `<pre><code class="language-json">${JSON.stringify(params, null, 4)}</code></pre>`;
+	let code = `<pre class="language-json"><code class="language-json">${JSON.stringify(params, null, 4)}</code></pre>`;
 	if (label) {
 		code = `<hr>${label}${code}`;
 	} else {
 		code = `<hr>${code}`;
 	}
 	appDiv.innerHTML = innerHtml + code;
+	window.Prism.highlightAll();
 }
 
 function formatError(message) {
@@ -10020,10 +10021,24 @@ function clearScreen() {
 	window.electroParams = [];
 }
 
+function promiseCallback(results) {
+	return {
+		promise: async () => results
+	}
+}
+
 class Entity extends ElectroDB.Entity {
     constructor(...params) {
         super(...params);
-        this.client = {};
+        this.client = {
+			get: () => promiseCallback({Item: {}}),
+			query: () => promiseCallback({Items: []}),
+			put: () => promiseCallback({}),
+			delete: () => promiseCallback({}),
+			update: () => promiseCallback({}),
+			batchWrite: () => promiseCallback({UnprocessedKeys: {[this._getTableName()]: {Keys: []}}}),
+			batchGet: () => promiseCallback({Responses: {[this._getTableName()]: []}, UnprocessedKeys: {[this._getTableName()]: {Keys: []}}})
+		};
     }
 
     _demoParams(method, state, config) {
@@ -10059,9 +10074,9 @@ class Entity extends ElectroDB.Entity {
 		return this._demoParams("_params", state, config);
     }
 
-    go(type, params) {
-
-    }
+    // go(type, params) {
+	//
+    // }
 
     _makeChain(index, clauses, rootClause, options) {
     	const params = clauses.params.action;
