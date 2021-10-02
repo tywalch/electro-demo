@@ -759,6 +759,16 @@ function sendError(error) {
     window.top.postMessage(JSON.stringify({type: "error", data: data}), '*');
 }
 
+function debounce(func, timeout = 300){
+    let timer;
+    return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            func.apply(this, args);
+        }, timeout);
+    };
+}
+
 function processCode(sandbox) {
     sandbox.getRunnableJS()
         .then((js) => {
@@ -799,8 +809,8 @@ function setup(main, _tsWorker, sandboxFactory) {
     const sandbox = sandboxFactory.createTypeScriptSandbox(config, main, window.ts);
     sandbox.languageServiceDefaults.addExtraLib('./electrodb.d.ts');
     processCode(sandbox);
-    sandbox.editor.onDidType(() => processCode(sandbox));
-    sandbox.editor.onDidBlurEditorText(() => processCode(sandbox));
+    sandbox.editor.onDidType(() => debounce( () => processCode(sandbox)));
+    sandbox.editor.onDidBlurEditorText(() => debounce( () => processCode(sandbox)));
     sandbox.editor.focus();
 }
 
