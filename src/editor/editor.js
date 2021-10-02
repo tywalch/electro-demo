@@ -780,7 +780,7 @@ function processCode(sandbox) {
         })
 }
 
-const onCodeUpdate = debounce((sandbox) => processCode(sandbox), 400);
+const onCodeUpdate = debounce((sandbox) => processCode(sandbox), 900);
 
 function setup(main, _tsWorker, sandboxFactory) {
     const isOK = main && window.ts && sandboxFactory
