@@ -809,8 +809,8 @@ function setup(main, _tsWorker, sandboxFactory) {
     const sandbox = sandboxFactory.createTypeScriptSandbox(config, main, window.ts);
     sandbox.languageServiceDefaults.addExtraLib('./electrodb.d.ts');
     processCode(sandbox);
-    sandbox.editor.onDidType(() => debounce( () => processCode(sandbox)));
-    sandbox.editor.onDidBlurEditorText(() => debounce( () => processCode(sandbox)));
+    sandbox.editor.onDidType(debounce( () => processCode(sandbox)));
+    sandbox.editor.onDidBlurEditorText(debounce( () => processCode(sandbox)));
     sandbox.editor.focus();
 }
 
