@@ -780,6 +780,8 @@ function processCode(sandbox) {
         })
 }
 
+const onCodeUpdate = debounce((sandbox) => processCode(sandbox), 400);
+
 function setup(main, _tsWorker, sandboxFactory) {
     const isOK = main && window.ts && sandboxFactory
     if (isOK) {
@@ -809,8 +811,8 @@ function setup(main, _tsWorker, sandboxFactory) {
     const sandbox = sandboxFactory.createTypeScriptSandbox(config, main, window.ts);
     sandbox.languageServiceDefaults.addExtraLib('./electrodb.d.ts');
     processCode(sandbox);
-    sandbox.editor.onDidType(debounce( () => processCode(sandbox)));
-    sandbox.editor.onDidBlurEditorText(debounce( () => processCode(sandbox)));
+    sandbox.editor.onDidChangeModelContent(() => onCodeUpdate(sandbox));
+    sandbox.editor.onDidBlurEditorText(() => onCodeUpdate(sandbox));
     sandbox.editor.focus();
 }
 
@@ -821,24 +823,14 @@ function setup(main, _tsWorker, sandboxFactory) {
     getLoaderScript.src = 'https://www.typescriptlang.org/js/vs.loader.js'
     getLoaderScript.async = true
     getLoaderScript.onload = () => {
-        // Now the loader is ready, tell require where it can get the version of monaco, and the sandbox
-        // This version uses the latest version of the sandbox, which is used on the TypeScript website
-
-        // For the monaco version you can use unpkg or the TypeSCript web infra CDN
-        // You can see the available releases for TypeScript here:
-        // https://typescript.azureedge.net/indexes/releases.json
-        //
         require.config({
             paths: {
                 vs: 'https://typescript.azureedge.net/cdn/4.0.5/monaco/min/vs',
                 // vs: 'https://unpkg.com/@typescript-deploys/monaco-editor@4.0.5/min/vs',
                 sandbox: 'https://www.typescriptlang.org/js/sandbox',
             },
-            // This is something you need for monaco to work
             ignoreDuplicateModules: ['vs/editor/editor.main'],
         })
-
-        // Grab a copy of monaco, TypeScript and the sandbox
         require(['vs/editor/editor.main', 'vs/language/typescript/tsWorker', 'sandbox/index'], setup);
     }
     document.body.appendChild(getLoaderScript);
