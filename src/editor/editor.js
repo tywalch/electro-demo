@@ -839,7 +839,6 @@ function setup(main, _tsWorker, sandboxFactory) {
 
 (function load() {
     document.getElementById("editor").style.height = window.innerHeight + "px";
-    // First set up the VSCode loader in a script tag
     const getLoaderScript = document.createElement('script')
     getLoaderScript.src = 'https://www.typescriptlang.org/js/vs.loader.js'
     getLoaderScript.async = true
@@ -847,7 +846,6 @@ function setup(main, _tsWorker, sandboxFactory) {
         require.config({
             paths: {
                 vs: 'https://typescript.azureedge.net/cdn/4.0.5/monaco/min/vs',
-                // vs: 'https://unpkg.com/@typescript-deploys/monaco-editor@4.0.5/min/vs',
                 sandbox: 'https://www.typescriptlang.org/js/sandbox',
             },
             ignoreDuplicateModules: ['vs/editor/editor.main'],

@@ -45,7 +45,6 @@ let clauses = {
 				return state;
 			}
 			try {
-				entity._expectFacets(facets, Object.keys(facets), `"query collection" composite attributes`);
 				const {pk} = state.getCompositeAttributes();
 				return state
 					.setType(QueryTypes.collection)
@@ -388,7 +387,6 @@ let clauses = {
 			}
 			try {
 				const attributes = state.getCompositeAttributes();
-				entity._expectFacets(facets, Object.keys(facets), `"query" composite attributes`);
 				return state
 					.setMethod(MethodTypes.query)
 					.setType(QueryTypes.is)
@@ -411,16 +409,6 @@ let clauses = {
 			}
 			try {
 				const attributes = state.getCompositeAttributes();
-				entity._expectFacets(
-					startingFacets,
-					Object.keys(startingFacets),
-					`"between" composite attributes`,
-				);
-				entity._expectFacets(
-					endingFacets,
-					Object.keys(endingFacets),
-					`"and" composite attributes`,
-				);
 				return state
 					.setType(QueryTypes.and)
 					.setSK(entity._buildQueryFacets(endingFacets, attributes.sk))
@@ -440,8 +428,6 @@ let clauses = {
 				return state;
 			}
 			try {
-				entity._expectFacets(facets, Object.keys(facets), `"begins" composite attributes`);
-
 				return state
 					.setType(QueryTypes.begins)
 					.ifSK(state => {
@@ -462,7 +448,6 @@ let clauses = {
 				return state;
 			}
 			try {
-				entity._expectFacets(facets, Object.keys(facets), `"gt" composite attributes`);
 				return state
 					.setType(QueryTypes.gt)
 					.ifSK(state => {
@@ -483,7 +468,6 @@ let clauses = {
 				return state;
 			}
 			try {
-				entity._expectFacets(facets, Object.keys(facets), `"gte" composite attributes`);
 				return state
 					.setType(QueryTypes.gte)
 					.ifSK(state => {
@@ -504,7 +488,6 @@ let clauses = {
 				return state;
 			}
 			try {
-				entity._expectFacets(facets, Object.keys(facets), `"lt" composite attributes`);
 				return state.setType(QueryTypes.lt)
 					.ifSK(state => {
 						const attributes = state.getCompositeAttributes();
@@ -524,7 +507,6 @@ let clauses = {
 				return state;
 			}
 			try {
-				entity._expectFacets(facets, Object.keys(facets), `"lte" composite attributes`);
 				return state.setType(QueryTypes.lte)
 					.ifSK(state => {
 						const attributes = state.getCompositeAttributes();
