@@ -177,8 +177,6 @@ function saveStartingParams(incoming, params) {
     setParamStorage(hash, params);
 }
 
-const saveParams = debounce((incoming, params) => saveStartingParams(incoming, params));
-
 function printEmpty() {
     window.ElectroDB.printMessage("info", "Write Entity or Service queries in the left pane to see generated params appear here!");
 }
@@ -190,7 +188,7 @@ function exec(code, query) {
         if (Array.isArray(window.electroParams) && window.electroParams.length === 0) {
             printEmpty();
         }
-        saveParams(query, window.electroParams);
+        saveStartingParams(query, window.electroParams);
     } catch (e) {
         if (e.message === "Unexpected token 'export'") {
             printEmpty();
@@ -220,19 +218,21 @@ function prepare(code) {
 })();
 
 window.onmessage = function(e) {
-    try {
-        const message = typeof e.data === "string"
-            ? JSON.parse(e.data)
-            : e.data;
-        if (message.type === "code") {
-            let {code, query} = message.data;
-            code = prepare(code);
-            exec(code, query);
-        } else if (message.type === "error") {
-            window.ElectroDB.printMessage("error", message.data);
+    setTimeout(() => {
+        try {
+            const message = typeof e.data === "string"
+                ? JSON.parse(e.data)
+                : e.data;
+            if (message.type === "code") {
+                let {code, query} = message.data;
+                code = prepare(code);
+                exec(code, query);
+            } else if (message.type === "error") {
+                window.ElectroDB.printMessage("error", message.data);
+            }
+        } catch(err) {
+            window.ElectroDB.printMessage("error", err.message);
+            console.log(err);
         }
-    } catch(err) {
-        window.ElectroDB.printMessage("error", err.message);
-        console.log(err);
-    }
+    }, 0);
 };

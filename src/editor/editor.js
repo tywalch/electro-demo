@@ -760,17 +760,39 @@ function sendError(error) {
 }
 
 function debounce(func, timeout = 300){
+    let _timeout = timeout;
+    let count = 0;
     let timer;
     return (...args) => {
         clearTimeout(timer);
-        timer = setTimeout(() => {
-            func.apply(this, args);
-        }, timeout);
+        timer = setTimeout(async () => {
+            const before = Date.now();
+            let after;
+            try {
+                await func.apply(this, args);
+                after = Date.now();
+            } catch(err) {
+                after = Date.now();
+            }
+            let diff = after - before;
+            if (diff > _timeout) {
+                _timeout = diff + (100 * count);
+                count++;
+            } else {
+                count--;
+            }
+        }, _timeout);
+        setInterval(() => {
+            if (count <= 0) {
+                _timeout = timeout;
+                count = 0;
+            }
+        }, 5000);
     };
 }
 
 function processCode(sandbox) {
-    sandbox.getRunnableJS()
+    return sandbox.getRunnableJS()
         .then((js) => {
             sendChanges(sandbox, js);
             sendSharable(sandbox);
@@ -812,7 +834,6 @@ function setup(main, _tsWorker, sandboxFactory) {
     sandbox.languageServiceDefaults.addExtraLib('./electrodb.d.ts');
     processCode(sandbox);
     sandbox.editor.onDidChangeModelContent(() => onCodeUpdate(sandbox));
-    sandbox.editor.onDidBlurEditorText(() => onCodeUpdate(sandbox));
     sandbox.editor.focus();
 }
 
