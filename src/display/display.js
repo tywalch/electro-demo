@@ -3,13 +3,20 @@ const defaultParameters = [
     {
         title: "<h2>Performs an <b>Update</b> operation, on the entity <b>Tasks</b></h2>",
         json: {
-            "UpdateExpression": "SET #status = :status_u0, #comments = list_append(#comments, :comments_u0), #updatedAt = :updatedAt_u0, #gsi1sk = :gsi1sk_u0 ADD #tags :tags_u0",
+            "UpdateExpression": "SET #status = :status_u0, #comments = list_append(#comments, :comments_u0), #closed = :closed_u0, #updatedAt = :updatedAt_u0, #gsi1sk = :gsi1sk_u0, #gsi2sk = :gsi2sk_u0, #team = :team_u0, #project = :project_u0, #task = :task_u0, #__edb_e__ = :__edb_e___u0, #__edb_v__ = :__edb_v___u0 ADD #tags :tags_u0",
             "ExpressionAttributeNames": {
                 "#status": "status",
                 "#tags": "tags",
                 "#comments": "comments",
+                "#closed": "closed",
                 "#updatedAt": "updatedAt",
-                "#gsi1sk": "gsi1sk"
+                "#gsi1sk": "gsi1sk",
+                "#gsi2sk": "gsi2sk",
+                "#team": "team",
+                "#project": "project",
+                "#task": "task",
+                "#__edb_e__": "__edb_e__",
+                "#__edb_v__": "__edb_v__"
             },
             "ExpressionAttributeValues": {
                 ":status0": "in-progress",
@@ -23,15 +30,22 @@ const defaultParameters = [
                         "body": "This seems half-baked."
                     }
                 ],
-                ":updatedAt_u0": 1631064147023,
-                ":gsi1sk_u0": "$assignments#tasks_1#status_on-hold"
+                ":closed_u0": "",
+                ":updatedAt_u0": 1634786167666,
+                ":gsi1sk_u0": "$assignments#tasks_1#status_on-hold",
+                ":gsi2sk_u0": "$tasks_1#team_green#closed_",
+                ":team_u0": "green",
+                ":project_u0": "core",
+                ":task_u0": "45-6620",
+                ":__edb_e___u0": "tasks",
+                ":__edb_v___u0": "1"
             },
             "TableName": "your_table_name",
             "Key": {
                 "pk": "$taskapp#team_green",
                 "sk": "$tasks_1#project_core#task_45-6620"
             },
-            "ConditionExpression": "attribute_exists(pk) AND attribute_exists(sk) AND #status = :status0"
+            "ConditionExpression": "#status = :status0"
         }
     }, {
         title: "<h2>QUERIES THE ACCESS PATTERN <b>BACKLOG</b>, ON THE ENTITY <b>TASKS</b>, BY <b>PROJECT</b>, <b>TEAM</b>, AND <b>CLOSED</b></h2>",
