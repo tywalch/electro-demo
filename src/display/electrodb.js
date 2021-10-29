@@ -6669,7 +6669,7 @@
 											);
 										}
 									}
-									let expression = template(attribute, prop, ...attrValues);
+									let expression = template({}, attribute, prop, ...attrValues);
 									return expression.trim();
 								};
 							},
@@ -6745,7 +6745,7 @@
 
 		const deleteOperations = {
 			canNest: false,
-			template: function del(attr, path, value) {
+			template: function del(options, attr, path, value) {
 				let operation = "";
 				let expression = "";
 				switch(attr.type) {
@@ -6764,19 +6764,19 @@
 		const UpdateOperations = {
 			name: {
 				canNest: true,
-				template: function name(attr, path) {
+				template: function name(options, attr, path) {
 					return path;
 				}
 			},
 			value: {
 				canNest: true,
-				template: function value(attr, path, value) {
+				template: function value(options, attr, path, value) {
 					return value;
 				}
 			},
 			append: {
 				canNest: false,
-				template: function append(attr, path, value) {
+				template: function append(options, attr, path, value) {
 					let operation = "";
 					let expression = "";
 					switch(attr.type) {
@@ -6793,7 +6793,7 @@
 			},
 			add: {
 				canNest: false,
-				template: function add(attr, path, value) {
+				template: function add(options, attr, path, value) {
 					let operation = "";
 					let expression = "";
 					switch(attr.type) {
@@ -6803,8 +6803,13 @@
 							expression = `${path} ${value}`;
 							break;
 						case AttributeTypes.number:
-							operation = ItemOperations.set;
-							expression = `${path} = ${path} + ${value}`;
+							if (options.nestedValue) {
+								operation = ItemOperations.set;
+								expression = `${path} = ${path} + ${value}`;
+							} else {
+								operation = ItemOperations.add;
+								expression = `${path} ${value}`;
+							}
 							break;
 						default:
 							throw new Error(`Invalid Update Attribute Operation: "ADD" Operation can only be performed on attributes with type "number", "set", or "any".`);
@@ -6814,7 +6819,7 @@
 			},
 			subtract: {
 				canNest: false,
-				template: function subtract(attr, path, value) {
+				template: function subtract(options, attr, path, value) {
 					let operation = "";
 					let expression = "";
 					switch(attr.type) {
@@ -6832,7 +6837,7 @@
 			},
 			set: {
 				canNest: false,
-				template: function set(attr, path, value) {
+				template: function set(options, attr, path, value) {
 					let operation = "";
 					let expression = "";
 					switch(attr.type) {
@@ -6855,7 +6860,7 @@
 			},
 			remove: {
 				canNest: false,
-				template: function remove(attr, ...paths) {
+				template: function remove(options, attr, ...paths) {
 					let operation = "";
 					let expression = "";
 					switch(attr.type) {
@@ -6883,86 +6888,86 @@
 
 		const FilterOperations = {
 			ne: {
-				template: function eq(attr, name, value) {
+				template: function eq(options, attr, name, value) {
 					return `${name} <> ${value}`;
 				},
 				strict: false,
 			},
 			eq: {
-				template: function eq(attr, name, value) {
+				template: function eq(options, attr, name, value) {
 					return `${name} = ${value}`;
 				},
 				strict: false,
 			},
 			gt: {
-				template: function gt(attr, name, value) {
+				template: function gt(options, attr, name, value) {
 					return `${name} > ${value}`;
 				},
 				strict: false
 			},
 			lt: {
-				template: function lt(attr, name, value) {
+				template: function lt(options, attr, name, value) {
 					return `${name} < ${value}`;
 				},
 				strict: false
 			},
 			gte: {
-				template: function gte(attr, name, value) {
+				template: function gte(options, attr, name, value) {
 					return `${name} >= ${value}`;
 				},
 				strict: false
 			},
 			lte: {
-				template: function lte(attr, name, value) {
+				template: function lte(options, attr, name, value) {
 					return `${name} <= ${value}`;
 				},
 				strict: false
 			},
 			between: {
-				template: function between(attr, name, value1, value2) {
+				template: function between(options, attr, name, value1, value2) {
 					return `(${name} between ${value1} and ${value2})`;
 				},
 				strict: false
 			},
 			begins: {
-				template: function begins(attr, name, value) {
+				template: function begins(options, attr, name, value) {
 					return `begins_with(${name}, ${value})`;
 				},
 				strict: false
 			},
 			exists: {
-				template: function exists(attr, name) {
+				template: function exists(options, attr, name) {
 					return `attribute_exists(${name})`;
 				},
 				strict: false
 			},
 			notExists: {
-				template: function notExists(attr, name) {
+				template: function notExists(options, attr, name) {
 					return `attribute_not_exists(${name})`;
 				},
 				strict: false
 			},
 			contains: {
-				template: function contains(attr, name, value) {
+				template: function contains(options, attr, name, value) {
 					return `contains(${name}, ${value})`;
 				},
 				strict: false
 			},
 			notContains: {
-				template: function notContains(attr, name, value) {
+				template: function notContains(options, attr, name, value) {
 					return `not contains(${name}, ${value})`;
 				},
 				strict: false
 			},
 			value: {
-				template: function(attr, name, value) {
+				template: function(options, attr, name, value) {
 					return value;
 				},
 				strict: false,
 				canNest: true,
 			},
 			name: {
-				template: function(attr, name) {
+				template: function(options, attr, name) {
 					return name;
 				},
 				strict: false,
@@ -6971,7 +6976,7 @@
 		};
 
 		class ExpressionState {
-			constructor({prefix, singleOccurrence} = {}) {
+			constructor({prefix} = {}) {
 				this.names = {};
 				this.values = {};
 				this.paths = {};
@@ -6979,13 +6984,9 @@
 				this.impacted = {};
 				this.expression = "";
 				this.prefix = prefix || "";
-				this.singleOccurrence = singleOccurrence;
 			}
 
 			incrementName(name) {
-				if (this.singleOccurrence) {
-					return `${this.prefix}${0}`
-				}
 				if (this.counts[name] === undefined) {
 					this.counts[name] = 0;
 				}
@@ -7113,12 +7114,14 @@
 								if (property.__is_clause__ === AttributeProxySymbol) {
 									const {paths, root, target} = property();
 									const attributeValues = [];
+									let hasNestedValue = false;
 									for (let value of values) {
 										value = target.format(value);
 										// template.length is to see if function takes value argument
-										if (template.length > 2) {
+										if (template.length > 3) {
 											if (seen.has(value)) {
 												attributeValues.push(value);
+												hasNestedValue = true;
 											} else {
 												let attributeValueName = builder.setValue(target.name, value);
 												builder.setPath(paths.json, {value, name: attributeValueName});
@@ -7127,7 +7130,11 @@
 										}
 									}
 
-									const formatted = template(target, paths.expression, ...attributeValues);
+									const options = {
+										nestedValue: hasNestedValue
+									}
+
+									const formatted = template(options, target, paths.expression, ...attributeValues);
 									builder.setImpacted(operation, paths.json);
 									if (canNest) {
 										seen.add(paths.expression);
@@ -9409,7 +9416,7 @@
 
 		class UpdateExpression extends ExpressionState {
 			constructor(props = {}) {
-				super({...props, singleOccurrence: true});
+				super({...props});
 				this.operations = {
 					set: new Set(),
 					remove: new Set(),
