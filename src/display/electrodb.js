@@ -3135,13 +3135,14 @@
 			constructor(...params) {
 				super(...params);
 				this.client = {
-					get: () => promiseCallback({Item: {}}),
-					query: () => promiseCallback({Items: []}),
 					put: () => promiseCallback({}),
 					delete: () => promiseCallback({}),
 					update: () => promiseCallback({}),
+					get: () => promiseCallback({Item: {}}),
+					query: () => promiseCallback({Items: []}),
+					scan: () => promiseCallback({Items: []}),
 					batchWrite: () => promiseCallback({UnprocessedKeys: {[this._getTableName()]: {Keys: []}}}),
-					batchGet: () => promiseCallback({Responses: {[this._getTableName()]: []}, UnprocessedKeys: {[this._getTableName()]: {Keys: []}}})
+					batchGet: () => promiseCallback({Responses: {[this._getTableName()]: []}, UnprocessedKeys: {[this._getTableName()]: {Keys: []}}}),
 				};
 			}
 
@@ -4102,7 +4103,8 @@
 						names: expressions.names || {},
 						values: expressions.values || {},
 						expression: expressions.expression || ""
-					}
+					},
+					_isCollectionQuery: true,
 				};
 
 				let index = this.model.translations.collections.fromCollectionToIndex[collection];
@@ -4193,8 +4195,10 @@
 							return await this.executeBulkWrite(parameters, config);
 						case MethodTypes.batchGet:
 							return await this.executeBulkGet(parameters, config);
+						case MethodTypes.query:
+							return await this.executeQuery(parameters, config)
 						default:
-							return await this.executeQuery(method, parameters, config);
+							return await this.executeOperation(method, parameters, config);
 					}
 				} catch (err) {
 					if (config.originalErr || stackTrace === undefined) {
@@ -4276,7 +4280,54 @@
 				return [resultsAll, unprocessedAll];
 			}
 
-			async executeQuery(method, parameters, config) {
+			async executeQuery(parameters, config = {}) {
+				let results = config._isCollectionQuery
+					? {}
+					: [];
+				let ExclusiveStartKey;
+				let pages = this._normalizePagesValue(config.pages);
+				let max = this._normalizeLimitValue(config.limit);
+				let iterations = 0;
+				let count = 0;
+				do {
+					let limit = max === undefined
+						? parameters.Limit
+						: max - count;
+					let response = await this._exec("query", {ExclusiveStartKey, ...parameters, Limit: limit});
+
+					ExclusiveStartKey = response.LastEvaluatedKey;
+
+					if (validations.isFunction(config.parse)) {
+						response = config.parse(config, response);
+					} else {
+						response = this.formatResponse(response, parameters.IndexName, config);
+					}
+
+					if (config.raw || config._isPagination) {
+						return response;
+					} else if (config._isCollectionQuery) {
+						for (const entity in response) {
+							if (max) {
+								count += response[entity].length;
+							}
+							results[entity] = results[entity] || [];
+							results[entity] = [...results[entity], ...response[entity]];
+						}
+					} else if (Array.isArray(response)) {
+						if (max) {
+							count += response.length;
+						}
+						results = [...results, ...response];
+					} else {
+						return response;
+					}
+
+					iterations++;
+				} while(ExclusiveStartKey && iterations < pages && (max === undefined || count < max));
+				return results;
+			}
+
+			async executeOperation(method, parameters, config) {
 				let response = await this._exec(method, parameters);
 				if (validations.isFunction(config.parse)) {
 					return config.parse(config, response);
@@ -4518,6 +4569,24 @@
 				return value;
 			}
 
+			_normalizePagesValue(value = Number.MAX_SAFE_INTEGER) {
+				value = parseInt(value);
+				if (isNaN(value) || value < 1) {
+					throw new e.ElectroError(e.ErrorCodes.InvalidPagesOption, "Query option 'pages' must be of type 'number' and greater than zero.");
+				}
+				return value;
+			}
+
+			_normalizeLimitValue(value) {
+				if (value !== undefined) {
+					value = parseInt(value);
+					if (isNaN(value) || value < 1) {
+						throw new e.ElectroError(e.ErrorCodes.InvalidLimitOption, "Query option 'limit' must be of type 'number' and greater than zero.");
+					}
+				}
+				return value;
+			}
+
 			_deconstructKeys(index, keyType, key, backupFacets = {}) {
 				if (typeof key !== "string" || key.length === 0) {
 					return null;
@@ -4645,6 +4714,8 @@
 					response: 'default',
 					ignoreOwnership: false,
 					_isPagination: false,
+					_isCollectionQuery: false,
+					pages: undefined,
 				};
 
 				config = options.reduce((config, option) => {
@@ -4655,6 +4726,14 @@
 						}
 						config.response = format;
 						config.params.ReturnValues = FormatToReturnValues[format];
+					}
+
+					if (option.pages !== undefined) {
+						config.pages = option.pages;
+					}
+
+					if (option._isCollectionQuery === true) {
+						config._isCollectionQuery = true;
 					}
 
 					if (option.includeKeys === true) {
@@ -4679,7 +4758,8 @@
 						config.unprocessed = UnprocessedTypes.raw;
 					}
 
-					if (!isNaN(option.limit)) {
+					if (option.limit !== undefined) {
+						config.limit = option.limit;
 						config.params.Limit = option.limit;
 					}
 
@@ -6556,6 +6636,18 @@
 				section: "invalid-concurrency-option",
 				name: "InvalidConcurrencyOption",
 				sym: ErrorCode
+			},
+			InvalidPagesOption: {
+				code: 2005,
+				section: "invalid-pages-option",
+				name: "InvalidPagesOption",
+				sym: ErrorCode,
+			},
+			InvalidLimitOption: {
+				code: 2006,
+				section: "invalid-limit-option",
+				name: "InvalidLimitOption",
+				sym: ErrorCode,
 			},
 			InvalidAttribute: {
 				code: 3001,
