@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "browserify": "browserify ./src/electrodb.js -o ./src/display/electrodb.js",
-    "start": "python -m SimpleHTTPServer 3000"
+    "start": "python -m SimpleHTTPServer 3001"
   },
   "repository": {
     "type": "git",
