@@ -3986,6 +3986,8 @@
 	},{"./errors":17,"./operations":20,"./types":24,"./update":25,"./util":26,"./validations":27,"./where":28}],15:[function(require,module,exports){
 		const {isFunction} = require('./validations');
 		const {ElectroError, ErrorCodes} = require('./errors');
+		const lib = {};
+
 		const DocumentClientVersions = {
 			v2: 'v2',
 			v3: 'v3',
@@ -4001,7 +4003,7 @@
 
 		class DocumentClientV3Wrapper {
 			static init(client) {
-				return new DocumentClientV3Wrapper(client, {});
+				return new DocumentClientV3Wrapper(client, lib);
 			}
 
 			constructor(client, lib) {
@@ -8301,7 +8303,7 @@
 				const valueType = getValueType(data);
 
 				if (data === undefined) {
-					data = {};
+					return data;
 				} else if (valueType !== "object") {
 					throw new e.ElectroAttributeValidationError(this.path, `Invalid value type at entity path: "${this.path}". Expected value to be an object to fulfill attribute type "${this.type}"`);
 				}
