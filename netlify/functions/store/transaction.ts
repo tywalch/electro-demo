@@ -7,10 +7,14 @@ export type TransactItem =
   | { ConditionCheck: any }
   | { Delete: any };
 
+// type PickMethods<S extends Service<any>, M extends keyof Entity<any, any, any, any>> = {
+//   [E in keyof S['entities']]: S['entities'][E] extends Entity<infer A, infer F, infer C, infer S>
+//     ? Pick<Entity<A,F,C,S>, M | 'schema'>
+//     : never;
+// }
+
 type PickMethods<S extends Service<any>, M extends keyof Entity<any, any, any, any>> = {
-  [E in keyof S['entities']]: S['entities'][E] extends Entity<infer A, infer F, infer C, infer S>
-    ? Pick<Entity<A,F,C,S>, M>
-    : never;
+  [E in keyof S['entities']]: S['entities'][E]
 }
 
 export class Transaction<S extends Service<any>> {
@@ -93,7 +97,7 @@ type ComposedFunctions<S extends Service<any>, Params extends any[], F extends T
 export function transactionComposer<S extends Service<any>, P extends any[], F extends TransactionComposerFunctions<S, P>>(service: S, functions: F): { begin: () => ComposedFunctions<S,P,F> } {
   return {
     begin: () => {
-      const transaction = new Transaction({service});
+      const transaction = new Transaction<S>({service});
       const obj = {} as any;
 
       for (const fn of Object.keys(functions)) {

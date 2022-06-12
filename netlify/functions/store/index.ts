@@ -1,4 +1,4 @@
-import {v4 as uuid} from "uuid";
+import { v4 as uuid } from "uuid";
 import { Service } from 'electrodb';
 import { createRateLimitter } from './ratelimit';
 import { uniqueConstraint } from './constraints';
@@ -72,7 +72,7 @@ const transactions = transactionComposer(playground, {
   anonLimit,
   writerLimit,
   patchShareRef: (txn, options: PutRefOptions) => {
-    const { hash, userAgent, ipAddress, writerId, refId } = options;
+    const { hash, ipAddress, writerId, refId } = options;
     return txn
       .update((s => s.shareRef
         .patch({ refId, writerId })
@@ -81,13 +81,13 @@ const transactions = transactionComposer(playground, {
       )
       .update(s => s.refWriter
         .patch({writerId})
-        .add({userAgent: [userAgent]})
+        // .data((a, {add}) => add(a.userAgent, [userAgent]))
         .set({lastIpAddress: ipAddress})
         .params()
       )
   },
-  reateShareRef: (txn, options: RefOptions) => {
-    const {writerId, hash, refId} = options;
+  createShareRef: (txn, options: RefOptions) => {
+    const { writerId, hash, refId } = options;
     return txn.put(s => s.shareRef.create({writerId, hash, refId}).params())
   },
   createWriter: (txn, options: CreateWriterOptions) => {
@@ -100,21 +100,18 @@ const transactions = transactionComposer(playground, {
     }).params());
   },
   patchWriter(txn, options: CreateWriterOptions) {
-    const { writerId, ipAddress, refId, userAgent } = options;
+    const { writerId, ipAddress, refId } = options;
     return txn.update(s => s.refWriter
       .patch({writerId})
       .set({
-        lastRef: refId, 
+        lastRef: refId,
         lastIpAddress: ipAddress
       })
-      .add({userAgent: [userAgent]})
+      // .data((a, {add}) => add(a.userAgent, [userAgent]))
       .params()
     );
   },
-  createShareRef: (txn, options: RefOptions) => {
-    const { writerId, hash, refId } = options;
-    return txn.put(s => s.shareRef.create({writerId, hash, refId}).params());
-  }
+
 });
 
 function writerOwnsRef(options: {refId: string, writerId: string}) {
