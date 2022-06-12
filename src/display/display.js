@@ -1,5 +1,5 @@
 window.electroParams = window.electroParams || [];
-const endpoint = 'https://electrodb.fun/.netlify/functions/share';
+const endpoint = `https://${window.location.host}/.netlify/functions/share`;
 
 const defaultParameters = [
     {
@@ -125,6 +125,7 @@ const PLAYGROUND_WRITER_ID = "writer";
 const PLAYGROUND_OWNED_REFS_KEY = "ref";
  
 async function saveNewRef({hash, writerId} = {}) {
+    const url = new URL(endpoint);
     return fetch(url.href, {
         method: 'PUT',
         body: JSON.stringify({
