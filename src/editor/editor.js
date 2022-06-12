@@ -33,21 +33,6 @@ const tasks = new Entity(
         type: "string",
         required: true,
       },
-      // lowercased version of title for user search
-      titleLowerCase: {
-        type: "string",
-        // trigger when title is put/updated
-        watch: ["title"],
-        // hidden so it is not returned to the user
-        hidden: true,
-        set: (_, {title}) => {
-          if (typeof title === "string") {
-            return title.toLowerCase();
-          }
-          // returning undefined skips value from update
-          return undefined;
-        }
-      },
       description: {
         type: "string"
       },
@@ -79,22 +64,7 @@ const tasks = new Entity(
       },
       closed: {
         type: "string",
-        // watch for changes to status
-        watch: ["status"],
-        readOnly: true,
-        set: (_, {status}) => {
-          // return YYYY-MM-DD if status is closed
-          if (status === "closed") {
-            const d = new Date();
-            return [
-              d.getFullYear(),
-              ('0' + (d.getMonth() + 1)).slice(-2),
-              ('0' + d.getDate()).slice(-2)
-            ].join('-');
-          } else {
-            return "";
-          }
-        },
+        validate: /[0-9]{4}-[0-9]{2}-[0-9]{2}/,
       },
       createdAt: {
         type: "number",
@@ -308,7 +278,7 @@ tasks.query
     { team, closed: january },
     { team, closed: july },
   )
-  .where(({titleLowerCase}, {contains}) => contains(titleLowerCase, "database"))
+  .where(({title}, {contains}) => contains(title, "database"))
   .go();
 
 // use a collection to query more than one entity at a time
@@ -319,7 +289,8 @@ app.collections
   \`)
   .go();
 
-// \`create\` is like \`put\` except it uses "attribute_not_exists"
+// \`create\` is like \`put\` except it uses "attribute_not_exists" 
+// to ensure you do not overwrite a record that already exists
 users.create({
   team: "purple",
   user: "t.walch",

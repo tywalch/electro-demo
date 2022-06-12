@@ -1,4 +1,6 @@
 window.electroParams = window.electroParams || [];
+const endpoint = `https://${window.location.host}/.netlify/functions/share`;
+
 const defaultParameters = [
     {
         title: "<h2>Performs an <b>Update</b> operation, on the entity <b>Tasks</b></h2>",
@@ -119,6 +121,43 @@ const defaultParameters = [
 ];
 
 const RECENT_PARAMS_KEY = "recent";
+const PLAYGROUND_WRITER_ID = "writer";
+const PLAYGROUND_OWNED_REFS_KEY = "ref";
+ 
+async function saveNewRef({hash, writerId} = {}) {
+    const url = new URL(endpoint);
+    return fetch(url.href, {
+        method: 'PUT',
+        body: JSON.stringify({
+            hash, 
+            writerId
+        })
+    })
+    .then(resp => resp.json())
+    .then(json => json.data);
+}
+
+async function updateRef({hash, refId, writerId} = {}) {
+    const url = new URL(endpoint);
+    return fetch(url.href, {
+        method: 'PUT',
+        body: JSON.stringify({
+            hash, 
+            refId, 
+            writerId
+        })
+    })
+    .then(resp => resp.json())
+    .then(json => json.data);
+}
+
+async function getRef(refId) {
+    const url = new URL(endpoint)
+    url.searchParams.append('refId', refId);
+    return fetch(url.href)
+        .then(resp => resp.json())
+        .then(json => json.data);
+}
 
 function debounce(func, timeout = 300){
     let timer;
@@ -136,7 +175,9 @@ function trimHash(hash) {
 }
 
 function getCurrentHash(val) {
-    if (typeof val === "string") {
+    if (location.hash.startsWith('#refz')) {
+        return trimHash(location.hash);
+    } else if (typeof val === "string") {
         return trimHash(val);
     } else if (location.hash.startsWith('#code')) {
         return trimHash(location.hash);
@@ -152,6 +193,31 @@ function getRecentParams() {
     }
 }
 
+function getOwnedRefs() {
+    try {
+        const stored = window.sessionStorage.getItem(PLAYGROUND_OWNED_REFS_KEY);
+        return JSON.parse(stored || "[]");
+    } catch(err) {
+        window.sessionStorage.setItem(PLAYGROUND_OWNED_REFS_KEY, "[]");
+    }
+}
+
+function addOwnedRef(refId) {
+    const owned = getOwnedRefs();
+    owned.push(refId);
+    window.sessionStorage.setItem(PLAYGROUND_OWNED_REFS_KEY, JSON.stringify(owned));
+}
+
+function getWriterId() {
+    return window.sessionStorage.getItem(PLAYGROUND_WRITER_ID);
+}
+
+function setWriterId(writerId) {
+    if (!getWriterId()) {
+        window.sessionStorage.setItem(PLAYGROUND_WRITER_ID, writerId);
+    }
+}
+
 function setParamStorage(hash, params) {
     let recent = getRecentParams() || [];
     let found = recent.find(stored => stored.hash === hash);
@@ -162,7 +228,7 @@ function setParamStorage(hash, params) {
     if (found && found.params) {
         return found.params;
     } else if (recent.length > 10) {
-        const [oldest, ...rest] = recent;
+        const [, ...rest] = recent;
         window.sessionStorage.setItem(RECENT_PARAMS_KEY, JSON.stringify(rest.concat({hash, params})));
         return params;
     } else {
