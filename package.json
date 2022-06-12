@@ -7,8 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "browserify": "browserify ./src/electrodb.js -o ./src/display/electrodb.js",
     "start": "python -m SimpleHTTPServer 3002",
-    "compile:functions": "tsc ./netlify/functions/*.ts --outDir ./netlify/functions --esModuleInterop",
-    "compile": "npm run compile:functions",
+    "compile:share": "tsc ./netlify/functions/share/*.ts --outDir ./netlify/functions/share --esModuleInterop",
+    "compile": "npm run compile:share",
     "build": "npm run compile"
   },
   "repository": {
