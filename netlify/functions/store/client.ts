@@ -15,7 +15,7 @@ export const table = getEnv("DYNAMODB_TABLE", "tinkertamper");
 
 export const serviceName = "electrodb_playground";
 
-const accessKeyId = getEnv("DYNAMODB_ACCESS_KEY") as string;
+const accessKeyId = getEnv("DYNAMODB_KEY") as string;
 const secretAccessKey = getEnv("DYNAMODB_SECRET") as string;
 
 let config: any;

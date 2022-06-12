@@ -95,6 +95,7 @@ async function saveError(options: {err: any, body: string | null, httpMethod: st
 function parsePutShareRef(event: Event): PutRefOptions {
   const { hash, refId, writerId } = safeParseBody(event);
   const { ipAddress, userAgent } = getMetaData(event);
+  console.log({ hash, refId, writerId, ipAddress, userAgent });
   return requiredProperties({
     hash, 
     refId, 
