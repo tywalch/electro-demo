@@ -102,6 +102,7 @@ export function transactionComposer<S extends Service<any>, P extends any[], F e
 
       for (const fn of Object.keys(functions)) {
         obj[fn] = (...args: P) => {
+          console.log('transaction', fn, JSON.stringify(args, null, 4));
           functions[fn](transaction, ...args);
           return obj;
         }

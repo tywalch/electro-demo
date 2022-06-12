@@ -1,5 +1,5 @@
 import { Handler } from "@netlify/functions";
-import { errorPersister } from './store/errors';
+import { errorPersister } from './errors';
 import { postShareRef, putShareRef, getShareRef, GetShareRefOptions, PutRefOptions, PostRefOptions } from './store';
 
 type Event = Parameters<Handler>[0];
