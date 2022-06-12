@@ -1,0 +1,105 @@
+{
+    "getOne": null
+}
+{
+    "createNewWriter": {
+        "writerId": "9a6bec5a-4ffe-418b-8066-6d855f9f7fad",
+        "refId": "e1289694-d07f-4a0d-b084-a400fa92a9dd",
+        "hash": "8da2c85f-8e48-4394-a319-e04121c0d963"
+    }
+}
+{
+    "getTwo": "8da2c85f-8e48-4394-a319-e04121c0d963"
+}
+{
+    "createExistingWriter": {
+        "writerId": "9a6bec5a-4ffe-418b-8066-6d855f9f7fad",
+        "refId": "fa291eec-f101-4afa-9a90-cfa3cbda90d2",
+        "hash": "95c5b13e-4870-42c1-8279-f3aecb927524"
+    }
+}
+{
+    "getThree": "95c5b13e-4870-42c1-8279-f3aecb927524"
+}
+{
+    "updateCorrectWriter": {
+        "hash": "7b65ce8f-3dbe-46da-b63b-544b396af0ed",
+        "refId": "e1289694-d07f-4a0d-b084-a400fa92a9dd",
+        "writerId": "9a6bec5a-4ffe-418b-8066-6d855f9f7fad"
+    }
+}
+{
+    "updateIncorrectWriter": {
+        "message": "Transaction cancelled, please refer cancellation reasons for specific reasons [ConditionalCheckFailed, None]",
+        "code": "TransactionCanceledException",
+        "time": "2022-06-05T03:22:40.180Z",
+        "requestId": "B1QP4VBUA36D7TI59UADJRISR3VV4KQNSO5AEMVJF66Q9ASUAAJG",
+        "statusCode": 400,
+        "retryable": false,
+        "retryDelay": 45.18389177581291
+    }
+}
+{
+    "Items": [
+        {
+            "userAgent": [
+                "6b49ad9e-29b8-4a2b-b01b-cdc911c2240a",
+                "b381ea1b-4071-4660-a9fb-93ee0adac0a9",
+                "e6dfbbc3-f63d-462f-880f-220ff3b66344"
+            ],
+            "__edb_e__": "ref_writer",
+            "__edb_v__": "1",
+            "updatedAt": "2022-06-05 03:22:39",
+            "createdAt": "2022-06-05 03:22:39",
+            "lastIpAddress": "e7990876-7c7d-492d-a9fd-56d9cc5ad1b2",
+            "sk": "$writer#ref_writer_1",
+            "writerId": "9a6bec5a-4ffe-418b-8066-6d855f9f7fad",
+            "pk": "$electrodb_playground#writerid_9a6bec5a-4ffe-418b-8066-6d855f9f7fad",
+            "lastRef": "fa291eec-f101-4afa-9a90-cfa3cbda90d2"
+        },
+        {
+            "__edb_e__": "share_ref",
+            "hash": "7b65ce8f-3dbe-46da-b63b-544b396af0ed",
+            "gsi1sk": "$share_ref_1",
+            "__edb_v__": "1",
+            "updatedAt": "2022-06-05 03:22:39",
+            "refId": "e1289694-d07f-4a0d-b084-a400fa92a9dd",
+            "createdAt": "2022-06-05 03:22:39",
+            "sk": "$writer#share_ref_1#refid_e1289694-d07f-4a0d-b084-a400fa92a9dd",
+            "writerId": "9a6bec5a-4ffe-418b-8066-6d855f9f7fad",
+            "pk": "$electrodb_playground#writerid_9a6bec5a-4ffe-418b-8066-6d855f9f7fad",
+            "gsi1pk": "$electrodb_playground#refid_e1289694-d07f-4a0d-b084-a400fa92a9dd"
+        },
+        {
+            "__edb_e__": "share_ref",
+            "hash": "95c5b13e-4870-42c1-8279-f3aecb927524",
+            "gsi1sk": "$share_ref_1",
+            "__edb_v__": "1",
+            "updatedAt": "2022-06-05 03:22:39",
+            "refId": "fa291eec-f101-4afa-9a90-cfa3cbda90d2",
+            "createdAt": "2022-06-05 03:22:39",
+            "sk": "$writer#share_ref_1#refid_fa291eec-f101-4afa-9a90-cfa3cbda90d2",
+            "writerId": "9a6bec5a-4ffe-418b-8066-6d855f9f7fad",
+            "pk": "$electrodb_playground#writerid_9a6bec5a-4ffe-418b-8066-6d855f9f7fad",
+            "gsi1pk": "$electrodb_playground#refid_fa291eec-f101-4afa-9a90-cfa3cbda90d2"
+        },
+        {
+            "__edb_e__": "unique_contraint",
+            "value": "fa291eec-f101-4afa-9a90-cfa3cbda90d2",
+            "__edb_v__": "1",
+            "sk": "$unique_contraint_1#name_refid",
+            "pk": "$electrodb_playground#value_fa291eec-f101-4afa-9a90-cfa3cbda90d2",
+            "name": "refId"
+        },
+        {
+            "__edb_e__": "unique_contraint",
+            "value": "e1289694-d07f-4a0d-b084-a400fa92a9dd",
+            "__edb_v__": "1",
+            "sk": "$unique_contraint_1#name_refid",
+            "pk": "$electrodb_playground#value_e1289694-d07f-4a0d-b084-a400fa92a9dd",
+            "name": "refId"
+        }
+    ],
+    "Count": 5,
+    "ScannedCount": 5
+}

@@ -6,7 +6,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "browserify": "browserify ./src/electrodb.js -o ./src/display/electrodb.js",
-    "start": "python -m SimpleHTTPServer 3002"
+    "start": "python -m SimpleHTTPServer 3002",
+    "compile:functions": "tsc ./netlify/functions/*.ts --outDir ./netlify/functions --esModuleInterop",
+    "compile": "npm run compile:functions",
+    "build": "npm run compile"
   },
   "repository": {
     "type": "git",
@@ -20,9 +23,18 @@
   },
   "homepage": "https://github.com/tywalch/electro-demo#readme",
   "dependencies": {
-    "electrodb": "^1.4.1"
+    "@aws-sdk/client-dynamodb": "^3.100.0",
+    "@netlify/functions": "^1.0.0",
+    "@types/aws-sdk": "^2.7.0",
+    "@types/moment": "^2.13.0",
+    "aws-sdk": "^2.1148.0",
+    "electrodb": "^1.8.4",
+    "moment": "^2.29.3",
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
+    "@types/node": "^17.0.39",
+    "@types/uuid": "^8.3.4",
     "browserify": "^17.0.0"
   }
 }
