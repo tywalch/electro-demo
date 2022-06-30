@@ -3986,7 +3986,7 @@
 	},{"./errors":17,"./operations":20,"./types":24,"./update":25,"./util":26,"./validations":27,"./where":28}],15:[function(require,module,exports){
 		const {isFunction} = require('./validations');
 		const {ElectroError, ErrorCodes} = require('./errors');
-		const lib = {};
+// const lib = require('@aws-sdk/lib-dynamodb');
 
 		const DocumentClientVersions = {
 			v2: 'v2',
@@ -4008,7 +4008,7 @@
 
 			constructor(client, lib) {
 				this.client = client;
-				this.lib = lib;
+				this.lib = {};
 			}
 
 			promiseWrap(fn) {
@@ -4411,6 +4411,7 @@
 						results,
 					}, config.listeners);
 				}
+
 				return this.client[method](params).promise()
 					.then((results) => {
 						notifyQuery();
@@ -4451,14 +4452,36 @@
 				return results;
 			}
 
+			_createNewBatchGetOrderMaintainer(config = {}) {
+				const pkName = this.model.translations.keys[TableIndex].pk;
+				const skName = this.model.translations.keys[TableIndex].sk;
+				const enabled = !!config.preserveBatchOrder;
+				const table = this.config.table;
+				const keyFormatter = ((record = {}) => {
+					const pk = record[pkName];
+					const sk = record[skName];
+					return `${pk}${sk}`;
+				});
+
+				return new u.BatchGetOrderMaintainer({
+					table,
+					enabled,
+					keyFormatter,
+				});
+			}
+
 			async executeBulkGet(parameters, config) {
 				if (!Array.isArray(parameters)) {
 					parameters = [parameters];
 				}
-				let concurrent = this._normalizeConcurrencyValue(config.concurrent)
-				let concurrentOperations = u.batchItems(parameters, concurrent);
 
-				let resultsAll = [];
+				const orderMaintainer = this._createNewBatchGetOrderMaintainer(config);
+				orderMaintainer.defineOrder(parameters);
+				let concurrent = this._normalizeConcurrencyValue(config.concurrent);
+				let concurrentOperations = u.batchItems(parameters, concurrent);
+				let resultsAll = config.preserveBatchOrder
+					? new Array(orderMaintainer.getSize()).fill(null)
+					: [];
 				let unprocessedAll = [];
 				for (let operation of concurrentOperations) {
 					await Promise.all(operation.map(async params => {
@@ -4467,13 +4490,13 @@
 							resultsAll.push(await config.parse(config, response));
 							return;
 						}
-						let [results, unprocessed] = this.formatBulkGetResponse(response, config);
-						for (let r of results) {
-							resultsAll.push(r);
-						}
-						for (let u of unprocessed) {
-							unprocessedAll.push(u);
-						}
+						this.applyBulkGetResponseFormatting({
+							orderMaintainer,
+							resultsAll,
+							unprocessedAll,
+							response,
+							config
+						});
 					}));
 				}
 				return [resultsAll, unprocessedAll];
@@ -4601,20 +4624,26 @@
 				}
 			}
 
-			formatBulkGetResponse(response = {}, config = {}) {
-				let unprocessed = [];
-				let results = [];
+			applyBulkGetResponseFormatting({
+											   resultsAll,
+											   unprocessedAll,
+											   orderMaintainer,
+											   response = {},
+											   config = {},
+										   }) {
 				const table = config.table || this._getTableName();
 				const index = TableIndex;
+
 				if (!response.UnprocessedKeys || !response.Responses) {
 					throw new Error("Unknown response format");
 				}
+
 				if (response.UnprocessedKeys[table] && response.UnprocessedKeys[table].Keys && Array.isArray(response.UnprocessedKeys[table].Keys)) {
 					for (let value of response.UnprocessedKeys[table].Keys) {
 						if (config && config.unprocessed === UnprocessedTypes.raw) {
-							unprocessed.push(value);
+							unprocessedAll.push(value);
 						} else {
-							unprocessed.push(
+							unprocessedAll.push(
 								this._formatKeysToItem(index, value)
 							);
 						}
@@ -4622,10 +4651,18 @@
 				}
 
 				if (response.Responses[table] && Array.isArray(response.Responses[table])) {
-					results = this.formatResponse({Items: response.Responses[table]}, index, config);
+					const responses = response.Responses[table];
+					for (let i = 0; i < responses.length; i++) {
+						const item = responses[i];
+						const slot = orderMaintainer.getOrder(item);
+						const formatted = this.formatResponse({Item: item}, index, config);
+						if (slot !== -1) {
+							resultsAll[slot] = formatted;
+						} else {
+							resultsAll.push(formatted);
+						}
+					}
 				}
-
-				return [results, unprocessed];
 			}
 
 			formatResponse(response, index, config = {}) {
@@ -4916,6 +4953,7 @@
 					_isCollectionQuery: false,
 					pages: undefined,
 					listeners: [],
+					preserveBatchOrder: false,
 				};
 
 				config = options.reduce((config, option) => {
@@ -4926,6 +4964,10 @@
 						}
 						config.response = format;
 						config.params.ReturnValues = FormatToReturnValues[format];
+					}
+
+					if (option.preserveBatchOrder === true) {
+						config.preserveBatchOrder = true;
 					}
 
 					if (option.pages !== undefined) {
@@ -5031,6 +5073,18 @@
 				}
 
 				return {parameters, config};
+			}
+
+			addListeners(logger) {
+				this.eventManager.add(logger);
+			}
+
+			_addLogger(logger) {
+				if (validations.isFunction(logger)) {
+					this.addListeners(logger);
+				} else {
+					throw new e.ElectroError(e.ErrorCodes.InvalidLoggerProvided, `Logger must be of type function`);
+				}
 			}
 
 			_getPrimaryIndexFieldNames() {
@@ -6379,22 +6433,6 @@
 						facets.fields.push(sk.field);
 					}
 
-					if (seenIndexFields[pk.field] !== undefined) {
-						throw new e.ElectroError(e.ErrorCodes.DuplicateIndexFields, `Partition Key (pk) on Access Pattern '${accessPattern}' references the field '${pk.field}' which is already referenced by the Access Pattern '${seenIndexFields[pk.field]}'. Fields used for indexes need to be unique to avoid conflicts.`);
-					} else {
-						seenIndexFields[pk.field] = accessPattern;
-					}
-
-					if (sk.field) {
-						if (sk.field === pk.field) {
-							throw new e.ElectroError(e.ErrorCodes.DuplicateIndexFields, `The Access Pattern '${accessPattern}' references the field '${sk.field}' as the field name for both the PK and SK. Fields used for indexes need to be unique to avoid conflicts.`);
-						} else if (seenIndexFields[sk.field] !== undefined) {
-							throw new e.ElectroError(e.ErrorCodes.DuplicateIndexFields, `Sort Key (sk) on Access Pattern '${accessPattern}' references the field '${sk.field}' which is already referenced by the Access Pattern '${seenIndexFields[sk.field]}'. Fields used for indexes need to be unique to avoid conflicts.`);
-						}else {
-							seenIndexFields[sk.field] = accessPattern;
-						}
-					}
-
 					if (Array.isArray(sk.facets)) {
 						let duplicates = pk.facets.filter(facet => sk.facets.includes(facet));
 						if (duplicates.length !== 0) {
@@ -6484,6 +6522,37 @@
 						facets.byField[sk.field][indexName] = sk;
 					}
 
+					if (seenIndexFields[pk.field] !== undefined) {
+						const definition = Object.values(facets.byField[pk.field]).find(definition => definition.index !== indexName)
+						const definitionsMatch = validations.stringArrayMatch(pk.facets, definition.facets);
+						if (!definitionsMatch) {
+							throw new e.ElectroError(e.ErrorCodes.InconsistentIndexDefinition, `Partition Key (pk) on Access Pattern '${u.formatIndexNameForDisplay(accessPattern)}' is defined with the composite attribute(s) ${u.commaSeparatedString(pk.facets)}, but the accessPattern '${u.formatIndexNameForDisplay(definition.index)}' defines this field with the composite attributes ${u.commaSeparatedString(definition.facets)}'. Key fields must have the same composite attribute definitions across all indexes they are involved with`);
+						}
+						seenIndexFields[pk.field].push({accessPattern, type: 'pk'});
+					} else {
+						seenIndexFields[pk.field] = [];
+						seenIndexFields[pk.field].push({accessPattern, type: 'pk'});
+					}
+
+					if (sk.field) {
+						if (sk.field === pk.field) {
+							throw new e.ElectroError(e.ErrorCodes.DuplicateIndexFields, `The Access Pattern '${u.formatIndexNameForDisplay(accessPattern)}' references the field '${sk.field}' as the field name for both the PK and SK. Fields used for indexes need to be unique to avoid conflicts.`);
+						} else if (seenIndexFields[sk.field] !== undefined) {
+							const isAlsoDefinedAsPK = seenIndexFields[sk.field].find(field => field.type === "pk");
+							if (isAlsoDefinedAsPK) {
+								throw new e.ElectroError(e.ErrorCodes.InconsistentIndexDefinition, `The Sort Key (sk) on Access Pattern '${u.formatIndexNameForDisplay(accessPattern)}' references the field '${pk.field}' which is already referenced by the Access Pattern(s) '${u.formatIndexNameForDisplay(isAlsoDefinedAsPK.accessPattern)}' as a Partition Key. Fields mapped to Partition Keys cannot be also mapped to Sort Keys.`);
+							}
+							const definition = Object.values(facets.byField[sk.field]).find(definition => definition.index !== indexName)
+							const definitionsMatch = validations.stringArrayMatch(sk.facets, definition.facets);
+							if (!definitionsMatch) {
+								throw new e.ElectroError(e.ErrorCodes.DuplicateIndexFields, `Sort Key (sk) on Access Pattern '${u.formatIndexNameForDisplay(accessPattern)}' is defined with the composite attribute(s) ${u.commaSeparatedString(sk.facets)}, but the accessPattern '${u.formatIndexNameForDisplay(definition.index)}' defines this field with the composite attributes ${u.commaSeparatedString(definition.facets)}'. Key fields must have the same composite attribute definitions across all indexes they are involved with`);
+							}
+							seenIndexFields[sk.field].push({accessPattern, type: 'sk'});
+						} else {
+							seenIndexFields[sk.field] = [];
+							seenIndexFields[sk.field].push({accessPattern, type: 'sk'});
+						}
+					}
 
 					attributes.forEach(({index, type, name}, j) => {
 						let next = attributes[j + 1] !== undefined ? attributes[j + 1].name : "";
@@ -6876,6 +6945,12 @@
 			InvalidClientProvided: {
 				code: 1021,
 				section: "invalid-client-provided",
+				name: "InvalidClientProvided",
+				sym: ErrorCode,
+			},
+			InconsistentIndexDefinition: {
+				code: 1022,
+				section: "inconsistent-index-definition",
 				name: "InvalidClientProvided",
 				sym: ErrorCode,
 			},
@@ -9253,6 +9328,14 @@
 					entity._setClient(options.client);
 				}
 
+				if (options.logger) {
+					entity._addLogger(options.logger);
+				}
+
+				if (options.listeners) {
+					entity.addListeners(options.listeners);
+				}
+
 				if (this._modelVersion === ModelVersions.beta && this.service.version) {
 					entity.model.version = this.service.version;
 				}
@@ -10146,8 +10229,8 @@
 			return batched;
 		}
 
-		function commaSeparatedString(array = []) {
-			return array.map(value => `"${value}"`).join(", ");
+		function commaSeparatedString(array = [], prefix = '"', postfix = '"') {
+			return array.map(value => `${prefix}${value}${postfix}`).join(", ");
 		}
 
 		function formatStringCasing(str, casing, defaultCase) {
@@ -10189,6 +10272,38 @@
 			}
 		}
 
+		class BatchGetOrderMaintainer {
+			constructor({ table, enabled, keyFormatter }) {
+				this.table = table;
+				this.enabled = enabled;
+				this.keyFormatter = keyFormatter;
+				this.batchIndexMap = new Map();
+				this.currentSlot = 0;
+			}
+
+			getSize() {
+				return this.batchIndexMap.size;
+			}
+
+			getOrder(item) {
+				const key = this.keyFormatter(item);
+				return this.batchIndexMap.get(key) || -1;
+			}
+
+			defineOrder(parameters = []) {
+				if (this.enabled) {
+					for (let i = 0; i < parameters.length; i++) {
+						const batchParams = parameters[i];
+						const recordKeys = (batchParams && batchParams.RequestItems && batchParams.RequestItems[this.table] && batchParams.RequestItems[this.table].Keys) || [];
+						for (const recordKey of recordKeys) {
+							const indexMapKey = this.keyFormatter(recordKey);
+							this.batchIndexMap.set(indexMapKey, this.currentSlot++);
+						}
+					}
+				}
+			}
+		}
+
 		module.exports = {
 			batchItems,
 			parseJSONPath,
@@ -10199,7 +10314,8 @@
 			commaSeparatedString,
 			formatAttributeCasing,
 			applyBetaModelOverrides,
-			formatIndexNameForDisplay
+			formatIndexNameForDisplay,
+			BatchGetOrderMaintainer,
 		};
 
 	},{"./errors":17,"./types":24,"./validations":27}],27:[function(require,module,exports){
@@ -10286,7 +10402,6 @@
 						},
 						facets: {
 							type: ["array", "string"],
-							minItems: 1,
 							items: {
 								type: "string",
 							},
@@ -10294,7 +10409,6 @@
 						},
 						composite: {
 							type: ["array"],
-							minItems: 1,
 							items: {
 								type: "string",
 							},
