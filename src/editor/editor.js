@@ -216,7 +216,7 @@ const users = new Entity(
       }
     },
     indexes: {
-      users: {
+      members: {
         collection: "organization",
         pk: {
           composite: ["team"],
@@ -227,7 +227,7 @@ const users = new Entity(
           field: "sk"
         }
       },
-      lookup: {
+      user: {
         collection: "assignments",
         index: "gsi1pk-gsi1sk-index",
         pk: {
@@ -816,7 +816,7 @@ function setup(main, _tsWorker, sandboxFactory) {
     getLoaderScript.onload = () => {
         require.config({
             paths: {
-                vs: 'https://typescript.azureedge.net/cdn/4.0.5/monaco/min/vs',
+                vs: 'https://typescript.azureedge.net/cdn/4.7.4/monaco/min/vs',
                 sandbox: 'https://www.typescriptlang.org/js/sandbox',
             },
             ignoreDuplicateModules: ['vs/editor/editor.main'],
