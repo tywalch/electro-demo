@@ -3219,13 +3219,15 @@
 	
 	class Service extends ElectroDB.Service {}
 	
+	const createCustomAttribute = ElectroDB.createCustomAttribute;
 	
 	window.ElectroDB = {
 			Entity,
 			Service,
 			clearScreen,
 			printMessage,
-			printToScreen
+			printToScreen,
+			createCustomAttribute,
 	};
 	},{"../index":1}],14:[function(require,module,exports){
 	const { QueryTypes, MethodTypes, ItemOperations, ExpressionTypes, TableIndex, TerminalOperation, KeyTypes } = require("./types");
