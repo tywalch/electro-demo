@@ -283,7 +283,7 @@ function prepare(code) {
     code = code.replace(/import.*from .*/gi, "")
     code = code.replace(/\bEntity\b/g, "window.ElectroDB.Entity");
     code = code.replace(/\bService\b/g, "window.ElectroDB.Service");
-    code = code.replace(/\bcreateCustomAttribute\b/g, "window.ElectroDB.Service");
+    code = code.replace(/\bcreateCustomAttribute\b/g, "window.ElectroDB.createCustomAttribute");
     return code;
 }
 
