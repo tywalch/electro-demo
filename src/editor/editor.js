@@ -279,7 +279,7 @@ tasks.query
     { team, closed: july },
   )
   .where(({title}, {contains}) => contains(title, "database"))
-  .go();
+  .go({order: 'desc'});
 
 // use a collection to query more than one entity at a time
 app.collections
@@ -287,7 +287,7 @@ app.collections
   .where(({ points }, { notExists, between }) => \`
     \${notExists(points)} OR \${between(points, 1, 5)}
   \`)
-  .go();
+  .go({pages: 'all'});
 
 // \`create\` is like \`put\` except it uses "attribute_not_exists" 
 // to ensure you do not overwrite a record that already exists
