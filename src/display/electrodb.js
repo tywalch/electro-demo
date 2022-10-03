@@ -6011,8 +6011,7 @@
 	},{"./errors":20,"./operations":23,"./types":27,"./update":28,"./util":29,"./validations":30,"./where":31}],18:[function(require,module,exports){
 	const { isFunction } = require('./validations');
 	const { ElectroError, ErrorCodes } = require('./errors');
-	// const lib = require('@aws-sdk/lib-dynamodb');
-	const lib = {};
+	const lib = {}//require('@aws-sdk/lib-dynamodb');
 	
 	const DocumentClientVersions = {
 			v2: 'v2',
@@ -8338,10 +8337,15 @@
 			}
 			let key = prefix;
 			for (let i = 0; i < labels.length; i++) {
-				let {name, label} = labels[i];
-	
+				const { name, label } = labels[i];
+				const attribute = this.model.schema.getAttribute(name);
+				let value = supplied[name];
 				if (supplied[name] === undefined && excludeLabelTail) {
 					break;
+				}
+	
+				if (attribute && validations.isFunction(attribute.format)) {
+					value = attribute.format(`${value}`);
 				}
 	
 				if (isCustom) {
@@ -8354,7 +8358,7 @@
 					break;
 				}
 	
-				key = `${key}${supplied[name]}`;
+				key = `${key}${value}`;
 			}
 	
 			return u.formatKeyCasing(key, casing);
@@ -9985,7 +9989,7 @@
 															const attributeValues = [];
 															let hasNestedValue = false;
 															for (let value of values) {
-																	value = target.format(value);
+																	value = target.applyFixings(value);
 																	// template.length is to see if function takes value argument
 																	if (template.length > 3) {
 																			if (seen.has(value)) {
@@ -10070,7 +10074,7 @@
 	
 	module.exports = {UpdateOperations, FilterOperations, FilterOperationNames, ExpressionState, AttributeOperationProxy};
 	},{"./errors":20,"./types":27,"./util":29}],24:[function(require,module,exports){
-	const { CastTypes, ValueTypes, KeyCasing, AttributeTypes, AttributeMutationMethods, AttributeWildCard, PathTypes } = require("./types");
+	const { CastTypes, ValueTypes, KeyCasing, AttributeTypes, AttributeMutationMethods, AttributeWildCard, PathTypes, TableIndex } = require("./types");
 	const AttributeTypeNames = Object.keys(AttributeTypes);
 	const ValidFacetTypes = [AttributeTypes.string, AttributeTypes.number, AttributeTypes.boolean, AttributeTypes.enum];
 	const e = require("./errors");
@@ -10172,6 +10176,9 @@
 			this.isKeyField = !!definition.isKeyField;
 			this.unformat = this._makeDestructureKey(definition);
 			this.format = this._makeStructureKey(definition);
+			this.padding = definition.padding;
+			this.applyFixings = this._makeApplyFixings(definition);
+			this.applyPadding = this._makePadding(definition);
 			this.indexes = [...(definition.indexes || [])];
 			let {isWatched, isWatcher, watchedBy, watching, watchAll} = Attribute._destructureWatcher(definition);
 			this._isWatched = isWatched
@@ -10305,29 +10312,72 @@
 			return set || ((attr) => attr);
 		}
 	
-		_makeStructureKey({prefix = "", postfix = "", casing= KeyCasing.none} = {}) {
-			return (key) => {
-				let value = key;
-				if (this.type === AttributeTypes.string && v.isStringHasLength(key)) {
-					value = `${prefix}${key}${postfix}`;
+		_makeApplyFixings({ prefix = "", postfix = "", casing= KeyCasing.none } = {}) {
+			return (value) => {
+				if ([AttributeTypes.string, AttributeTypes.enum].includes(this.type)) {
+					value = `${prefix}${value}${postfix}`;
 				}
+	
 				return u.formatAttributeCasing(value, casing);
 			}
 		}
 	
-		_makeDestructureKey({prefix = "", postfix = "", casing= KeyCasing.none} = {}) {
+		_makeStructureKey() {
+			return (key) => {
+				return this.applyPadding(key);
+			}
+		}
+	
+		_isPaddingEligible(padding = {} ) {
+			return !!padding && padding.length && v.isStringHasLength(padding.char);
+		}
+	
+		_makePadding({ padding = {} }) {
+			return (value) => {
+				if (typeof value !== 'string') {
+					return value;
+				} else if (this._isPaddingEligible(padding)) {
+					return u.addPadding({padding, value});
+				} else {
+					return value;
+				}
+			}
+		}
+	
+		_makeRemoveFixings({prefix = "", postfix = "", casing= KeyCasing.none} = {}) {
 			return (key) => {
 				let value = "";
 				if (![AttributeTypes.string, AttributeTypes.enum].includes(this.type) || typeof key !== "string") {
-					return key;
-				} else if (key.length > prefix.length) {
+					value = key;
+				} else if (prefix.length > 0 && key.length > prefix.length) {
 					for (let i = prefix.length; i < key.length - postfix.length; i++) {
 						value += key[i];
 					}
 				} else {
 					value = key;
 				}
-				return u.formatAttributeCasing(value, casing);
+	
+				return value;
+			}
+		}
+	
+		_makeDestructureKey({prefix = "", postfix = "", casing= KeyCasing.none, padding = {}} = {}) {
+			return (key) => {
+				let value = "";
+				if (![AttributeTypes.string, AttributeTypes.enum].includes(this.type) || typeof key !== "string") {
+					return key;
+				} else if (key.length > prefix.length) {
+					value = u.removeFixings({prefix, postfix, value: key});
+				} else {
+					value = key;
+				}
+	
+				// todo: if an attribute is also used as a pk or sk directly in one index, but a composite in another, then padding is going to be broken
+				// if (padding && padding.length) {
+				// 	value = u.removePadding({padding, value});
+				// }
+	
+				return value;
 			};
 		}
 	
@@ -11030,7 +11080,7 @@
 						let definition = facets.byField[field][indexName];
 						if (definition.facets.length > 1) {
 							throw new e.ElectroError(
-								e.ErrorCodes.InvalidIndexCompositeWithAttributeName,
+								e.ErrorCodes.InvalidIndexWithAttributeName,
 								`Invalid definition for "${definition.type}" field on index "${u.formatIndexNameForDisplay(indexName)}". The ${definition.type} field "${definition.field}" shares a field name with an attribute defined on the Entity, and therefore is not allowed to contain composite references to other attributes. Please either change the field name of the attribute, or redefine the index to use only the single attribute "${definition.field}".`
 							)
 						}
@@ -11077,10 +11127,19 @@
 								`Invalid use of a collection on index "${u.formatIndexNameForDisplay(indexName)}". The ${definition.type} field "${definition.field}" shares a field name with an attribute defined on the Entity, and therefore the index is not allowed to participate in a Collection. Please either change the field name of the attribute, or remove all collection(s) from the index.`
 							)
 						}
+	
+						if (definition.field === field) {
+							if (attribute.padding !== undefined) {
+								throw new e.ElectroError(
+									e.ErrorCodes.InvalidAttributeDefinition,
+									`Invalid padding definition for the attribute "${name}". Padding is not currently supported for attributes that are also defined as table indexes.`
+								);
+							}
+						}
 					}
 				}
 	
-				let isKey = !!facets.byIndex && facets.byIndex[""].all.find((facet) => facet.name === name);
+				let isKey = !!facets.byIndex && facets.byIndex[TableIndex].all.find((facet) => facet.name === name);
 				let definition = {
 					name,
 					field,
@@ -11105,6 +11164,7 @@
 					properties: attribute.properties,
 					parentPath: attribute.parentPath,
 					parentType: attribute.parentType,
+					padding: attribute.padding,
 				};
 	
 				if (definition.type === AttributeTypes.custom) {
@@ -11880,7 +11940,7 @@
 			return [!!collectionDifferences.length, collectionDifferences];
 		}
 	
-		_compareEntityAttributes(definition = {}, providedAttributes = {}) {
+		_compareEntityAttributes(entityName, definition = {}, providedAttributes = {}, keys) {
 			let results = {
 				additions: {},
 				invalid: [],
@@ -11891,17 +11951,29 @@
 					results.additions[name] = detail;
 				} else if (defined.field !== detail.field) {
 					results.invalid.push(
-						`Attribute provided "${name}" with Table Field "${detail.field}" does not match established Table Field "${defined.field}"`,
+						`The attribute "${name}" with Table Field "${detail.field}" does not match established Table Field "${defined.field}"`,
 					);
+				}
+				if (defined && detail && (defined.padding || detail.padding)) {
+					const definedPadding = defined.padding || {};
+					const detailPadding = detail.padding || {};
+					if (keys.pk.facets.includes(name) &&
+						(definedPadding.length !== detailPadding.length ||
+						definedPadding.char !== detailPadding.char)
+					) {
+						results.invalid.push(
+							`The attribute "${name}" contains inconsistent padding definitions that impact how keys are formed`,
+						);
+					}
 				}
 			}
 			return [!!results.invalid.length, results];
 		}
 	
-		_processEntityAttributes(definition = {}, providedAttributes = {}) {
-			let [attributesAreIncompatible, attributeResults] = this._compareEntityAttributes(definition, providedAttributes);
+		_processEntityAttributes(entityName, definition = {}, providedAttributes = {}, keys) {
+			let [attributesAreIncompatible, attributeResults] = this._compareEntityAttributes(entityName, definition, providedAttributes, keys);
 			if (attributesAreIncompatible) {
-				throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Invalid entity attributes. The following attributes have already been defined on this model but with incompatible or conflicting properties: ${attributeResults.invalid.join(", ")}`);
+				throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Inconsistent attribute(s) on the entity "${entityName}". The following attribute(s) are defined with incompatible or conflicting definitions across participating entities: ${attributeResults.invalid.join(", ")}. These attribute definitions must match among all members of the collection.`);
 			} else {
 				return {
 					...definition,
@@ -12019,7 +12091,7 @@
 				this.collectionSchema[collection].table = entity._getTableName();
 			}
 			this.collectionSchema[collection].keys = this._processEntityKeys(name, this.collectionSchema[collection].keys, providedIndex);
-			this.collectionSchema[collection].attributes = this._processEntityAttributes(this.collectionSchema[collection].attributes, entity.model.schema.attributes);
+			this.collectionSchema[collection].attributes = this._processEntityAttributes(name, this.collectionSchema[collection].attributes, entity.model.schema.attributes, this.collectionSchema[collection].keys);
 			this.collectionSchema[collection].entities[name] = entity;
 			this.collectionSchema[collection].identifiers = this._processEntityIdentifiers(this.collectionSchema[collection].identifiers, entity.getIdentifierExpressions(name));
 			this.collectionSchema[collection].index = this._processEntityCollectionIndex(this.collectionSchema[collection].index, providedIndex.index, name, collection);
@@ -12596,9 +12668,48 @@
 		}
 	}
 	
+	function removeFixings({prefix = '', postfix = '', value = ''} = {}) {
+		const start = value.toLowerCase().startsWith(prefix.toLowerCase()) ? prefix.length : 0;
+		const end = value.length - (value.toLowerCase().endsWith(postfix.toLowerCase()) ? postfix.length : 0);
+	
+		let formatted = '';
+		for (let i = start; i < end; i++) {
+			formatted += value[i];
+		}
+	
+		return formatted;
+	}
+	
+	function addPadding({padding = {}, value = ''} = {}) {
+		return value.padStart(padding.length, padding.char);
+	}
+	
+	function removePadding({padding = {}, value = ''} = {}) {
+		if (!padding.length || value.length >= padding.length) {
+			return value;
+		}
+	
+		let formatted = '';
+		let useRemaining = false;
+		for (let i = 0; i < value.length; i++) {
+			const char = value[i];
+			if (useRemaining || i >= padding.length) {
+				formatted += char;
+			} else if (char !== padding.char) {
+				formatted += char;
+				useRemaining = true;
+			}
+		}
+	
+		return formatted;
+	}
+	
 	module.exports = {
 		getUnique,
 		batchItems,
+		addPadding,
+		removePadding,
+		removeFixings,
 		parseJSONPath,
 		getInstanceType,
 		getModelVersion,
@@ -12680,6 +12791,18 @@
 				type: "any",
 				format: "isFunction",
 			},
+			padding: {
+				type: "object",
+				required: ['length', 'char'],
+				properties: {
+					length: {
+						type: 'number'
+					},
+					char: {
+						type: 'string',
+					}
+				}
+			}
 		},
 	};
 	
