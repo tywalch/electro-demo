@@ -6011,7 +6011,7 @@
 	},{"./errors":20,"./operations":23,"./types":27,"./update":28,"./util":29,"./validations":30,"./where":31}],18:[function(require,module,exports){
 	const { isFunction } = require('./validations');
 	const { ElectroError, ErrorCodes } = require('./errors');
-	const lib = {}//require('@aws-sdk/lib-dynamodb');
+	const lib = {} //require('@aws-sdk/lib-dynamodb');
 	
 	const DocumentClientVersions = {
 			v2: 'v2',
@@ -8131,7 +8131,7 @@
 		_buildQueryFacets(facets, skFacets) {
 			let queryFacets = this._findProperties(facets, skFacets).reduce(
 				(result, [name, value]) => {
-					if (value) {
+					if (value !== undefined) {
 						result[name] = value;
 					}
 					return result;
