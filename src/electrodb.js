@@ -2,10 +2,17 @@
   const { Entity } = require("./src/entity");
   const { Service } = require("./src/service");
   const { createCustomAttribute } = require('./src/schema');
+  const { ElectroError, ElectroValidationError, ElectroUserValidationError, ElectroAttributeValidationError } = require('./src/errors');
   
-  module.exports = { Entity, Service, createCustomAttribute };
+  module.exports = {
+      Entity,
+      Service,
+      createCustomAttribute,
+      ElectroError,
+      ElectroValidationError,
+  };
   
-  },{"./src/entity":19,"./src/schema":24,"./src/service":25}],2:[function(require,module,exports){
+  },{"./src/entity":19,"./src/errors":20,"./src/schema":24,"./src/service":25}],2:[function(require,module,exports){
   'use strict'
   
   exports.byteLength = byteLength
@@ -5251,7 +5258,7 @@
       createCustomAttribute,
   };
   },{"../index":1}],17:[function(require,module,exports){
-  const { QueryTypes, MethodTypes, ItemOperations, ExpressionTypes, TableIndex, TerminalOperation, KeyTypes } = require("./types");
+  const { QueryTypes, MethodTypes, ItemOperations, ExpressionTypes, TableIndex, TerminalOperation, KeyTypes, IndexTypes } = require("./types");
   const {AttributeOperationProxy, UpdateOperations, FilterOperationNames} = require("./operations");
   const {UpdateExpression} = require("./update");
   const {FilterExpression} = require("./where");
@@ -5281,7 +5288,36 @@
   let clauses = {
     index: {
       name: "index",
-      children: ["get", "delete", "update", "query", "put", "scan", "collection", "create", "remove", "patch", "batchPut", "batchDelete", "batchGet"],
+      children: ["get", "delete", "update", "query", "put", "scan", "collection", "clusteredCollection", "create", "remove", "patch", "batchPut", "batchDelete", "batchGet"],
+    },
+    clusteredCollection: {
+      name: "clusteredCollection",
+      action(entity, state, collection = "", facets /* istanbul ignore next */ = {}) {
+        if (state.getError() !== null) {
+          return state;
+        }
+        try {
+          const {pk, sk} = state.getCompositeAttributes();
+          return state
+            .setType(QueryTypes.clustered_collection)
+            .setMethod(MethodTypes.query)
+            .setCollection(collection)
+            .setPK(entity._expectFacets(facets, pk))
+            .ifSK(() => {
+              const {composites, unused} = state.identifyCompositeAttributes(facets, sk, pk);
+              state.setSK(composites);
+              // we must apply eq on filter on all provided because if the user then does a sort key operation, it'd actually then unexpect results
+              if (sk.length > 1) {
+                state.filterProperties(FilterOperationNames.eq, {...unused, ...composites});
+              }
+            });
+  
+        } catch(err) {
+          state.setError(err);
+          return state;
+        }
+      },
+      children: ["between", "gte", "gt", "lte", "lt", "begins", "params", "go"],
     },
     collection: {
       name: "collection",
@@ -5291,13 +5327,12 @@
           return state;
         }
         try {
-          const {pk} = state.getCompositeAttributes();
+          const {pk, sk} = state.getCompositeAttributes();
           return state
             .setType(QueryTypes.collection)
             .setMethod(MethodTypes.query)
             .setCollection(collection)
             .setPK(entity._expectFacets(facets, pk));
-  
         } catch(err) {
           state.setError(err);
           return state;
@@ -5328,14 +5363,15 @@
           return state;
         }
         try {
-          const attributes = state.getCompositeAttributes();
+          const {pk, sk} = state.getCompositeAttributes();
+          const {composites} = state.identifyCompositeAttributes(facets, sk, pk);
           return state
             .setMethod(MethodTypes.get)
             .setType(QueryTypes.eq)
-            .setPK(entity._expectFacets(facets, attributes.pk))
+            .setPK(entity._expectFacets(facets, pk))
             .ifSK(() => {
-              entity._expectFacets(facets, attributes.sk);
-              state.setSK(entity._buildQueryFacets(facets, attributes.sk));
+              entity._expectFacets(facets, sk);
+              state.setSK(composites);
             });
         } catch(err) {
           state.setError(err);
@@ -5362,14 +5398,14 @@
           return state;
         }
         try {
-          const attributes = state.getCompositeAttributes();
+          const {pk, sk} = state.getCompositeAttributes();
           return state
             .setMethod(MethodTypes.delete)
             .setType(QueryTypes.eq)
-            .setPK(entity._expectFacets(facets, attributes.pk))
+            .setPK(entity._expectFacets(facets, pk))
             .ifSK(() => {
-              entity._expectFacets(facets, attributes.sk);
-              state.setSK(entity._buildQueryFacets(facets, attributes.sk));
+              entity._expectFacets(facets, sk);
+              state.setSK(state.buildQueryComposites(facets, sk));
             });
         } catch(err) {
           state.setError(err);
@@ -5399,7 +5435,7 @@
             .setPK(entity._expectFacets(facets, attributes.pk))
             .ifSK(() => {
               entity._expectFacets(facets, attributes.sk);
-              state.setSK(entity._buildQueryFacets(facets, attributes.sk));
+              state.setSK(state.buildQueryComposites(facets, attributes.sk));
             });
         } catch(err) {
           state.setError(err);
@@ -5425,7 +5461,7 @@
             .setPK(entity._expectFacets(record, attributes.pk))
             .ifSK(() => {
               entity._expectFacets(record, attributes.sk);
-              state.setSK(entity._buildQueryFacets(record, attributes.sk));
+              state.setSK(state.buildQueryComposites(record, attributes.sk));
             });
         } catch(err) {
           state.setError(err);
@@ -5461,7 +5497,7 @@
             .setPK(entity._expectFacets(record, attributes.pk))
             .ifSK(() => {
               entity._expectFacets(record, attributes.sk);
-              state.setSK(entity._buildQueryFacets(record, attributes.sk));
+              state.setSK(state.buildQueryComposites(record, attributes.sk));
             });
         } catch(err) {
           state.setError(err);
@@ -5490,7 +5526,7 @@
             .setPK(entity._expectFacets(facets, attributes.pk))
             .ifSK(() => {
               entity._expectFacets(facets, attributes.sk);
-              state.setSK(entity._buildQueryFacets(facets, attributes.sk));
+              state.setSK(state.buildQueryComposites(facets, attributes.sk));
             });
         } catch(err) {
           state.setError(err);
@@ -5513,7 +5549,7 @@
             .setPK(entity._expectFacets(facets, attributes.pk))
             .ifSK(() => {
               entity._expectFacets(facets, attributes.sk);
-              state.setSK(entity._buildQueryFacets(facets, attributes.sk));
+              state.setSK(state.buildQueryComposites(facets, attributes.sk));
             });
         } catch(err) {
           state.setError(err);
@@ -5530,6 +5566,11 @@
         }
         try {
           state.query.updateProxy.invokeCallback(cb);
+          for (const path of Object.keys(state.query.update.refs)) {
+            const operation = state.query.update.impacted[path];
+            const attribute = state.query.update.refs[path];
+            entity.model.schema.checkOperation(attribute, operation);
+          }
           return state;
         } catch(err) {
           state.setError(err);
@@ -5651,13 +5692,22 @@
         }
         try {
           state.addOption('_isPagination', true);
-          const attributes = state.getCompositeAttributes();
+          const {pk, sk} = state.getCompositeAttributes();
           return state
             .setMethod(MethodTypes.query)
             .setType(QueryTypes.is)
-            .setPK(entity._expectFacets(facets, attributes.pk))
+            .setPK(entity._expectFacets(facets, pk))
             .ifSK(() => {
-              state.setSK(entity._buildQueryFacets(facets, attributes.sk));
+              const {composites, unused} = state.identifyCompositeAttributes(facets, sk, pk);
+              state.setSK(state.buildQueryComposites(facets, sk));
+              // we must apply eq on filter on all provided because if the user then does a sort key operation, it'd actually then unexpect results
+              if (sk.length > 1) {
+                state.filterProperties(FilterOperationNames.eq, {...unused, ...composites});
+              }
+              if (state.query.options.indexType === IndexTypes.clustered && Object.keys(composites).length < sk.length) {
+                state.unsafeApplyFilter(FilterOperationNames.eq, entity.identifiers.entity, entity.getName())
+                  .unsafeApplyFilter(FilterOperationNames.eq, entity.identifiers.version, entity.getVersion());
+              }
             });
         } catch(err) {
           state.setError(err);
@@ -5673,12 +5723,15 @@
           return state;
         }
         try {
-          const attributes = state.getCompositeAttributes();
+          const {pk, sk} = state.getCompositeAttributes();
+          const endingSk = state.identifyCompositeAttributes(endingFacets, sk, pk);
+          const startingSk = state.identifyCompositeAttributes(startingFacets, sk, pk);
           return state
             .setType(QueryTypes.and)
-            .setSK(entity._buildQueryFacets(endingFacets, attributes.sk))
+            .setSK(endingSk.composites)
             .setType(QueryTypes.between)
-            .setSK(entity._buildQueryFacets(startingFacets, attributes.sk))
+            .setSK(startingSk.composites)
+            .filterProperties(FilterOperationNames.lte, endingSk.composites);
         } catch(err) {
           state.setError(err);
           return state;
@@ -5697,7 +5750,7 @@
             .setType(QueryTypes.begins)
             .ifSK(state => {
               const attributes = state.getCompositeAttributes();
-              state.setSK(entity._buildQueryFacets(facets, attributes.sk))
+              state.setSK(state.buildQueryComposites(facets, attributes.sk));
             });
         } catch(err) {
           state.setError(err);
@@ -5713,11 +5766,16 @@
           return state;
         }
         try {
+  
           return state
             .setType(QueryTypes.gt)
             .ifSK(state => {
-              const attributes = state.getCompositeAttributes();
-              state.setSK(entity._buildQueryFacets(facets, attributes.sk))
+              const {pk, sk} = state.getCompositeAttributes();
+              const {composites} = state.identifyCompositeAttributes(facets, sk, pk);
+              state.setSK(composites);
+              state.filterProperties(FilterOperationNames.gt, {
+                ...composites,
+              });
             });
         } catch(err) {
           state.setError(err);
@@ -5737,7 +5795,7 @@
             .setType(QueryTypes.gte)
             .ifSK(state => {
               const attributes = state.getCompositeAttributes();
-              state.setSK(entity._buildQueryFacets(facets, attributes.sk))
+              state.setSK(state.buildQueryComposites(facets, attributes.sk));
             });
         } catch(err) {
           state.setError(err);
@@ -5755,8 +5813,9 @@
         try {
           return state.setType(QueryTypes.lt)
             .ifSK(state => {
-              const attributes = state.getCompositeAttributes();
-              state.setSK(entity._buildQueryFacets(facets, attributes.sk))
+              const {pk, sk} = state.getCompositeAttributes();
+              const {composites} = state.identifyCompositeAttributes(facets, sk, pk);
+              state.setSK(composites);
             });
         } catch(err) {
           state.setError(err);
@@ -5774,8 +5833,12 @@
         try {
           return state.setType(QueryTypes.lte)
             .ifSK(state => {
-              const attributes = state.getCompositeAttributes();
-              state.setSK(entity._buildQueryFacets(facets, attributes.sk))
+              const {pk, sk} = state.getCompositeAttributes();
+              const {composites} = state.identifyCompositeAttributes(facets, sk, pk);
+              state.setSK(composites);
+              state.filterProperties(FilterOperationNames.lte, {
+                ...composites,
+              });
             });
         } catch(err) {
           state.setError(err);
@@ -5791,7 +5854,7 @@
           throw state.error;
         }
         try {
-          if (!v.isStringHasLength(options.table) && !v.isStringHasLength(entity._getTableName())) {
+          if (!v.isStringHasLength(options.table) && !v.isStringHasLength(entity.getTableName())) {
             throw new e.ElectroError(e.ErrorCodes.MissingTable, `Table name not defined. Table names must be either defined on the model, instance configuration, or as a query option.`);
           }
           const method = state.getMethod();
@@ -5941,6 +6004,71 @@
       return this.query.facets;
     }
   
+    buildQueryComposites(provided, definition) {
+      return definition
+        .map(name => [name, provided[name]])
+          .reduce(
+          (result, [name, value]) => {
+            if (value !== undefined) {
+              result[name] = value;
+            }
+            return result;
+          },
+          {},
+        );
+    }
+  
+    identifyCompositeAttributes(provided, defined, skip) {
+      // todo: make sure attributes are valid
+      const composites = {};
+      const unused = {};
+      const definedSet = new Set(defined || []);
+      const skipSet = new Set(skip || []);
+      for (const key of Object.keys(provided)) {
+        const value = provided[key];
+        if (definedSet.has(key)) {
+          composites[key] = value;
+        } else if (skipSet.has(key)) {
+          continue;
+        } else {
+          unused[key] = value;
+        }
+      }
+  
+      return {
+        composites,
+        unused,
+      }
+    }
+  
+    applyFilter(operation, name, ...values) {
+      if (FilterOperationNames[operation] !== undefined & name !== undefined && values.length > 0) {
+        const attribute = this.attributes[name];
+        if (attribute !== undefined) {
+          this.unsafeApplyFilter(operation, attribute.field, ...values);
+        }
+      }
+      return this;
+    }
+  
+    unsafeApplyFilter(operation, name, ...values) {
+      if (FilterOperationNames[operation] !== undefined & name !== undefined && values.length > 0) {
+        const filter = this.query.filter[ExpressionTypes.FilterExpression];
+        filter.unsafeSet(operation, name, ...values);
+      }
+      return this;
+    }
+  
+    filterProperties(operation, obj = {}) {
+      for (const property in obj) {
+        const value = obj[property];
+        if (value !== undefined) {
+          this.applyFilter(operation, property, value);
+        }
+      }
+      return this;
+    }
+  
     setSK(attributes, type = this.query.type) {
       if (this.hasSortKey) {
         this.query.keys.sk.push({
@@ -6009,9 +6137,9 @@
   };
   
   },{"./errors":20,"./operations":23,"./types":27,"./update":28,"./util":29,"./validations":30,"./where":31}],18:[function(require,module,exports){
+  const lib = {};
   const { isFunction } = require('./validations');
   const { ElectroError, ErrorCodes } = require('./errors');
-  const lib = {} //require('@aws-sdk/lib-dynamodb');
   
   const DocumentClientVersions = {
       v2: 'v2',
@@ -6156,6 +6284,7 @@
       supportedClientVersions,
       DocumentClientV3Wrapper,
   };
+  
   },{"./errors":20,"./validations":30}],19:[function(require,module,exports){
   "use strict";
   const { Schema } = require("./schema");
@@ -6179,7 +6308,9 @@
     MaxBatchItems, 
     TerminalOperation, 
     ResultOrderOption,
-    ResultOrderParam
+    ResultOrderParam,
+    IndexTypes,
+    PartialComparisons,
   } = require("./types");
   const { FilterFactory } = require("./filters");
   const { FilterOperations } = require("./operations");
@@ -6216,7 +6347,10 @@
       for (let accessPattern in this.model.indexes) {
         let index = this.model.indexes[accessPattern].index;
         this.query[accessPattern] = (...values) => {
-          return this._makeChain(index, this._clausesWithFilters, clauses.index).query(...values);
+          const options = {
+            indexType: this.model.indexes[accessPattern].type || IndexTypes.isolated,
+          }
+          return this._makeChain(index, this._clausesWithFilters, clauses.index, options).query(...values);
         };
       }
       this.config.identifiers = config.identifiers || {};
@@ -6350,14 +6484,9 @@
       }
     }
   
-    collection(collection = "", clauses = {}, facets = {}, {expressions = {}, parse} = {}) {
-      const options = {
-        parse,
-        expressions: {
-          names: expressions.names || {},
-          values: expressions.values || {},
-          expression: expressions.expression || ""
-        },
+    collection(collection = "", clauses = {}, facets = {}, options = {}) {
+      const chainOptions = {
+        ...options,
         _isCollectionQuery: true,
       };
   
@@ -6365,10 +6494,18 @@
       if (index === undefined) {
         throw new Error(`Invalid collection: ${collection}`);
       }
-      return this._makeChain(index, clauses, clauses.index, options).collection(
-        collection,
-        facets
-      );
+      const chain = this._makeChain(index, clauses, clauses.index, chainOptions);
+      if (options.indexType === IndexTypes.clustered) {
+        return chain.clusteredCollection(
+          collection,
+          facets,
+        );
+      } else {
+        return chain.collection(
+          collection,
+          facets,
+        );
+      }
     }
   
     _validateModel(model) {
@@ -6669,7 +6806,7 @@
       if (!response || !response.UnprocessedItems) {
         return response;
       }
-      const table = config.table || this._getTableName();
+      const table = config.table || this.getTableName();
       const index = TableIndex;
       let unprocessed = response.UnprocessedItems[table];
       if (Array.isArray(unprocessed) && unprocessed.length) {
@@ -6700,7 +6837,7 @@
       response = {},
       config = {},
     }) {
-      const table = config.table || this._getTableName();
+      const table = config.table || this.getTableName();
       const index = TableIndex;
   
       if (!response.UnprocessedKeys || !response.Responses) {
@@ -6826,18 +6963,22 @@
       return config.formatCursor.deserialize(exclusiveStartKey) || null;
     }
   
-    _getTableName() {
-      return this.config.table;
-    }
-  
-    _setTableName(table) {
-      this.config.table = table;
-    }
-  
-    _setClient(client) {
+    setClient(client) {
       if (client) {
         this.client = c.normalizeClient(client);
       }
+    }
+  
+    setTableName(tableName) {
+      this.config.table = tableName;
+    }
+  
+    getTableName() {
+      return this.config.table;
+    }
+  
+    getTableName() {
+      return this.config.table;
     }
   
     _chain(state, clauses, clause) {
@@ -6861,9 +7002,9 @@
       let state = new ChainState({
         index,
         options,
-        attributes: this.model.schema.attributes,
-        hasSortKey: this.model.lookup.indexHasSortKeys[index],
-        compositeAttributes: this.model.facets.byIndex[index]
+        attributes: options.attributes || this.model.schema.attributes,
+        hasSortKey: options.hasSortKey || this.model.lookup.indexHasSortKeys[index],
+        compositeAttributes: options.compositeAttributes || this.model.facets.byIndex[index],
       });
       return state.init(this, clauses, rootClause);
     }
@@ -6996,9 +7137,13 @@
     }
   
     _constructPagerIndex(index = TableIndex, item) {
-      let pk = this._expectFacets(item, this.model.facets.byIndex[index].pk);
-      let sk = this._expectFacets(item, this.model.facets.byIndex[index].sk);
-      let keys = this._makeIndexKeys(index, pk, sk);
+      let pkAttributes = this._expectFacets(item, this.model.facets.byIndex[index].pk);
+      let skAttributes = this._expectFacets(item, this.model.facets.byIndex[index].sk);
+      let keys = this._makeIndexKeys({
+        index,
+        pkAttributes,
+        skAttributes: [skAttributes],
+      });
       return this._makeParameterKey(index, keys.pk, ...keys.sk);
     }
   
@@ -7067,8 +7212,8 @@
   
         if (option.formatCursor) {
           const isValid = ['serialize', 'deserialize'].every(method => 
-            method in option.formatCursor && 
-              validate.isFunction(option.formatCursor[method])
+            method in option.formatCursor &&
+            validations.isFunction(option.formatCursor[method])
           );
           if (isValid) {
             config.formatCursor = option.formatCursor;
@@ -7378,7 +7523,7 @@
     }
   
     _batchGetParams(state, config = {}) {
-      let table = config.table || this._getTableName();
+      let table = config.table || this.getTableName();
       let userDefinedParams = config.params || {};
       let records = [];
       for (let itemState of state.subStates) {
@@ -7403,7 +7548,7 @@
     }
   
     _batchWriteParams(state, config = {}) {
-      let table = config.table || this._getTableName();
+      let table = config.table || this.getTableName();
       let records = [];
       for (let itemState of state.subStates) {
         let method = itemState.query.method;
@@ -7451,14 +7596,14 @@
       let version = this.getVersion();
       return {
         names: {
-          [`#${this.identifiers.entity}_${alias}`]: this.identifiers.entity,
-          [`#${this.identifiers.version}_${alias}`]: this.identifiers.version,
+          [`#${this.identifiers.entity}`]: this.identifiers.entity,
+          [`#${this.identifiers.version}`]: this.identifiers.version,
         },
         values: {
           [`:${this.identifiers.entity}_${alias}`]: name,
           [`:${this.identifiers.version}_${alias}`]: version,
         },
-        expression: `(#${this.identifiers.entity}_${alias} = :${this.identifiers.entity}_${alias} AND #${this.identifiers.version}_${alias} = :${this.identifiers.version}_${alias})`
+        expression: `(#${this.identifiers.entity} = :${this.identifiers.entity}_${alias} AND #${this.identifiers.version} = :${this.identifiers.version}_${alias})`
       }
     }
   
@@ -7468,11 +7613,13 @@
       let hasSortKey = this.model.lookup.indexHasSortKeys[indexBase];
       let accessPattern = this.model.translations.indexes.fromIndexToAccessPattern[indexBase];
       let pkField = this.model.indexes[accessPattern].pk.field;
-      let {pk, sk} = this._makeIndexKeys(indexBase);
+      let {pk, sk} = this._makeIndexKeys({
+        index: indexBase,
+      });
       let keys = this._makeParameterKey(indexBase, pk, ...sk);
       let keyExpressions = this._expressionAttributeBuilder(keys);
       let params = {
-        TableName: this._getTableName(),
+        TableName: this.getTableName(),
         ExpressionAttributeNames: this._mergeExpressionsAttributes(
           filter.getNames(),
           keyExpressions.ExpressionAttributeNames
@@ -7500,9 +7647,13 @@
   
     _makeSimpleIndexParams(partition, sort) {
       let index = TableIndex;
-      let keys = this._makeIndexKeys(index, partition, sort);
+      let keys = this._makeIndexKeys({
+        index,
+        pkAttributes: partition,
+        skAttributes: [sort],
+      });
       let Key = this._makeParameterKey(index, keys.pk, ...keys.sk);
-      let TableName = this._getTableName();
+      let TableName = this.getTableName();
       return {Key, TableName};
     }
   
@@ -7589,7 +7740,7 @@
         UpdateExpression: update.build(),
         ExpressionAttributeNames: update.getNames(),
         ExpressionAttributeValues: update.getValues(),
-        TableName: this._getTableName(),
+        TableName: this.getTableName(),
         Key: indexKey,
       };
     }
@@ -7606,7 +7757,7 @@
           [this.identifiers.entity]: this.getName(),
           [this.identifiers.version]: this.getVersion(),
         },
-        TableName: this._getTableName(),
+        TableName: this.getTableName(),
       };
     }
   
@@ -7710,17 +7861,28 @@
       return expressions;
     }
   
-    /* istanbul ignore next */
-    _queryParams(state = {}, options = {}) {
+    _makeQueryKeys(state) {
       let consolidatedQueryFacets = this._consolidateQueryFacets(
         state.query.keys.sk,
       );
-      let indexKeys;
-      if (state.query.type === QueryTypes.is) {
-        indexKeys = this._makeIndexKeys(state.query.index, state.query.keys.pk, ...consolidatedQueryFacets);
-      } else {
-        indexKeys = this._makeIndexKeysWithoutTail(state.query.index, state.query.keys.pk, ...consolidatedQueryFacets);
+      switch (state.query.type) {
+        case QueryTypes.is:
+          return this._makeIndexKeys({
+            index: state.query.index,
+            pkAttributes: state.query.keys.pk,
+            skAttributes: consolidatedQueryFacets,
+            indexType: state.query.options.indexType,
+            queryType: state.query.type,
+            isCollection: state.query.options._isCollectionQuery,
+          });
+        default:
+          return this._makeIndexKeysWithoutTail(state, consolidatedQueryFacets);
       }
+    }
+  
+    /* istanbul ignore next */
+    _queryParams(state = {}, options = {}) {
+      const indexKeys = this._makeQueryKeys(state);
       let parameters = {};
       switch (state.query.type) {
         case QueryTypes.is:
@@ -7750,6 +7912,15 @@
             this._getCollectionSk(state.query.collection),
           );
           break;
+        case QueryTypes.clustered_collection:
+          parameters = this._makeBeginsWithQueryParams(
+            state.query.options,
+            state.query.index,
+            state.query.filter[ExpressionTypes.FilterExpression],
+            indexKeys.pk,
+            ...indexKeys.sk,
+          );
+          break;
         case QueryTypes.between:
           parameters = this._makeBetweenQueryParams(
             state.query.index,
@@ -7766,8 +7937,7 @@
             state.query.index,
             state.query.type,
             state.query.filter[ExpressionTypes.FilterExpression],
-            indexKeys.pk,
-            ...indexKeys.sk,
+            indexKeys,
           );
           break;
         default:
@@ -7785,7 +7955,7 @@
       );
       delete keyExpressions.ExpressionAttributeNames["#sk2"];
       let params = {
-        TableName: this._getTableName(),
+        TableName: this.getTableName(),
         ExpressionAttributeNames: this._mergeExpressionsAttributes(
           filter.getNames(),
           keyExpressions.ExpressionAttributeNames,
@@ -7828,7 +7998,7 @@
   
       let params = {
         KeyConditionExpression,
-        TableName: this._getTableName(),
+        TableName: this.getTableName(),
         ExpressionAttributeNames: this._mergeExpressionsAttributes(filter.getNames(), keyExpressions.ExpressionAttributeNames, customExpressions.names),
         ExpressionAttributeValues: this._mergeExpressionsAttributes(filter.getValues(), keyExpressions.ExpressionAttributeValues, customExpressions.values),
       };
@@ -7886,8 +8056,14 @@
     }
   
     /* istanbul ignore next */
-    _makeComparisonQueryParams(index = TableIndex, comparison = "", filter = {}, pk = {}, sk = {}) {
-      let operator = Comparisons[comparison];
+    _makeComparisonQueryParams(index = TableIndex, comparison = "", filter = {}, indexKeys = {}) {
+      const {pk, fulfilled} = indexKeys;
+      const sk = indexKeys.sk[0];
+      let operator = PartialComparisons[comparison];
+        // fulfilled
+        // ? Comparisons[comparison]
+        // : PartialComparisons[comparison];
+  
       if (!operator) {
         throw new Error(`Unexpected comparison operator "${comparison}", expected ${u.commaSeparatedString(Object.values(Comparisons))}`);
       }
@@ -7897,7 +8073,7 @@
         sk,
       );
       let params = {
-        TableName: this._getTableName(),
+        TableName: this.getTableName(),
         ExpressionAttributeNames: this._mergeExpressionsAttributes(
           filter.getNames(),
           keyExpressions.ExpressionAttributeNames,
@@ -7935,7 +8111,11 @@
     _makeKeysFromAttributes(indexes, attributes) {
       let indexKeys = {};
       for (let [index, keyTypes] of Object.entries(indexes)) {
-        let keys = this._makeIndexKeys(index, attributes, attributes);
+        let keys = this._makeIndexKeys({
+          index,
+          pkAttributes: attributes,
+          skAttributes: [attributes],
+        });
         if (keyTypes.pk || keyTypes.sk) {
           indexKeys[index] = {};
         }
@@ -7957,7 +8137,11 @@
     _makePutKeysFromAttributes(indexes, attributes) {
       let indexKeys = {};
       for (let index of indexes) {
-        indexKeys[index] = this._makeIndexKeys(index, attributes, attributes);
+        indexKeys[index] = this._makeIndexKeys({
+          index,
+          pkAttributes: attributes,
+          skAttributes: [attributes],
+        });
       }
       return indexKeys;
     }
@@ -8168,7 +8352,14 @@
       return [!!missing.length, missing, matching];
     }
   
-    _makeKeyPrefixes(service, entity, version = "1", tableIndex, modelVersion) {
+    _makeKeyFixings({
+      service,
+      entity,
+      version = "1",
+      tableIndex,
+      modelVersion,
+      isClustered
+    }) {
       /*
         Collections will prefix the sort key so they can be queried with
         a "begins_with" operator when crossing entities. It is also possible
@@ -8194,34 +8385,47 @@
   
       let pk = `$${service}`;
       let sk = "";
-  
+      let entityKeys = "";
+      let postfix = "";
       // If the index is in a collections, prepend the sk;
       let collectionPrefix = this._makeCollectionPrefix(tableIndex.collection);
       if (validations.isStringHasLength(collectionPrefix)) {
-        sk = `${collectionPrefix}#${entity}`;
+        sk = `${collectionPrefix}`;
+        entityKeys += `#${entity}`;
       } else {
-        sk = `$${entity}`;
+        entityKeys += `$${entity}`;
       }
   
       /** start beta/v1 condition **/
       if (modelVersion === ModelVersions.beta) {
         pk = `${pk}_${version}`;
       } else {
-        sk = `${sk}_${version}`;
+        entityKeys = `${entityKeys}_${version}`;
       }
       /** end beta/v1 condition **/
+  
+      if (isClustered) {
+        postfix = entityKeys;
+      } else {
+        sk = `${sk}${entityKeys}`
+      }
   
       // If no sk, append the sk properties to the pk
       if (Object.keys(tableIndex.sk).length === 0) {
         pk += sk;
+        if (isClustered) {
+          pk += postfix;
+        }
       }
   
       // If keys arent custom, set the prefixes
       if (!keys.pk.isCustom) {
         keys.pk.prefix = u.formatKeyCasing(pk, tableIndex.pk.casing);
       }
+  
       if (!keys.sk.isCustom) {
         keys.sk.prefix = u.formatKeyCasing(sk, tableIndex.sk.casing);
+        keys.sk.postfix = u.formatKeyCasing(postfix, tableIndex.sk.casing);
       }
   
       return keys;
@@ -8266,37 +8470,32 @@
       return prefix;
     }
   
-    /* istanbul ignore next */
-    _makeIndexKeysWithoutTail(index = TableIndex, pkFacets = {}, ...skFacets) {
-      this._validateIndex(index);
-      if (!skFacets.length) {
-        skFacets.push({});
+    _makeKeyTransforms(queryType) {
+      const transforms = [];
+      const shiftUp = (val) => u.shiftSortOrder(val, 1);
+      const noop = (val) => val;
+      switch (queryType) {
+        case QueryTypes.between:
+          transforms.push(noop, shiftUp);
+          break;
+        case QueryTypes.lte:
+        case QueryTypes.gt:
+          transforms.push(shiftUp);
+          break;
+        default:
+          transforms.push(noop);
+          break;
       }
-      let facets = this.model.facets.byIndex[index];
-      let prefixes = this.model.prefixes[index];
-      if (!prefixes) {
-        throw new Error(`Invalid index: ${index}`);
-      }
-      let pk = this._makeKey(prefixes.pk, facets.pk, pkFacets, this.model.facets.labels[index].pk, {excludeLabelTail: true});
-      let sk = [];
-      if (this.model.lookup.indexHasSortKeys[index]) {
-        for (let skFacet of skFacets) {
-          let hasLabels = this.model.facets.labels[index] && Array.isArray(this.model.facets.labels[index].sk);
-          let labels = hasLabels
-            ? this.model.facets.labels[index].sk
-            : []
-          let sortKey = this._makeKey(prefixes.sk, facets.sk, skFacet, labels, {excludeLabelTail: true});
-          if (sortKey !== undefined) {
-            sk.push(sortKey);
-          }
-        }
-      }
-      return { pk, sk };
+      return transforms;
     }
   
     /* istanbul ignore next */
-    _makeIndexKeys(index = TableIndex, pkFacets = {}, ...skFacets) {
+    _makeIndexKeysWithoutTail(state = {}, skFacets = []) {
+      const index = state.query.index || TableIndex;
       this._validateIndex(index);
+      const pkFacets = state.query.keys.pk || {};
+      const excludePostfix = state.query.options.indexType === IndexTypes.clustered && state.query.options._isCollectionQuery;
+      const transforms = this._makeKeyTransforms(state.query.type);
       if (!skFacets.length) {
         skFacets.push({});
       }
@@ -8305,21 +8504,84 @@
       if (!prefixes) {
         throw new Error(`Invalid index: ${index}`);
       }
-      let pk = this._makeKey(prefixes.pk, facets.pk, pkFacets, this.model.facets.labels[index].pk);
+      let partitionKey = this._makeKey(prefixes.pk, facets.pk, pkFacets, this.model.facets.labels[index].pk, {excludeLabelTail: true});
+      let pk = partitionKey.key;
       let sk = [];
+      let fulfilled = false;
       if (this.model.lookup.indexHasSortKeys[index]) {
-        for (let skFacet of skFacets) {
+        for (let i = 0; i < skFacets.length; i++) {
+          const skFacet = skFacets[i];
+          const transform = transforms[i];
+          let hasLabels = this.model.facets.labels[index] && Array.isArray(this.model.facets.labels[index].sk);
+          let labels = hasLabels
+            ? this.model.facets.labels[index].sk
+            : [];
+          let sortKey = this._makeKey(prefixes.sk, facets.sk, skFacet, labels, {
+            excludeLabelTail: true,
+            excludePostfix,
+            transform,
+          });
+          if (sortKey.key !== undefined) {
+            sk.push(sortKey.key);
+          }
+          if (sortKey.fulfilled) {
+            fulfilled = true;
+          }
+        }
+      }
+      return {
+        pk,
+        sk,
+        fulfilled,
+      };
+    }
+  
+    /* istanbul ignore next */
+    _makeIndexKeys({
+       index = TableIndex,
+       pkAttributes = {},
+       skAttributes = [],
+       queryType,
+       indexType,
+       isCollection = false,
+    }) {
+  
+      this._validateIndex(index);
+      const excludePostfix = indexType === IndexTypes.clustered && isCollection;
+      const transforms = this._makeKeyTransforms(queryType);
+      if (!skAttributes.length) {
+        skAttributes.push({});
+      }
+      let facets = this.model.facets.byIndex[index];
+      let prefixes = this.model.prefixes[index];
+      if (!prefixes) {
+        throw new Error(`Invalid index: ${index}`);
+      }
+      let pk = this._makeKey(prefixes.pk, facets.pk, pkAttributes, this.model.facets.labels[index].pk);
+      let sk = [];
+      let fulfilled = false;
+      if (this.model.lookup.indexHasSortKeys[index]) {
+        for (let i = 0; i < skAttributes.length; i++) {
+          const skFacet = skAttributes[i];
+          const transform = transforms[i];
           let hasLabels = this.model.facets.labels[index] && Array.isArray(this.model.facets.labels[index].sk);
           let labels = hasLabels
             ? this.model.facets.labels[index].sk
             : []
-          let sortKey = this._makeKey(prefixes.sk, facets.sk, skFacet, labels);
-          if (sortKey !== undefined) {
-            sk.push(sortKey);
+          let sortKey = this._makeKey(prefixes.sk, facets.sk, skFacet, labels, {excludePostfix, transform});
+          if (sortKey.key !== undefined) {
+            sk.push(sortKey.key);
+          }
+          if (sortKey.fulfilled) {
+            fulfilled = true;
           }
         }
       }
-      return { pk, sk };
+      return {
+        pk: pk.key,
+        sk,
+        fulfilled
+      };
     }
   
     _isNumericKey(isCustom, facets = [], labels = []) {
@@ -8331,11 +8593,15 @@
     }
   
     /* istanbul ignore next */
-    _makeKey({prefix, isCustom, casing} = {}, facets = [], supplied = {}, labels = [], {excludeLabelTail} = {}) {
+    _makeKey({prefix, isCustom, casing, postfix} = {}, facets = [], supplied = {}, labels = [], {excludeLabelTail, excludePostfix, transform = (val) => val} = {}) {
       if (this._isNumericKey(isCustom, facets, labels)) {
-        return supplied[facets[0]];
+        return {
+          fulfilled: supplied[facets[0]] !== undefined,
+          key: supplied[facets[0]],
+        };
       }
       let key = prefix;
+      let foundCount = 0;
       for (let i = 0; i < labels.length; i++) {
         const { name, label } = labels[i];
         const attribute = this.model.schema.getAttribute(name);
@@ -8357,11 +8623,24 @@
         if (supplied[name] === undefined) {
           break;
         }
-  
+        foundCount++;
         key = `${key}${value}`;
       }
   
-      return u.formatKeyCasing(key, casing);
+  
+  
+      // when sort keys are fulfilled we need to add the entity postfix
+      // this is used for cluster indexes
+      const fulfilled = foundCount === labels.length;
+      const shouldApplyPostfix = typeof postfix === 'string' && !excludePostfix;
+      if (fulfilled && shouldApplyPostfix) {
+        key += postfix;
+      }
+  
+      return {
+        fulfilled,
+        key: transform(u.formatKeyCasing(key, casing))
+      };
     }
   
     _findBestIndexKeyMatch(attributes = {}) {
@@ -8609,6 +8888,7 @@
       let indexFieldTranslation = {};
       let indexHasSortKeys = {};
       let indexHasSubCollections = {};
+      let clusteredIndexes = new Set();
       let indexAccessPatternTransaction = {
         fromAccessPatternToIndex: {},
         fromIndexToAccessPattern: {},
@@ -8639,6 +8919,10 @@
         let accessPattern = accessPatterns[i];
         let index = indexes[accessPattern];
         let indexName = index.index || TableIndex;
+        let indexType = typeof index.type === 'string' ? index.type : IndexTypes.isolated;
+        if (indexType === 'clustered') {
+          clusteredIndexes.add(accessPattern);
+        }
         if (seenIndexes[indexName] !== undefined) {
           if (indexName === TableIndex) {
             throw new e.ElectroError(e.ErrorCodes.DuplicateIndexes, `Duplicate index defined in model found in Access Pattern '${accessPattern}': '${u.formatIndexNameForDisplay(indexName)}'. This could be because you forgot to specify the index name of a secondary index defined in your model.`);
@@ -8713,8 +8997,10 @@
           pk,
           sk,
           collection,
+          hasSk,
           customFacets,
           index: indexName,
+          type: indexType,
         };
   
         indexHasSubCollections[indexName] = inCollection && Array.isArray(collection);
@@ -8858,6 +9144,7 @@
         facets,
         subCollections,
         indexHasSortKeys,
+        clusteredIndexes,
         indexHasSubCollections,
         indexes: normalized,
         indexField: indexFieldTranslation,
@@ -8882,11 +9169,18 @@
       return normalized;
     }
   
-    _normalizePrefixes(service, entity, version, indexes, modelVersion) {
+    _normalizeKeyFixings({service, entity, version, indexes, modelVersion, clusteredIndexes}) {
       let prefixes = {};
       for (let accessPattern of Object.keys(indexes)) {
-        let item = indexes[accessPattern];
-        prefixes[item.index] = this._makeKeyPrefixes(service, entity, version, item, modelVersion);
+        let tableIndex = indexes[accessPattern];
+        prefixes[tableIndex.index] = this._makeKeyFixings({
+          service,
+          entity,
+          version,
+          tableIndex,
+          modelVersion,
+          isClustered: clusteredIndexes.has(accessPattern),
+        });
       }
       return prefixes;
     }
@@ -9026,13 +9320,15 @@
         collections,
         subCollections,
         indexCollection,
+        clusteredIndexes,
         indexHasSortKeys,
         indexAccessPattern,
         indexHasSubCollections,
       } = this._normalizeIndexes(model.indexes);
       let schema = new Schema(model.attributes, facets, {client});
       let filters = this._normalizeFilters(model.filters);
-      let prefixes = this._normalizePrefixes(service, entity, version, indexes, modelVersion);
+      // todo: consider a rename
+      let prefixes = this._normalizeKeyFixings({service, entity, version, indexes, modelVersion, clusteredIndexes});
   
       // apply model defined labels
       let schemaDefinedLabels = schema.getLabels();
@@ -9057,6 +9353,7 @@
         modelVersion,
         subCollections,
         lookup: {
+          clusteredIndexes,
           indexHasSortKeys,
           indexHasSubCollections
         },
@@ -9857,6 +10154,7 @@
           this.impacted = {};
           this.expression = "";
           this.prefix = prefix || "";
+          this.refs = {};
       }
   
       incrementName(name) {
@@ -9917,8 +10215,9 @@
           return this.expression;
       }
   
-      setImpacted(operation, path) {
+      setImpacted(operation, path, ref) {
           this.impacted[path] = operation;
+          this.refs[path] = ref;
       }
   }
   
@@ -10008,7 +10307,7 @@
                               }
   
                               const formatted = template(options, target, paths.expression, ...attributeValues);
-                              builder.setImpacted(operation, paths.json);
+                              builder.setImpacted(operation, paths.json, target);
                               if (canNest) {
                                   seen.add(paths.expression);
                                   seen.add(formatted);
@@ -11437,6 +11736,16 @@
       return record;
     }
   
+    checkOperation(attribute, operation) {
+      if (!attribute) {
+        throw new e.ElectroAttributeValidationError(path, `Attribute "${path}" does not exist on model.`);
+      } else if (attribute.required && operation === 'remove') {
+        throw new e.ElectroAttributeValidationError(attribute.path, `Attribute "${attribute.path}" is Required and cannot be removed`);
+      } else if (attribute.readOnly) {
+        throw new e.ElectroAttributeValidationError(attribute.path, `Attribute "${attribute.path}" is Read-Only and cannot be updated`);
+      }
+    }
+  
     checkRemove(paths = []) {
       for (const path of paths) {
         const attribute = this.traverser.getPath(path);
@@ -11513,7 +11822,7 @@
   },{"./errors":20,"./set":26,"./types":27,"./util":29,"./validations":30}],25:[function(require,module,exports){
   const { Entity } = require("./entity");
   const { clauses } = require("./clauses");
-  const { KeyCasing, ServiceVersions, Pager, ElectroInstance, ElectroInstanceTypes, ModelVersions } = require("./types");
+  const { KeyCasing, ServiceVersions, Pager, ElectroInstance, ElectroInstanceTypes, ModelVersions, IndexTypes } = require("./types");
   const { FilterFactory } = require("./filters");
   const { FilterOperations } = require("./operations");
   const { WhereFactory } = require("./where");
@@ -11578,7 +11887,9 @@
       this.entities = {};
       this.find = {};
       this.collectionSchema = {};
+      this.compositeAttributes = {};
       this.collections = {};
+      this.identifiers = {};
       this._instance = ElectroInstance.service;
       this._instanceType = ElectroInstanceTypes.service;
     }
@@ -11602,7 +11913,9 @@
       this.entities = {};
       this.find = {};
       this.collectionSchema = {};
+      this.compositeAttributes = {};
       this.collections = {};
+      this.identifiers = {};
       this._instance = ElectroInstance.service;
       this._instanceType = ElectroInstanceTypes.service;
     }
@@ -11696,12 +12009,12 @@
         throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Service name defined on joined instance, ${entity.model.service}, does not match the name of this Service: ${this.service.name}. Verify or update the service name on the Entity/Model to match the name defined on this service.`);
       }
   
-      if (this._getTableName()) {
-        entity._setTableName(this._getTableName());
+      if (this.getTableName()) {
+        entity.setTableName(this.getTableName());
       }
   
       if (options.client) {
-        entity._setClient(options.client);
+        entity.setClient(options.client);
       }
   
       if (options.logger) {
@@ -11718,20 +12031,63 @@
   
       this.entities[name] = entity;
       for (let collection of this.entities[name].model.collections) {
+        // todo: this used to be inside the collection callback, it does not do well being ran multiple times
+        // this forlook adds the entity filters multiple times
         this._addCollectionEntity(collection, name, this.entities[name]);
         this.collections[collection] = (...facets) => {
-          let { entities, attributes, identifiers } = this.collectionSchema[collection];
-          return this._makeCollectionChain(collection, attributes, clauses, identifiers, entities, Object.values(entities)[0], ...facets);
+          return this._makeCollectionChain({
+            name: collection,
+            initialClauses: clauses,
+          }, ...facets);
         };
+      }
+      for (const collection in this.collectionSchema) {
+        const collectionSchema = this.collectionSchema[collection];
+        this.compositeAttributes[collection] = this._collectionSchemaToCompositeAttributes(collectionSchema);
       }
       this.find = { ...this.entities, ...this.collections };
       return this;
     }
   
-    _setClient(client) {
+    _collectionSchemaToCompositeAttributes(schema) {
+      const keys = schema.keys;
+      return {
+        hasSortKeys: keys.hasSk,
+        customFacets: {
+          pk: keys.pk.isCustom,
+          sk: keys.sk.isCustom,
+        },
+        pk: keys.pk.facets,
+        sk: keys.sk.facets,
+        all: [
+          ...keys.pk.facets.map(name => {
+            return {
+              name,
+              index: keys.index,
+              type: 'pk',
+            };
+          }),
+          ...keys.sk.facets.map(name => {
+            return {
+              name,
+              index: keys.index,
+              type: 'sk',
+            };
+          })
+        ],
+        collection: keys.collection,
+        hasSubCollections: schema.hasSubCollections,
+        casing: {
+          pk: keys.pk.casing,
+          sk: keys.sk.casing,
+        },
+      }
+    }
+  
+    setClient(client) {
       if (client !== undefined) {
         for (let entity of Object.values(this.entities)) {
-          entity._setClient(client);
+          entity.setClient(client);
         }
       }
     }
@@ -11788,8 +12144,9 @@
     }
   
     findKeyOwner(lastEvaluatedKey) {
-      return Object.values(this.entities)
-        .find((entity) => entity.ownsLastEvaluatedKey(lastEvaluatedKey));
+      return Object.values(this.entities)[0];
+      // return Object.values(this.entities)
+      // 	.find((entity) => entity.ownsLastEvaluatedKey(lastEvaluatedKey));
     }
   
     expectKeyOwner(lastEvaluatedKey) {
@@ -11801,8 +12158,9 @@
     }
   
     findCursorOwner(cursor) {
-      return Object.values(this.entities)
-        .find(entity => entity.ownsCursor(cursor));
+      return Object.values(this.entities)[0];
+      // return Object.values(this.entities)
+      // 	.find(entity => entity.ownsCursor(cursor));
     }
   
     expectCursorOwner(cursor) {
@@ -11813,24 +12171,34 @@
       return owner;
     }
   
-    _getTableName() {
+    getTableName() {
       return this.service.table;
     }
   
-    _setTableName(table) {
+    setTableName(table) {
       this.service.table = table;
       for (let entity of Object.values(this.entities)) {
-        entity._setTableName(table);
+        entity.setTableName(table);
       }
     }
   
-    _makeCollectionChain(name = "", attributes = {}, initialClauses = {}, expressions = {}, entities = {}, entity = {}, facets = {}) {
+    _makeCollectionChain({
+      name = "",
+      initialClauses = {},
+    }, facets = {}) {
+      const { entities, attributes, identifiers, indexType } = this.collectionSchema[name];
+      const compositeAttributes = this.compositeAttributes[name];
+      const allEntities = Object.values(entities);
+      const entity = allEntities[0];
+  
       let filterBuilder = new FilterFactory(attributes, FilterOperations);
       let whereBuilder = new WhereFactory(attributes, FilterOperations);
       let clauses = {...initialClauses};
   
       clauses = filterBuilder.injectFilterClauses(clauses);
       clauses = whereBuilder.injectWhereClauses(clauses);
+  
+      const expression = identifiers.expression || "";
   
       let options = {
         // expressions, // DynamoDB doesnt return what I expect it would when provided with these entity filters
@@ -11842,9 +12210,20 @@
             return this.expectKeyOwner(key).serializeCursor(key);
           },
           deserialize: (cursor) => {
-            return this.expectCursorOwner(cursor).deserilizeCursor(cursor);
+            return this.expectCursorOwner(cursor).deserializeCursor(cursor);
           }
-        }
+        },
+        expressions: {
+          names: identifiers.names || {},
+          values: identifiers.values || {},
+          expression: allEntities.length > 1
+            ? `(${expression})`
+            : expression
+        },
+        attributes,
+        entities,
+        indexType,
+        compositeAttributes,
       };
   
       return entity.collection(name, clauses, facets, options);
@@ -11990,7 +12369,33 @@
       if (invalidDefinition) {
         throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Validation Error while joining entity, "${name}". ${invalidIndexMessages.join(", ")}`);
       }
-      return definition;
+      const sharedSortKeyAttributes = [];
+      const sharedSortKeyCompositeAttributeLabels = [];
+      const sharedSortKeyLabels = [];
+      if (providedIndex.hasSk && definition.hasSk && Array.isArray(definition.sk.labels)) {
+        for (let i = 0; i < definition.sk.labels.length; i++) {
+          const providedLabels = providedIndex.sk.labels[i];
+          const definedLabels = definition.sk.labels[i];
+  
+          const namesMatch = providedLabels && providedLabels.name === definedLabels.name;
+          const labelsMatch = providedLabels && providedLabels.label === definedLabels.label;
+          if (!namesMatch || !labelsMatch) {
+            break;
+          }
+          sharedSortKeyLabels.push({...definedLabels});
+          sharedSortKeyCompositeAttributeLabels.push({...definition.sk.facetLabels[i]})
+          sharedSortKeyAttributes.push(definition.sk.facets[i]);
+        }
+      }
+      return {
+        ...definition,
+        sk: {
+          ...definition.sk,
+          facets: sharedSortKeyAttributes,
+          facetLabels: sharedSortKeyCompositeAttributeLabels,
+          labels: sharedSortKeyLabels,
+        }
+      };
     }
   
     _getEntityIndexFromCollectionName(collection, entity) {
@@ -12019,7 +12424,7 @@
       );
     }
   
-    _processSubCollections(existing, provided, entityName, collectionName) {
+    _processSubCollections(providedType, existing, provided, entityName, collectionName) {
       let existingSubCollections;
       let providedSubCollections;
       if (v.isArrayHasLength(existing)) {
@@ -12033,15 +12438,19 @@
         providedSubCollections = [provided];
       }
   
+      if (providedSubCollections.length > 1 && providedType === IndexTypes.clustered) {
+        throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Clustered indexes do not support sub-collections. The sub-collection "${collectionName}", on Entity "${entityName}" must be defined as either an individual collection name or the index must be redefined as an isolated cluster`);
+      }
       const existingRequiredIndex = existingSubCollections.indexOf(collectionName);
       const providedRequiredIndex = providedSubCollections.indexOf(collectionName);
       if (providedRequiredIndex < 0) {
-        throw new Error(`The collection definition for Collection "${collectionName}" does not exist on Entity "${entityName}".`);
+        throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `The collection definition for Collection "${collectionName}" does not exist on Entity "${entityName}".`);
       }
       if (existingRequiredIndex >= 0 && existingRequiredIndex !== providedRequiredIndex) {
-        throw new Error(`The collection definition for Collection "${collectionName}", on Entity "${entityName}", does not match the established sub-collection order for this service. The collection name provided in slot ${providedRequiredIndex + 1}, ${providedSubCollections[existingRequiredIndex] === undefined ? '(not found)' : `"${providedSubCollections[existingRequiredIndex]}"`}, on Entity "${entityName}", does not match the established collection name in slot ${existingRequiredIndex + 1}, "${collectionName}". When using sub-collections, all Entities within a Service must must implement the same order for all preceding sub-collections.`);
+        throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `The collection definition for Collection "${collectionName}", on Entity "${entityName}", does not match the established sub-collection order for this service. The collection name provided in slot ${providedRequiredIndex + 1}, ${providedSubCollections[existingRequiredIndex] === undefined ? '(not found)' : `"${providedSubCollections[existingRequiredIndex]}"`}, on Entity "${entityName}", does not match the established collection name in slot ${existingRequiredIndex + 1}, "${collectionName}". When using sub-collections, all Entities within a Service must must implement the same order for all preceding sub-collections.`);
       }
       let length = Math.max(existingRequiredIndex, providedRequiredIndex);
+  
       for (let i = 0; i <= length; i++) {
         let existingCollection = existingSubCollections[i];
         let providedCollection = providedSubCollections[i];
@@ -12050,7 +12459,7 @@
             return i;
           }
           if (existingCollection !== providedCollection) {
-            throw new Error(`The collection definition for Collection "${collectionName}", on Entity "${entityName}", does not match the established sub-collection order for this service. The collection name provided in slot ${i+1}, "${providedCollection}", on Entity "${entityName}", does not match the established collection name in slot ${i + 1}, "${existingCollection}". When using sub-collections, all Entities within a Service must must implement the same order for all preceding sub-collections.`);
+            throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `The collection definition for Collection "${collectionName}", on Entity "${entityName}", does not match the established sub-collection order for this service. The collection name provided in slot ${i+1}, "${providedCollection}", on Entity "${entityName}", does not match the established collection name in slot ${i + 1}, "${existingCollection}". When using sub-collections, all Entities within a Service must must implement the same order for all preceding sub-collections.`);
           }
         } else if (v.isStringHasLength(providedCollection)) {
           if (providedCollection === collectionName) {
@@ -12077,27 +12486,43 @@
         },
         index: undefined,
         table: "",
-        collection: []
+        collection: [],
+        indexType: undefined,
+        hasSubCollections: undefined,
       };
+      const providedType = providedIndex.type || IndexTypes.isolated;
+      if (this.collectionSchema[collection].indexType === undefined) {
+        this.collectionSchema[collection].indexType = providedType;
+      } else if (this.collectionSchema[collection].indexType !== providedType) {
+        throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Index type mismatch on collection ${collection}. The entity ${name} defines the index as type ${providedType} while the established type for that index is ${this.collectionSchema[collection].indexType}. Note that when omitted, indexes default to the type "${IndexTypes.isolated}"`);
+      }
       if (this.collectionSchema[collection].entities[name] !== undefined) {
         throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Entity with name '${name}' has already been joined to this service.`);
       }
   
       if (this.collectionSchema[collection].table !== "") {
-        if (this.collectionSchema[collection].table !== entity._getTableName()) {
-          throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Entity with name '${name}' is defined to use a different Table than what is defined on other Service Entities and/or the Service itself. Entity '${name}' is defined with table name '${entity._getTableName()}' but the Service has been defined to use table name '${this.collectionSchema[collection].table}'. All Entities in a Service must reference the same DynamoDB table. To ensure all Entities will use the same DynamoDB table, it is possible to apply the property 'table' to the Service constructor's configuration parameter.`);
+        if (this.collectionSchema[collection].table !== entity.getTableName()) {
+          throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Entity with name '${name}' is defined to use a different Table than what is defined on other Service Entities and/or the Service itself. Entity '${name}' is defined with table name '${entity.getTableName()}' but the Service has been defined to use table name '${this.collectionSchema[collection].table}'. All Entities in a Service must reference the same DynamoDB table. To ensure all Entities will use the same DynamoDB table, it is possible to apply the property 'table' to the Service constructor's configuration parameter.`);
         }
       } else {
-        this.collectionSchema[collection].table = entity._getTableName();
+        this.collectionSchema[collection].table = entity.getTableName();
       }
+  
       this.collectionSchema[collection].keys = this._processEntityKeys(name, this.collectionSchema[collection].keys, providedIndex);
       this.collectionSchema[collection].attributes = this._processEntityAttributes(name, this.collectionSchema[collection].attributes, entity.model.schema.attributes, this.collectionSchema[collection].keys);
       this.collectionSchema[collection].entities[name] = entity;
       this.collectionSchema[collection].identifiers = this._processEntityIdentifiers(this.collectionSchema[collection].identifiers, entity.getIdentifierExpressions(name));
       this.collectionSchema[collection].index = this._processEntityCollectionIndex(this.collectionSchema[collection].index, providedIndex.index, name, collection);
-      let collectionIndex = this._processSubCollections(this.collectionSchema[collection].collection, providedIndex.collection, name, collection);
+      let collectionIndex = this._processSubCollections(
+        providedType,
+        this.collectionSchema[collection].collection,
+        providedIndex.collection,
+        name,
+        collection
+      );
       this.collectionSchema[collection].collection[collectionIndex] = collection;
-  
+      this.collectionSchema[collection].hasSubCollections = this.collectionSchema[collection].hasSubCollections || Array.isArray(providedIndex.collection);
+      return this.collectionSchema[collection];
     }
   
     _processEntityCollectionIndex(existing, provided, name, collection) {
@@ -12189,6 +12614,7 @@
     begins: "begins",
     between: "between",
     collection: "collection",
+    clustered_collection: 'clustered_collection',
     is: "is"
   };
   
@@ -12207,11 +12633,62 @@
     batchWrite: "batchWrite"
   };
   
+  const IndexTypes = {
+    isolated: 'isolated',
+    clustered: 'clustered',
+  }
+  
   const Comparisons = {
-    gte: ">=",
-    gt: ">",
-    lte: "<=",
+    lte: '<=',
     lt: "<",
+    gte: ">=",
+    gt: '>'
+  }
+  
+  const PartialComparisons = {
+    lt: "<",
+    gte: ">=",
+  
+    /**
+     * gt becomes gte and last character of incoming value is shifted up one character code
+     * example:
+     * sk > '2020-09-05'
+     *   expected
+     *     - 2020-09-06@05:05_hero
+     *     - 2020-10-05@05:05_hero
+     *     - 2022-02-05@05:05_villian
+     *     - 2022-06-05@05:05_clown
+     *     - 2022-09-06@05:05_clown
+     *   actual (bad - includes all 2020-09-05 records)
+     *     - 2020-09-05@05:05_hero
+     *     - 2020-09-06@05:05_hero
+     *     - 2020-10-05@05:05_hero
+     *     - 2022-02-05@05:05_villian
+     *     - 2022-06-05@05:05_clown
+     */
+    gt: ">=",
+  
+    /**
+     * lte becomes lt and last character of incoming value is shifted up one character code
+     * example:
+     * sk >= '2020-09-05'
+     *   expected
+     *     - 2012-02-05@05:05_clown
+     *     - 2015-10-05@05:05_hero
+     *     - 2017-02-05@05:05_clown
+     *     - 2017-02-05@05:05_villian
+     *     - 2020-02-05@05:05_clown
+     *     - 2020-02-25@05:05_clown
+     *     - 2020-09-05@05:05_hero
+     *   actual (bad - missing all 2020-09-05 records)
+     *     - 2012-02-05@05:05_clown
+     *     - 2015-10-05@05:05_hero
+     *     - 2017-02-05@05:05_clown
+     *     - 2017-02-05@05:05_villian
+     *     - 2020-02-05@05:05_clown
+     *     - 2020-02-25@05:05_clown
+     */
+    lte: "<",
   };
   
   const CastTypes = ["string", "number"];
@@ -12381,6 +12858,7 @@
     CastTypes,
     KeyCasing,
     PathTypes,
+    IndexTypes,
     QueryTypes,
     ValueTypes,
     TableIndex,
@@ -12400,6 +12878,7 @@
     UnprocessedTypes,
     AttributeWildCard,
     TerminalOperation,
+    PartialComparisons,
     FormatToReturnValues,
     AttributeProxySymbol,
     ElectroInstanceTypes,
@@ -12704,6 +13183,19 @@
     return formatted;
   }
   
+  function shiftSortOrder(str = '', codePoint) {
+    let newString = '';
+    for (let i = 0; i < str.length; i++) {
+      const isLast = i === str.length - 1;
+      let char = str[i];
+      if (isLast) {
+        char = String.fromCodePoint(char.codePointAt(0) + codePoint);
+      }
+      newString += char;
+    }
+    return newString;
+  }
+  
   module.exports = {
     getUnique,
     batchItems,
@@ -12711,13 +13203,14 @@
     removePadding,
     removeFixings,
     parseJSONPath,
+    shiftSortOrder,
     getInstanceType,
     getModelVersion,
     formatKeyCasing,
+    cursorFormatter,
     genericizeJSONPath,
     commaSeparatedString,
     formatAttributeCasing,
-    cursorFormatter,
     applyBetaModelOverrides,
     formatIndexNameForDisplay,
     BatchGetOrderMaintainer,
@@ -12881,6 +13374,11 @@
       },
       collection: {
         type: ["array", "string"]
+      },
+      type: {
+        type: 'string',
+        enum: ['clustered', 'isolated'],
+        required: false,
       }
     },
   };
@@ -13156,12 +13654,8 @@
         throw new Error(`Invalid operation: "${operation}". Please report`);
       }
       const names = this.setName({}, name, name);
-      if (values.length) {
-        for (const value of values) {
-          this.setValue(name, value);
-        }
-      }
-      const condition = template({}, name.expression, names.prop, ...values);
+      const valueExpressions = values.map(value => this.setValue(name, value));
+      const condition = template({}, names.expression, names.prop, ...valueExpressions);
       this.add(condition);
     }
   
@@ -13178,16 +13672,16 @@
   
     getExpressionType(methodType) {
       switch (methodType) {
-        case MethodTypes.put:
-        case MethodTypes.create:
-        case MethodTypes.update:
-        case MethodTypes.patch:
-        case MethodTypes.delete:
-        case MethodTypes.remove:
-          return ExpressionTypes.ConditionExpression
-        default:
-          return ExpressionTypes.FilterExpression
-      }
+      case MethodTypes.put:
+      case MethodTypes.create:
+      case MethodTypes.update:
+      case MethodTypes.patch:
+      case MethodTypes.delete:
+      case MethodTypes.remove:
+        return ExpressionTypes.ConditionExpression
+      default:
+        return ExpressionTypes.FilterExpression
+    }
     }
   
     buildClause(cb) {
