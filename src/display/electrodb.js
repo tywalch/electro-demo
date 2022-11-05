@@ -1,14 +1,15 @@
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
   const { Entity } = require("./src/entity");
   const { Service } = require("./src/service");
-  const { createCustomAttribute } = require('./src/schema');
+  const { createCustomAttribute, CustomAttributeType } = require('./src/schema');
   const { ElectroError, ElectroValidationError, ElectroUserValidationError, ElectroAttributeValidationError } = require('./src/errors');
   
   module.exports = {
       Entity,
       Service,
-      createCustomAttribute,
       ElectroError,
+      CustomAttributeType,
+      createCustomAttribute,
       ElectroValidationError,
   };
   
@@ -9325,7 +9326,7 @@
         indexAccessPattern,
         indexHasSubCollections,
       } = this._normalizeIndexes(model.indexes);
-      let schema = new Schema(model.attributes, facets, {client});
+      let schema = new Schema(model.attributes, facets, {client, isRoot: true});
       let filters = this._normalizeFilters(model.filters);
       // todo: consider a rename
       let prefixes = this._normalizeKeyFixings({service, entity, version, indexes, modelVersion, clusteredIndexes});
@@ -10899,15 +10900,22 @@
         traverser: this.traverser
       });
       this.properties = properties;
+      this.isRoot = !!definition.isRoot;
       this.get = this._makeGet(definition.get, properties);
       this.set = this._makeSet(definition.set, properties);
     }
   
     _makeGet(get, properties) {
       this._checkGetSet(get, "get");
-  
-      const getter = get || ((attr) => attr);
-  
+      const getter = get || ((val) => {
+        const isEmpty = !val || Object.keys(val).length === 0;
+        const isNotRequired = !this.required;
+        const isRoot = this.isRoot;
+        if (isEmpty && isRoot && !isNotRequired) {
+          return undefined;
+        }
+        return val;
+      });
       return (values, siblings) => {
         const data = {};
   
@@ -10916,6 +10924,9 @@
         }
   
         if (values === undefined) {
+          if (!get) {
+            return undefined;
+          }
           return getter(data, siblings);
         }
   
@@ -10936,11 +10947,23 @@
   
     _makeSet(set, properties) {
       this._checkGetSet(set, "set");
-      const setter = set || ((attr) => attr);
+      const setter = set || ((val) => {
+        const isEmpty = !val || Object.keys(val).length === 0;
+        const isNotRequired = !this.required;
+        const isRoot = this.isRoot;
+        if (isEmpty && isRoot && !isNotRequired) {
+          return undefined;
+        }
+        return val;
+      });
+  
       return (values, siblings) => {
         const data = {};
         if (values === undefined) {
-          return setter(data, siblings);
+          if (!set) {
+            return undefined;
+          }
+          return setter(values, siblings);
         }
         for (const name of Object.keys(properties.attributes)) {
           const attribute = properties.attributes[name];
@@ -10999,17 +11022,17 @@
     }
   
     val(value) {
-      const getValue = (v) => {
-        v = this.cast(v);
-        if (v === undefined) {
-          v = this.default();
+      const incomingIsEmpty = value === undefined;
+      let fromDefault = false;
+      let data;
+      if (value === undefined) {
+        data = this.default();
+        if (data !== undefined) {
+          fromDefault = true;
         }
-        return v;
+      } else {
+        data = value;
       }
-  
-      let data = value === undefined
-        ? getValue(value)
-        : value;
   
       const valueType = getValueType(data);
   
@@ -11027,6 +11050,10 @@
         if (results !== undefined) {
           response[name] = results;
         }
+      }
+  
+      if (Object.keys(response).length === 0 && !fromDefault && this.isRoot && !this.required && incomingIsEmpty) {
+        return undefined;
       }
   
       return response;
@@ -11334,9 +11361,9 @@
   }
   
   class Schema {
-    constructor(properties = {}, facets = {}, {traverser = new AttributeTraverser(), client, parent} = {}) {
+    constructor(properties = {}, facets = {}, {traverser = new AttributeTraverser(), client, parent, isRoot} = {}) {
       this._validateProperties(properties, parent);
-      let schema = Schema.normalizeAttributes(properties, facets, {traverser, client, parent});
+      let schema = Schema.normalizeAttributes(properties, facets, {traverser, client, parent, isRoot});
       this.client = client;
       this.attributes = schema.attributes;
       this.enums = schema.enums;
@@ -11347,9 +11374,10 @@
       this.requiredAttributes = schema.requiredAttributes;
       this.translationForWatching = this._formatWatchTranslations(this.attributes);
       this.traverser = traverser;
+      this.isRoot = !!isRoot;
     }
   
-    static normalizeAttributes(attributes = {}, facets = {}, {traverser, client, parent} = {}) {
+    static normalizeAttributes(attributes = {}, facets = {}, {traverser, client, parent, isRoot} = {}) {
       const attributeHasParent = !!parent;
       let invalidProperties = [];
       let normalized = {};
@@ -11448,6 +11476,7 @@
           postfix,
           traverser,
           isKeyField,
+          isRoot: !!isRoot,
           label: attribute.label,
           required: !!attribute.required,
           default: attribute.default,
@@ -11811,11 +11840,20 @@
     };
   }
   
+  function CustomAttributeType(base) {
+    const supported = ['string', 'number', 'boolean', 'any'];
+    if (!supported.includes(base)) {
+      throw new Error(`OpaquePrimitiveType only supports base types: ${u.commaSeparatedString(supported)}`);
+    }
+    return base;
+  }
+  
   module.exports = {
     Schema,
     Attribute,
     SetAttribute,
     CastTypes,
+    CustomAttributeType,
     createCustomAttribute,
   };
   
