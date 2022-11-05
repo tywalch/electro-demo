@@ -5250,6 +5250,8 @@
   
   const createCustomAttribute = ElectroDB.createCustomAttribute;
   
+  const CustomAttributeType = ElectroDB.CustomAttributeType;
+  
   window.ElectroDB = {
       Entity,
       Service,
@@ -5257,6 +5259,7 @@
       printMessage,
       printToScreen,
       createCustomAttribute,
+      CustomAttributeType,
   };
   },{"../index":1}],17:[function(require,module,exports){
   const { QueryTypes, MethodTypes, ItemOperations, ExpressionTypes, TableIndex, TerminalOperation, KeyTypes, IndexTypes } = require("./types");
