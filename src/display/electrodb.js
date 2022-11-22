@@ -5292,7 +5292,7 @@ function batchAction(action, type, entity, state, payload) {
 let clauses = {
 	index: {
 		name: "index",
-		children: ["get", "delete", "update", "query", "put", "scan", "collection", "clusteredCollection", "create", "remove", "patch", "batchPut", "batchDelete", "batchGet"],
+		children: ["get", "delete", "update", "query", "upsert", "put", "scan", "collection", "clusteredCollection", "create", "remove", "patch", "batchPut", "batchDelete", "batchGet"],
 	},
 	clusteredCollection: {
 		name: "clusteredCollection",
@@ -5447,6 +5447,31 @@ let clauses = {
 			}
 		},
 		children: ["where", "params", "go"],
+	},
+	upsert: {
+		name: 'upsert',
+		action(entity, state, payload = {}) {
+			if (state.getError() !== null) {
+				return state;
+			}
+			try {
+				let record = entity.model.schema.checkCreate({...payload});
+				const attributes = state.getCompositeAttributes();
+				return state
+					.setMethod(MethodTypes.upsert)
+					.setType(QueryTypes.eq)
+					.applyUpsert(record)
+					.setPK(entity._expectFacets(record, attributes.pk))
+					.ifSK(() => {
+						entity._expectFacets(record, attributes.sk);
+						state.setSK(entity._buildQueryFacets(record, attributes.sk));
+					});
+			} catch(err) {
+				state.setError(err);
+				return state;
+			}
+		},
+		children: ["params", "go", "where"],
 	},
 	put: {
 		name: "put",
@@ -5942,6 +5967,9 @@ class ChainState {
 			put: {
 				data: {},
 			},
+			upsert: {
+				data: {}
+			},
 			keys: {
 				provided: [],
 				pk: {},
@@ -6138,6 +6166,11 @@ class ChainState {
 		}
 	}
 
+	applyUpsert(data = {}) {
+		this.query.upsert.data = {...this.query.upsert.data, ...data};
+		return this;
+	}
+
 	applyPut(data = {}) {
 		this.query.put.data = {...this.query.put.data, ...data};
 		return this;
@@ -6324,6 +6357,7 @@ const { AllPages,
 	ResultOrderParam,
 	IndexTypes,
 	PartialComparisons,
+	MethodTypeTranslation,
 } = require("./types");
 const { FilterFactory } = require("./filters");
 const { FilterOperations } = require("./operations");
@@ -6557,6 +6591,11 @@ class Entity {
 		}
 	}
 
+	upsert(attributes = {}) {
+		let index = TableIndex;
+		return this._makeChain(index, this._clausesWithFilters, clauses.index).upsert(attributes);
+	}
+
 	create(attributes = {}) {
 		let index = TableIndex;
 		let options = {};
@@ -6615,7 +6654,6 @@ class Entity {
 	}
 
 	async _exec(method, params, config = {}) {
-		const entity = this;
 		const notifyQuery = () => {
 			this.eventManager.trigger({
 				type: "query",
@@ -6633,8 +6671,8 @@ class Entity {
 				results,
 			}, config.listeners);
 		}
-
-		return this.client[method](params).promise()
+		const dynamoDBMethod = MethodTypeTranslation[method];
+		return this.client[dynamoDBMethod](params).promise()
 			.then((results) => {
 				notifyQuery();
 				notifyResults(results, true);
@@ -6798,6 +6836,7 @@ class Entity {
 			case MethodTypes.patch:
 			case MethodTypes.delete:
 			case MethodTypes.remove:
+			case MethodTypes.upsert:
 				return this.formatResponse(response, index, {...config, _objectOnEmpty: true});
 			default:
 				return this.formatResponse(response, index, config);
@@ -7411,7 +7450,7 @@ class Entity {
 	}
 	/* istanbul ignore next */
 	_params(state, config = {}) {
-		let { keys = {}, method = "", put = {}, update = {}, filter = {}, options = {} } = state.query;
+		let { keys = {}, method = "", put = {}, update = {}, filter = {}, options = {}, updateProxy, upsert } = state.query;
 		let consolidatedQueryFacets = this._consolidateQueryFacets(keys.sk);
 		let params = {};
 		switch (method) {
@@ -7419,6 +7458,9 @@ class Entity {
 			case MethodTypes.delete:
 			case MethodTypes.remove:
 				params = this._makeSimpleIndexParams(keys.pk, ...consolidatedQueryFacets);
+				break;
+			case MethodTypes.upsert:
+				params = this._makeUpsertParams({update, upsert}, keys.pk, ...keys.sk)
 				break;
 			case MethodTypes.put:
 			case MethodTypes.create:
@@ -7775,6 +7817,28 @@ class Entity {
 				[this.identifiers.version]: this.getVersion(),
 			},
 			TableName: this.getTableName(),
+		};
+	}
+
+	_makeUpsertParams({update, upsert} = {}, pk, sk) {
+		const { updatedKeys, setAttributes, indexKey } = this._getPutKeys(pk, sk && sk.facets, upsert.data);
+		const upsertAttributes = this.model.schema.translateToFields(setAttributes);
+		const keyNames = Object.keys(indexKey);
+		update.set(this.identifiers.entity, this.getName());
+		update.set(this.identifiers.version, this.getVersion());
+		for (const field of [...Object.keys(upsertAttributes), ...Object.keys(updatedKeys)]) {
+			const value = upsertAttributes[field] || updatedKeys[field];
+			if (!keyNames.includes(field)) {
+				update.set(field, value);
+			}
+		}
+
+		return {
+			TableName: this.getTableName(),
+			UpdateExpression: update.build(),
+			ExpressionAttributeNames: update.getNames(),
+			ExpressionAttributeValues: update.getValues(),
+			Key: indexKey,
 		};
 	}
 
@@ -12698,12 +12762,27 @@ const MethodTypes = {
 	update: "update",
 	delete: "delete",
 	remove: "remove",
-	scan: "scan",
 	patch: "patch",
 	create: "create",
 	batchGet: "batchGet",
-	batchWrite: "batchWrite"
+	batchWrite: "batchWrite",
+	upsert: "upsert",
 };
+
+const MethodTypeTranslation = {
+	put: "put",
+	get: "get",
+	query: "query",
+	scan: "scan",
+	update: "update",
+	delete: "delete",
+	remove: "delete",
+	patch: "update",
+	create: "put",
+	batchGet: "batchGet",
+	batchWrite: "batchWrite",
+	upsert: "update",
+}
 
 const IndexTypes = {
 	isolated: 'isolated',
@@ -12954,6 +13033,7 @@ module.exports = {
 	FormatToReturnValues,
 	AttributeProxySymbol,
 	ElectroInstanceTypes,
+	MethodTypeTranslation,
 	EventSubscriptionTypes,
 	AttributeMutationMethods,
 	AllPages,
