@@ -5562,7 +5562,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["set", "append", "remove", "add", "subtract", "data"],
+		children: ["set", "append","updateRemove", "updateDelete", "add", "subtract", "data"],
 	},
 	update: {
 		name: "update",
@@ -7343,6 +7343,7 @@ class Entity {
 
 			if (validations.isStringHasLength(option.table)) {
 				config.params.TableName = option.table;
+				config.table = option.table;
 			}
 
 			if (option.concurrent !== undefined) {
@@ -9589,6 +9590,12 @@ const ErrorCodes = {
     name: "InvalidListenerProvided",
     sym: ErrorCode,
   },
+  InvalidLoggerProvided: {
+    code: 1020,
+    section: "invalid-listener-provided",
+    name: "InvalidListenerProvided",
+    sym: ErrorCode,
+  },
   InvalidClientProvided: {
     code: 1021,
     section: "invalid-client-provided",
@@ -9885,6 +9892,7 @@ class FilterFactory {
 			case MethodTypes.patch:
 			case MethodTypes.delete:
 			case MethodTypes.get:
+			case MethodTypes.upsert:
 				return ExpressionTypes.ConditionExpression
 			default:
 				return ExpressionTypes.FilterExpression
@@ -13830,6 +13838,7 @@ class WhereFactory {
 		case MethodTypes.patch:
 		case MethodTypes.delete:
 		case MethodTypes.remove:
+		case MethodTypes.upsert:
 		case MethodTypes.get:
 			return ExpressionTypes.ConditionExpression
 		default:
