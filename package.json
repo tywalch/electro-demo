@@ -6,12 +6,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "browserify": "browserify ./src/electrodb.js -o ./src/display/electrodb.js",
-    "start": "npm run compile:app && python -m SimpleHTTPServer 3002",
+    "start": "python -m SimpleHTTPServer 3002",
     "compile:share": "tsc ./netlify/functions/share/*.ts --outDir ./netlify/functions/share --esModuleInterop",
-    "compile:app": "tsc ./src/**/*.ts --outDir ./src  --esModuleInterop",
-    "compile": "npm run compile:share && npm run compile:app",
-    "build": "npm run compile",
-    "upgrade": "sh upgrade.sh"
+    "compile": "npm run compile:share",
+    "build": "npm run compile"
   },
   "repository": {
     "type": "git",
@@ -30,7 +28,7 @@
     "@types/aws-sdk": "^2.7.0",
     "@types/moment": "^2.13.0",
     "aws-sdk": "^2.1148.0",
-    "electrodb": "^2.2.6",
+    "electrodb": "^1.8.4",
     "moment": "^2.29.3",
     "uuid": "^8.3.2"
   },
