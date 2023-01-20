@@ -285,6 +285,7 @@ function prepare(code) {
     code = code.replace(/\bService\b/g, "window.ElectroDB.Service");
     code = code.replace(/\bcreateCustomAttribute\b/g, "window.ElectroDB.createCustomAttribute");
     code = code.replace(/\bCustomAttributeType\b/g, "window.ElectroDB.CustomAttributeType");
+    code = code.replace(/\bcreateSchema\b/g, "window.ElectroDB.createSchema");
     code = code.replace(/^export\b/gm, "");
     return code;
 }
