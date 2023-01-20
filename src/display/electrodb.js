@@ -5249,6 +5249,8 @@ class Entity extends ElectroDB.Entity {
 
 class Service extends ElectroDB.Service {}
 
+const createSchema = ElectroDB.createSchema;
+
 const createCustomAttribute = ElectroDB.createCustomAttribute;
 
 const CustomAttributeType = ElectroDB.CustomAttributeType;
@@ -5259,6 +5261,7 @@ window.ElectroDB = {
     clearScreen,
     printMessage,
     printToScreen,
+    createSchema,
     createCustomAttribute,
     CustomAttributeType,
 };
