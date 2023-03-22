@@ -1,6 +1,7 @@
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 const { Entity } = require("./src/entity");
 const { Service } = require("./src/service");
+const { createGetTransaction, createWriteTransaction } = require('./src/transaction');
 const { createCustomAttribute, CustomAttributeType, createSchema } = require('./src/schema');
 const { ElectroError, ElectroValidationError, ElectroUserValidationError, ElectroAttributeValidationError } = require('./src/errors');
 
@@ -12,9 +13,11 @@ module.exports = {
     CustomAttributeType,
     createCustomAttribute,
     ElectroValidationError,
+    createGetTransaction,
+    createWriteTransaction,
 };
 
-},{"./src/entity":19,"./src/errors":20,"./src/schema":24,"./src/service":25}],2:[function(require,module,exports){
+},{"./src/entity":19,"./src/errors":20,"./src/schema":24,"./src/service":25,"./src/transaction":27}],2:[function(require,module,exports){
 'use strict'
 
 exports.byteLength = byteLength
@@ -5102,7 +5105,7 @@ function formatParamLabel(state, entity) {
     if (!state) {
         return null;
     } else if (typeof state === "string") {
-        return state;
+        return `<h2>${state}</h2>`;
     } else {
         const method = state.query.method;
         const type = state.query.type;
@@ -5113,6 +5116,8 @@ function formatParamLabel(state, entity) {
             return `<h2>Queries the collection ${formatProper(collection)}, on the service ${formatProper(entity.model.service)}, by ${keys}</h2>`;
         } else if (method === "query") {
             return `<h2>Queries the access pattern ${formatProper(accessPattern)}, on the entity ${formatProper(entity.model.name)}, by ${keys}</h2>`;
+        } else if (state.self === 'commit') {
+            // handled inside the "client" so each operation doesn't get its own printed line
         } else {
             return `<h2>Performs ${aOrAn(method)} ${formatProper(method)} operation, on the entity ${formatProper(entity.model.name)}</h2>`;
         }
@@ -5123,7 +5128,7 @@ function printToScreen({params, state, entity, cache} = {}) {
     const innerHtml = appDiv.innerHTML;
     const label = formatParamLabel(state, entity);
     if (cache) {
-        window.electroParams.push({title: label, json: params});
+        window.electroParams.push({ title: label, json: params });
     }
     let code = `<pre class="language-json"><code class="language-json">${JSON.stringify(params, null, 4)}</code></pre>`;
     if (label) {
@@ -5165,32 +5170,39 @@ function promiseCallback(results) {
 }
 
 class Entity extends ElectroDB.Entity {
-    constructor(...params) {
-        super(...params);
-        this.client = {
-            put: () => promiseCallback({}),
-            delete: () => promiseCallback({}),
-            update: () => promiseCallback({}),
-            get: () => promiseCallback({Item: {}}),
-            query: () => promiseCallback({Items: []}),
-            scan: () => promiseCallback({Items: []}),
-            batchWrite: () => promiseCallback({UnprocessedKeys: {[this._getTableName()]: {Keys: []}}}),
-            batchGet: () => promiseCallback({Responses: {[this._getTableName()]: []}, UnprocessedKeys: {[this._getTableName()]: {Keys: []}}}),
-            transactWrite: (params) => {
-                return {
-                    promise: async () => {
-                        printToScreen({params, entity: this, cache: true});
+    constructor(schema, options = {}) {
+        super(schema, {
+            ...options,
+            client: {
+                put: () => promiseCallback({}),
+                delete: () => promiseCallback({}),
+                update: () => promiseCallback({}),
+                get: () => promiseCallback({Item: {}}),
+                query: () => promiseCallback({Items: []}),
+                scan: () => promiseCallback({Items: []}),
+                batchWrite: () => promiseCallback({UnprocessedKeys: {[options.table]: {Keys: []}}}),
+                batchGet: () => promiseCallback({Responses: {[options.table]: []}, UnprocessedKeys: {[options.table]: {Keys: []}}}),
+                transactWrite: (params) => {
+                    return {
+                        promise: async () => {
+                            printToScreen({ params, entity: this, cache: true, state: 'Performs a TransactWrite operation' });
+                            return {};
+                        },
+                        on: () => {},
                     }
-                }
-            },
-            transactGet: (params) => {
-                return {
-                    promise: async () => {
-                        printToScreen({params, entity: this, cache: true});
+                },
+                transactGet: (params) => {
+                    return {
+                        promise: async () => {
+                            printToScreen({ params, entity: this, cache: true, state: 'Performs a TransactGet operation' });
+                            return { Responses: [] };
+                        },
+                        on: () => {},
                     }
-                }
-            },
-        };
+                },
+                createSet: (val) => val,
+            }
+        });
     }
 
     _demoParams(method, state, config) {
@@ -5198,14 +5210,16 @@ class Entity extends ElectroDB.Entity {
             const params = super[method](state, config);
             if (params && typeof params.catch === "function") {
                 params.catch(err => {
-                    console.log(err);
+                    console.log('param creation rejected: %o', err);
                     printMessage("error", err.message);
                 });
             }
-            printToScreen({params, state, entity: this, cache: true});
+            if (state.self !== "commit") {
+                printToScreen({params, state, entity: this, cache: true});
+            }
             return params;
         } catch(err) {
-            console.log(err);
+            console.log('create params error: %o', err);
             printMessage("error", err.message);
         }
     }
@@ -5229,9 +5243,10 @@ class Entity extends ElectroDB.Entity {
     _makeChain(index, clauses, rootClause, options) {
         const params = clauses.params.action;
         const go = clauses.go.action;
+        const commit = clauses.commit.action;
         clauses.params.action = (entity, state, options) => {
             try {
-                params(entity, state, options);
+                return params(entity, state, options);
             } catch(err) {
                 printMessage("error", err.message);
             }
@@ -5239,6 +5254,13 @@ class Entity extends ElectroDB.Entity {
         clauses.go.action = async (entity, state, options) => {
             try {
                 return await go(entity, state, options);
+            } catch(err) {
+                printMessage("error", err.message);
+            }
+        }
+        clauses.commit.action = (entity, state, options) => {
+            try {
+                return commit(entity, state, options);
             } catch(err) {
                 printMessage("error", err.message);
             }
@@ -5266,7 +5288,7 @@ window.ElectroDB = {
     CustomAttributeType,
 };
 },{"../index":1}],17:[function(require,module,exports){
-const { QueryTypes, MethodTypes, ItemOperations, ExpressionTypes, TableIndex, TerminalOperation, KeyTypes, IndexTypes } = require("./types");
+const { QueryTypes, MethodTypes, ItemOperations, ExpressionTypes, TransactionCommitSymbol, TransactionOperations, TerminalOperation, KeyTypes, IndexTypes } = require("./types");
 const {AttributeOperationProxy, UpdateOperations, FilterOperationNames} = require("./operations");
 const {UpdateExpression} = require("./update");
 const {FilterExpression} = require("./where");
@@ -5296,7 +5318,7 @@ function batchAction(action, type, entity, state, payload) {
 let clauses = {
 	index: {
 		name: "index",
-		children: ["get", "delete", "update", "query", "upsert", "put", "scan", "collection", "clusteredCollection", "create", "remove", "patch", "batchPut", "batchDelete", "batchGet"],
+		children: ["check", "get", "delete", "update", "query", "upsert", "put", "scan", "collection", "clusteredCollection", "create", "remove", "patch", "batchPut", "batchDelete", "batchGet"],
 	},
 	clusteredCollection: {
 		name: "clusteredCollection",
@@ -5305,7 +5327,7 @@ let clauses = {
 				return state;
 			}
 			try {
-				const {pk, sk} = state.getCompositeAttributes();
+				const { pk, sk } = state.getCompositeAttributes();
 				return state
 					.setType(QueryTypes.clustered_collection)
 					.setMethod(MethodTypes.query)
@@ -5317,6 +5339,22 @@ let clauses = {
 						// we must apply eq on filter on all provided because if the user then does a sort key operation, it'd actually then unexpect results
 						if (sk.length > 1) {
 							state.filterProperties(FilterOperationNames.eq, {...unused, ...composites});
+						}
+					})
+					.whenOptions(({ options, state }) => {
+						if (!options.ignoreOwnership) {
+							state.query.options.expressions.names = {
+								...state.query.options.expressions.names,
+								...state.query.options.identifiers.names,
+							};
+							state.query.options.expressions.values = {
+								...state.query.options.expressions.values,
+								...state.query.options.identifiers.values,
+							};
+							state.query.options.expressions.expression =
+								state.query.options.expressions.expression.length > 1
+									? `(${state.query.options.expressions.expression}) AND ${state.query.options.identifiers.expression}`
+									: `${state.query.options.identifiers.expression}`;
 						}
 					});
 
@@ -5340,7 +5378,23 @@ let clauses = {
 					.setType(QueryTypes.collection)
 					.setMethod(MethodTypes.query)
 					.setCollection(collection)
-					.setPK(entity._expectFacets(facets, pk));
+					.setPK(entity._expectFacets(facets, pk))
+					.whenOptions(({ options, state }) => {
+						if (!options.ignoreOwnership) {
+							state.query.options.expressions.names = {
+								...state.query.options.expressions.names,
+								...state.query.options.identifiers.names,
+							};
+							state.query.options.expressions.values = {
+								...state.query.options.expressions.values,
+								...state.query.options.identifiers.values,
+							};
+							state.query.options.expressions.expression =
+								state.query.options.expressions.expression.length > 1
+									? `(${state.query.options.expressions.expression}) AND ${state.query.options.identifiers.expression}`
+									: `${state.query.options.identifiers.expression}`;
+						}
+					});
 			} catch(err) {
 				state.setError(err);
 				return state;
@@ -5355,7 +5409,13 @@ let clauses = {
 				return state;
 			}
 			try {
-				return state.setMethod(MethodTypes.scan);
+				return state.setMethod(MethodTypes.scan)
+					.whenOptions(({ state, options }) => {
+						if (!options.ignoreOwnership) {
+							state.unsafeApplyFilter(FilterOperationNames.eq, entity.identifiers.entity, entity.getName());
+							state.unsafeApplyFilter(FilterOperationNames.eq, entity.identifiers.version, entity.getVersion());
+						}
+					});
 			} catch(err) {
 				state.setError(err);
 				return state;
@@ -5386,7 +5446,15 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["params", "go"],
+		children: ["params", "go", "commit"],
+	},
+	check: {
+		name: 'check',
+		action(...params) {
+			return clauses.get.action(...params)
+				.setMethod(MethodTypes.check);
+		},
+		children: ["commit"],
 	},
 	batchGet: {
 		name: "batchGet",
@@ -5420,7 +5488,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["where", "params", "go"],
+		children: ["where", "params", "go", "commit"],
 	},
 	remove: {
 		name: "remove",
@@ -5450,7 +5518,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["where", "params", "go"],
+		children: ["where", "params", "go", "commit"],
 	},
 	upsert: {
 		name: 'upsert',
@@ -5475,7 +5543,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["params", "go", "where"],
+		children: ["params", "go", "where", "commit"],
 	},
 	put: {
 		name: "put",
@@ -5501,7 +5569,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["params", "go"],
+		children: ["params", "go", "commit"],
 	},
 	batchPut: {
 		name: "batchPut",
@@ -5537,7 +5605,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["params", "go"],
+		children: ["params", "go", "commit"],
 	},
 	patch: {
 		name: "patch",
@@ -5566,7 +5634,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["set", "append","updateRemove", "updateDelete", "add", "subtract", "data"],
+		children: ["set", "append","updateRemove", "updateDelete", "add", "subtract", "data", "commit"],
 	},
 	update: {
 		name: "update",
@@ -5589,7 +5657,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract"],
+		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit"],
 	},
 	data: {
 		name: "data",
@@ -5619,7 +5687,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract"],
+		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit"],
 	},
 	set: {
 		name: "set",
@@ -5636,7 +5704,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract"],
+		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit"],
 	},
 	append: {
 		name: "append",
@@ -5653,7 +5721,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract"],
+		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit"],
 	},
 	updateRemove: {
 		name: "remove",
@@ -5673,7 +5741,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract"],
+		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit"],
 	},
 	updateDelete: {
 		name: "delete",
@@ -5690,7 +5758,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract"],
+		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit"],
 	},
 	add: {
 		name: "add",
@@ -5707,7 +5775,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract"],
+		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit"],
 	},
 	subtract: {
 		name: "subtract",
@@ -5724,7 +5792,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract"],
+		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit"],
 	},
 	query: {
 		name: "query",
@@ -5746,10 +5814,13 @@ let clauses = {
 						if (sk.length > 1) {
 							state.filterProperties(FilterOperationNames.eq, {...unused, ...composites});
 						}
-						if (state.query.options.indexType === IndexTypes.clustered && Object.keys(composites).length < sk.length) {
-							state.unsafeApplyFilter(FilterOperationNames.eq, entity.identifiers.entity, entity.getName())
-								.unsafeApplyFilter(FilterOperationNames.eq, entity.identifiers.version, entity.getVersion());
-						}
+
+						state.whenOptions(({ options, state }) => {
+							if (state.query.options.indexType === IndexTypes.clustered && Object.keys(composites).length < sk.length && !options.ignoreOwnership) {
+								state.unsafeApplyFilter(FilterOperationNames.eq, entity.identifiers.entity, entity.getName())
+									.unsafeApplyFilter(FilterOperationNames.eq, entity.identifiers.version, entity.getVersion());
+							}
+						});
 					});
 			} catch(err) {
 				state.setError(err);
@@ -5889,6 +5960,35 @@ let clauses = {
 		},
 		children: ["go", "params"],
 	},
+	commit: {
+		name: 'commit',
+		action(entity, state, options) {
+			if (state.getError() !== null) {
+				throw state.error;
+			}
+
+			const results = clauses.params.action(entity, state, {
+				...options,
+				_returnOptions: true,
+				_isTransaction: true,
+			});
+
+			const method = TransactionOperations[state.query.method];
+			if (!method) {
+				throw new Error('Invalid commit method');
+			}
+
+			return {
+				[method]: results.params,
+				[TransactionCommitSymbol]: () => {
+					return {
+						entity,
+					}
+				},
+			}
+		},
+		children: [],
+	},
 	params: {
 		name: "params",
 		action(entity, state, options = {}) {
@@ -5900,20 +6000,29 @@ let clauses = {
 					throw new e.ElectroError(e.ErrorCodes.MissingTable, `Table name not defined. Table names must be either defined on the model, instance configuration, or as a query option.`);
 				}
 				const method = state.getMethod();
+				const normalizedOptions = entity._normalizeExecutionOptions({
+					provided: [ state.getOptions(), state.query.options, options ],
+					context: { operation: options._isTransaction ? MethodTypes.transactWrite : undefined }
+				});
+				state.applyWithOptions(normalizedOptions);
 				let results;
 				switch (method) {
-					case MethodTypes.query:
-						results = entity._queryParams(state, options);
+					case MethodTypes.query: {
+						results = entity._queryParams(state, normalizedOptions);
 						break;
-					case MethodTypes.batchWrite:
-						results = entity._batchWriteParams(state, options);
-						break
-					case MethodTypes.batchGet:
-						results = entity._batchGetParams(state, options);
+					}
+					case MethodTypes.batchWrite: {
+						results = entity._batchWriteParams(state, normalizedOptions);
 						break;
-					default:
-						results = entity._params(state, options);
+					}
+					case MethodTypes.batchGet: {
+						results = entity._batchGetParams(state, normalizedOptions);
 						break;
+					}
+					default: {
+						results = entity._params(state, normalizedOptions);
+						break;
+					}
 				}
 
 				if (method === MethodTypes.update && results.ExpressionAttributeValues && Object.keys(results.ExpressionAttributeValues).length === 0) {
@@ -5921,6 +6030,14 @@ let clauses = {
 					// todo: change the getValues() method to return undefined in this case (would potentially require a more generous refactor)
 					delete results.ExpressionAttributeValues;
 				}
+
+				if (options._returnOptions) {
+					return {
+						params: results,
+						options: normalizedOptions,
+					}
+				}
+
 				return results;
 			} catch(err) {
 				throw err;
@@ -5939,9 +6056,8 @@ let clauses = {
 					throw new e.ElectroError(e.ErrorCodes.NoClientDefined, "No client defined on model");
 				}
 				options.terminalOperation = TerminalOperation.go;
-				let params = clauses.params.action(entity, state, options);
-				let {config} = entity._applyParameterOptions({}, state.getOptions(), options);
-				return entity.go(state.getMethod(), params, config);
+				const paramResults = clauses.params.action(entity, state, { ...options, _returnOptions: true });
+				return entity.go(state.getMethod(), paramResults.params, paramResults.options);
 			} catch(err) {
 				return Promise.reject(err);
 			}
@@ -5986,6 +6102,7 @@ class ChainState {
 			options,
 		};
 		this.subStates = [];
+		this.applyAfterOptions = [];
 		this.hasSortKey = hasSortKey;
 		this.prev = null;
 		this.self = null;
@@ -6179,6 +6296,18 @@ class ChainState {
 		this.query.put.data = {...this.query.put.data, ...data};
 		return this;
 	}
+
+	whenOptions(fn) {
+		if (v.isFunction(fn)) {
+			this.applyAfterOptions.push((options) => {
+				fn({ options, state: this });
+			});
+		}
+	}
+
+	applyWithOptions(options = {}) {
+		this.applyAfterOptions.forEach((fn) => fn(options));
+	}
 }
 
 module.exports = {
@@ -6186,22 +6315,116 @@ module.exports = {
 	ChainState,
 };
 
-},{"./errors":20,"./operations":23,"./types":27,"./update":28,"./util":29,"./validations":30,"./where":31}],18:[function(require,module,exports){
-const lib = {};
+},{"./errors":20,"./operations":23,"./types":28,"./update":29,"./util":30,"./validations":31,"./where":32}],18:[function(require,module,exports){
+const lib = {}
+const util = {}
 const { isFunction } = require('./validations');
 const { ElectroError, ErrorCodes } = require('./errors');
-
 const DocumentClientVersions = {
     v2: 'v2',
     v3: 'v3',
     electro: 'electro',
 };
+const unmarshallOutput = util.unmarshallOutput || ((val) => val);
 
 const v3Methods = ['send'];
 const v2Methods = ['get', 'put', 'update', 'delete', 'batchWrite', 'batchGet', 'scan', 'query', 'createSet', 'transactWrite', 'transactGet'];
 const supportedClientVersions = {
     [DocumentClientVersions.v2]: v2Methods,
     [DocumentClientVersions.v3]: v3Methods,
+}
+
+class DocumentClientV2Wrapper {
+    static init(client) {
+        return new DocumentClientV2Wrapper(client, lib);
+    }
+
+    constructor(client, lib) {
+        this.client = client;
+        this.lib = lib;
+        this.__v = 'v2';
+    }
+
+    get(params) {
+        return this.client.get(params);
+    }
+
+    put(params) {
+        return this.client.put(params);
+    }
+
+    update(params) {
+        return this.client.update(params);
+    }
+
+    delete(params) {
+        return this.client.delete(params);
+    }
+
+    batchWrite(params) {
+        return this.client.batchWrite(params);
+    }
+
+    batchGet(params) {
+        return this.client.batchGet(params);
+    }
+
+    scan(params) {
+        return this.client.scan(params);
+    }
+
+    query(params) {
+        return this.client.query(params);
+    }
+
+    _transact(transactionRequest) {
+        let cancellationReasons;
+        transactionRequest.on('extractError', (response) => {
+            try {
+                cancellationReasons = JSON.parse(response.httpResponse.body.toString()).CancellationReasons;
+            } catch (err) {}
+        });
+
+        return {
+            async promise() {
+                return transactionRequest.promise()
+                    .catch((err) => {
+                        if (err) {
+                            if (Array.isArray(cancellationReasons)) {
+                                return {
+                                    canceled: cancellationReasons
+                                        .map(reason => {
+                                            if (reason.Item) {
+                                                return unmarshallOutput(reason, [{ key: "Item" }]);
+                                            }
+                                            return reason;
+                                        })
+                                };
+                            }
+                            throw err;
+                        }
+                    });
+            }
+        }
+    }
+
+    transactWrite(params) {
+        const transactionRequest = this.client.transactWrite(params);
+        return this._transact(transactionRequest);
+    }
+
+    transactGet(params) {
+        const transactionRequest = this.client.transactGet(params);
+        return this._transact(transactionRequest);
+    }
+
+    createSet(value, ...rest) {
+        if (Array.isArray(value)) {
+            return this.client.createSet(value, ...rest);
+        } else {
+            return this.client.createSet([value], ...rest);
+        }
+    }
 }
 
 class DocumentClientV3Wrapper {
@@ -6212,6 +6435,7 @@ class DocumentClientV3Wrapper {
     constructor(client, lib) {
         this.client = client;
         this.lib = lib;
+        this.__v = 'v3';
     }
 
     promiseWrap(fn) {
@@ -6270,16 +6494,49 @@ class DocumentClientV3Wrapper {
             return this.client.send(command);
         });
     }
+
     transactWrite(params) {
         return this.promiseWrap(async () => {
             const command = new this.lib.TransactWriteCommand(params);
-            return this.client.send(command);
+            return this.client.send(command)
+                .then((result) => {
+                    return result;
+                })
+                .catch(err => {
+                    if (err.CancellationReasons) {
+                        return {
+                            canceled: err.CancellationReasons.map(reason => {
+                                if (reason.Item) {
+                                    return unmarshallOutput(reason, [{ key: "Item" }]);
+                                }
+                                return reason;
+                            })
+                        }
+                    }
+                    throw err;
+                });
         });
     }
     transactGet(params) {
         return this.promiseWrap(async () => {
             const command = new this.lib.TransactGetCommand(params);
-            return this.client.send(command);
+            return this.client.send(command)
+                .then((result) => {
+                    return result;
+                })
+                .catch(err => {
+                    if (err.CancellationReasons) {
+                        return {
+                            canceled: err.CancellationReasons.map(reason => {
+                                if (reason.Item) {
+                                    return unmarshallOutput(reason, [{ key: "Item" }]);
+                                }
+                                return reason;
+                            })
+                        }
+                    }
+                    throw err;
+                });
         });
     }
     createSet(value) {
@@ -6292,7 +6549,9 @@ class DocumentClientV3Wrapper {
 }
 
 function identifyClientVersion(client = {}) {
-    if (client instanceof DocumentClientV3Wrapper) return DocumentClientVersions.electro;
+    if (client instanceof DocumentClientV3Wrapper || client instanceof DocumentClientV2Wrapper) {
+        return DocumentClientVersions.electro;
+    }
     for (const [version, methods] of Object.entries(supportedClientVersions)) {
         const hasMethods = methods.every(method => {
             return method in client && isFunction(client[method]);
@@ -6310,6 +6569,7 @@ function normalizeClient(client) {
         case DocumentClientVersions.v3:
             return DocumentClientV3Wrapper.init(client);
         case DocumentClientVersions.v2:
+            return DocumentClientV2Wrapper.init(client);
         case DocumentClientVersions.electro:
             return client;
         default:
@@ -6325,6 +6585,7 @@ function normalizeConfig(config = {}) {
 }
 
 module.exports = {
+    util,
     v2Methods,
     v3Methods,
     normalizeClient,
@@ -6333,9 +6594,10 @@ module.exports = {
     DocumentClientVersions,
     supportedClientVersions,
     DocumentClientV3Wrapper,
+    DocumentClientV2Wrapper,
 };
 
-},{"./errors":20,"./validations":30}],19:[function(require,module,exports){
+},{"./errors":20,"./validations":31}],19:[function(require,module,exports){
 "use strict";
 const { Schema } = require("./schema");
 const { AllPages, 
@@ -6362,6 +6624,7 @@ const { AllPages,
 	IndexTypes,
 	PartialComparisons,
 	MethodTypeTranslation,
+	TransactionCommitSymbol,
 } = require("./types");
 const { FilterFactory } = require("./filters");
 const { FilterOperations } = require("./operations");
@@ -6373,6 +6636,7 @@ const c = require('./client');
 const u = require("./util");
 const e = require("./errors");
 const { validate } = require("jsonschema");
+const v = require('./validations');
 
 class Entity {
 	constructor(model, config = {}) {
@@ -6567,6 +6831,10 @@ class Entity {
 		return validations.model(model);
 	}
 
+	check(compositeAttributes = {}) {
+		return this._makeChain(TableIndex, this._clausesWithFilters, clauses.index).check(compositeAttributes);
+	}
+
 	get(facets = {}) {
 		let index = TableIndex;
 		if (Array.isArray(facets)) {
@@ -6621,6 +6889,16 @@ class Entity {
 		let index = TableIndex;
 		let options = {};
 		return this._makeChain(index, this._clausesWithFilters, clauses.index, options).remove(facets);
+	}
+
+	async transactWrite(parameters, config) {
+		let response = await this._exec(MethodTypes.transactWrite, parameters, config);
+		return response;
+	}
+
+	async transactGet(parameters, config) {
+		let response = await this._exec(MethodTypes.transactGet, parameters, config);
+		return response;
 	}
 
 	async go(method, parameters = {}, config = {}) {
@@ -6824,7 +7102,7 @@ class Entity {
 			case FormatToReturnValues.all_old:
 			case FormatToReturnValues.updated_new:
 			case FormatToReturnValues.updated_old:
-				return this.formatResponse(response, config);
+				return this.formatResponse(response, TableIndex, config);
 			case FormatToReturnValues.default:
 			default:
 				return this._formatDefaultResponse(method, parameters.IndexName, parameters, config, response);
@@ -6921,7 +7199,7 @@ class Entity {
 			for (let i = 0; i < responses.length; i++) {
 				const item = responses[i];
 				const slot = orderMaintainer.getOrder(item);
-				const formatted = this.formatResponse({Item: item}, index, config);
+				const formatted = this.formatResponse({ Item: item }, index, config);
 				if (slot !== -1) {
 					resultsAll[slot] = formatted.data;
 				} else {
@@ -6955,6 +7233,8 @@ class Entity {
 						if (Object.keys(results).length === 0) {
 							results = null;
 						}
+					} else if (!config._objectOnEmpty) {
+						results = null;
 					}
 				} else if (response.Items) {
 					results = [];
@@ -7219,7 +7499,7 @@ class Entity {
 		return pager
 	}
 
-	_applyParameterOptions(params, ...options) {
+	_normalizeExecutionOptions({ provided = [], context = {} } = {}) {
 		let config = {
 			includeKeys: false,
 			originalErr: false,
@@ -7247,7 +7527,7 @@ class Entity {
 			order: undefined,
 		};
 
-		config = options.reduce((config, option) => {
+		return provided.filter(Boolean).reduce((config, option) => {
 			if (typeof option.order === 'string') {
 				switch (option.order.toLowerCase()) {
 					case 'asc':
@@ -7267,11 +7547,15 @@ class Entity {
 					throw new e.ElectroError(e.ErrorCodes.InvalidOptions, `Invalid value for query option "format" provided: "${option.format}". Allowed values include ${u.commaSeparatedString(Object.keys(ReturnValues))}.`);
 				}
 				config.response = format;
-				config.params.ReturnValues = FormatToReturnValues[format];
+				if (context.operation === MethodTypes.transactWrite) {
+					config.params.ReturnValuesOnConditionCheckFailure = FormatToReturnValues[format];
+				} else {
+					config.params.ReturnValues = FormatToReturnValues[format];
+				}
 			}
 
 			if (option.formatCursor) {
-				const isValid = ['serialize', 'deserialize'].every(method => 
+				const isValid = ['serialize', 'deserialize'].every(method =>
 					method in option.formatCursor &&
 					validations.isFunction(option.formatCursor[method])
 				);
@@ -7396,16 +7680,18 @@ class Entity {
 			config.params = Object.assign({}, config.params, option.params);
 			return config;
 		}, config);
+	}
 
+	_applyParameterOptions({ params = {}, options = {} } = {}) {
 		let parameters = Object.assign({}, params);
 
-		for (let customParameter of Object.keys(config.params)) {
-			if (config.params[customParameter] !== undefined) {
-				parameters[customParameter] = config.params[customParameter];
+		for (let customParameter of Object.keys(options.params || {})) {
+			if (options.params[customParameter] !== undefined) {
+				parameters[customParameter] = options.params[customParameter];
 			}
 		}
 
-		return { parameters, config };
+		return parameters;
 	}
 
 	addListeners(logger) {
@@ -7455,10 +7741,11 @@ class Entity {
 	}
 	/* istanbul ignore next */
 	_params(state, config = {}) {
-		let { keys = {}, method = "", put = {}, update = {}, filter = {}, options = {}, updateProxy, upsert } = state.query;
+		const { keys = {}, method = "", put = {}, update = {}, filter = {}, upsert } = state.query;
 		let consolidatedQueryFacets = this._consolidateQueryFacets(keys.sk);
 		let params = {};
 		switch (method) {
+			case MethodTypes.check:
 			case MethodTypes.get:
 			case MethodTypes.delete:
 			case MethodTypes.remove:
@@ -7486,8 +7773,13 @@ class Entity {
 			default:
 				throw new Error(`Invalid method: ${method}`);
 		}
-		let applied = this._applyParameterOptions(params, options, config);
-		return this._applyParameterExpressions(method, applied.parameters, applied.config, filter);
+
+		let appliedParameters = this._applyParameterOptions({
+			params,
+			options: config,
+		});
+
+		return this._applyParameterExpressions(method, appliedParameters, config, filter);
 	}
 
 	_applyParameterExpressions(method, parameters, config, filter) {
@@ -7589,12 +7881,19 @@ class Entity {
 	_batchGetParams(state, config = {}) {
 		let table = config.table || this.getTableName();
 		let userDefinedParams = config.params || {};
+
+		// TableName is added when the config provided includes "table"
+		// this is evaluated upstream so we remove it to avoid forming
+		// bad syntax. Code should reconsider how this is applied to
+		// make this cleaner :(
+		delete userDefinedParams.TableName;
+
 		let records = [];
 		for (let itemState of state.subStates) {
 			let method = itemState.query.method;
 			let params = this._params(itemState, config);
 			if (method === MethodTypes.get) {
-				let {Key} = params;
+				let { Key } = params;
 				records.push(Key);
 			}
 		}
@@ -7694,11 +7993,7 @@ class Entity {
 			),
 			FilterExpression: `begins_with(#${pkField}, :${pkField})`,
 		};
-		params.ExpressionAttributeNames["#" + this.identifiers.entity] = this.identifiers.entity;
-		params.ExpressionAttributeNames["#" + this.identifiers.version] = this.identifiers.version;
-		params.ExpressionAttributeValues[":" + this.identifiers.entity] = this.getName();
-		params.ExpressionAttributeValues[":" + this.identifiers.version] = this.getVersion();
-		params.FilterExpression = `${params.FilterExpression} AND #${this.identifiers.entity} = :${this.identifiers.entity} AND #${this.identifiers.version} = :${this.identifiers.version}`;
+
 		if (hasSortKey) {
 			let skField = this.model.indexes[accessPattern].sk.field;
 			params.FilterExpression = `${params.FilterExpression} AND begins_with(#${skField}, :${skField})`;
@@ -7718,7 +8013,7 @@ class Entity {
 		});
 		let Key = this._makeParameterKey(index, keys.pk, ...keys.sk);
 		let TableName = this.getTableName();
-		return {Key, TableName};
+		return { Key, TableName };
 	}
 
 	_removeAttributes(item, keys) {
@@ -8029,8 +8324,16 @@ class Entity {
 			default:
 				throw new Error(`Invalid query type: ${state.query.type}`);
 		}
-		let applied = this._applyParameterOptions(parameters, state.query.options, options);
-		return this._applyProjectionExpressions(applied);
+
+		const appliedParameters = this._applyParameterOptions({
+			params: parameters,
+			options,
+		});
+
+		return this._applyProjectionExpressions({
+			parameters: appliedParameters,
+			config: options,
+		});
 	}
 
 	_makeBetweenQueryParams(index, filter, pk, ...sk) {
@@ -8631,7 +8934,6 @@ class Entity {
 	   indexType,
 	   isCollection = false,
 	}) {
-
 		this._validateIndex(index);
 		const excludePostfix = indexType === IndexTypes.clustered && isCollection;
 		const transforms = this._makeKeyTransforms(queryType);
@@ -9453,12 +9755,54 @@ class Entity {
 	}
 }
 
+function getEntityIdentifiers(entities) {
+	let identifiers = [];
+	for (let alias of Object.keys(entities)) {
+		let entity = entities[alias];
+		let name = entity.model.entity;
+		let version = entity.model.version;
+		identifiers.push({
+			name,
+			alias,
+			version,
+			entity,
+			nameField: entity.identifiers.entity,
+			versionField: entity.identifiers.version
+		});
+	}
+	return identifiers;
+}
+
+function matchToEntityAlias({ paramItem, identifiers, record } = {}) {
+	let entity;
+	let entityAlias;
+
+	if (paramItem && v.isFunction(paramItem[TransactionCommitSymbol])) {
+		const committed = paramItem[TransactionCommitSymbol]();
+		entity = committed.entity;
+	}
+
+	for (let {name, version, nameField, versionField, alias} of identifiers) {
+		if (entity && entity.model.entity === name && entity.model.version === version) {
+			entityAlias = alias;
+			break;
+		} else if (record[nameField] !== undefined && record[nameField] === name && record[versionField] !== undefined && record[versionField] === version) {
+			entityAlias = alias;
+			break;
+		}
+	}
+
+	return entityAlias;
+}
+
 module.exports = {
 	Entity,
 	clauses,
+	getEntityIdentifiers,
+	matchToEntityAlias,
 };
 
-},{"./clauses":17,"./client":18,"./errors":20,"./events":21,"./filters":22,"./operations":23,"./schema":24,"./types":27,"./util":29,"./validations":30,"./where":31,"jsonschema":9}],20:[function(require,module,exports){
+},{"./clauses":17,"./client":18,"./errors":20,"./events":21,"./filters":22,"./operations":23,"./schema":24,"./types":28,"./util":30,"./validations":31,"./where":32,"jsonschema":9}],20:[function(require,module,exports){
 // # Errors:
 // 1000 - Configuration Errors
 // 2000 - Invalid Queries
@@ -9876,7 +10220,7 @@ class EventManager {
 module.exports = {
   EventManager
 };
-},{"./errors":20,"./validations":30}],22:[function(require,module,exports){
+},{"./errors":20,"./validations":31}],22:[function(require,module,exports){
 const e = require("./errors");
 const {MethodTypes, ExpressionTypes} = require("./types");
 
@@ -9955,7 +10299,7 @@ class FilterFactory {
 		let filterParents = Object.entries(injected)
 			.filter(clause => {
 				let [name, { children }] = clause;
-				return children.includes("go");
+				return children.find(child => ['go', 'commit'].includes(child));
 			})
 			.map(([name]) => name);
 		let modelFilters = Object.keys(filters);
@@ -9965,7 +10309,7 @@ class FilterFactory {
 			injected[name] = {
 				name: name,
 				action: this.buildClause(filter),
-				children: ["params", "go", "filter", ...modelFilters],
+				children: ["params", "go", "commit", "filter", ...modelFilters],
 			};
 		}
 		filterChildren.push("filter");
@@ -9974,7 +10318,7 @@ class FilterFactory {
 			action: (entity, state, fn) => {
 				return this.buildClause(fn)(entity, state);
 			},
-			children: ["params", "go", "filter", ...modelFilters],
+			children: ["params", "go", "commit", "filter", ...modelFilters],
 		};
 		for (let parent of filterParents) {
 			injected[parent] = { ...injected[parent] };
@@ -9989,7 +10333,7 @@ class FilterFactory {
 
 module.exports = { FilterFactory };
 
-},{"./errors":20,"./types":27}],23:[function(require,module,exports){
+},{"./errors":20,"./types":28}],23:[function(require,module,exports){
 const {AttributeTypes, ItemOperations, AttributeProxySymbol, BuilderTypes, DynamoDBAttributeTypes} = require("./types");
 const e = require("./errors");
 const u = require("./util");
@@ -10545,7 +10889,7 @@ const FilterOperationNames = Object.keys(FilterOperations).reduce((ops, name) =>
 }, {});
 
 module.exports = {UpdateOperations, FilterOperations, FilterOperationNames, ExpressionState, AttributeOperationProxy};
-},{"./errors":20,"./types":27,"./util":29}],24:[function(require,module,exports){
+},{"./errors":20,"./types":28,"./util":30}],24:[function(require,module,exports){
 const { CastTypes, ValueTypes, KeyCasing, AttributeTypes, AttributeMutationMethods, AttributeWildCard, PathTypes, TableIndex, ItemOperations } = require("./types");
 const AttributeTypeNames = Object.keys(AttributeTypes);
 const ValidFacetTypes = [AttributeTypes.string, AttributeTypes.number, AttributeTypes.boolean, AttributeTypes.enum];
@@ -12051,18 +12395,19 @@ module.exports = {
 	createCustomAttribute,
 };
 
-},{"./errors":20,"./set":26,"./types":27,"./util":29,"./validations":30}],25:[function(require,module,exports){
-const { Entity } = require("./entity");
+},{"./errors":20,"./set":26,"./types":28,"./util":30,"./validations":31}],25:[function(require,module,exports){
+const { Entity, getEntityIdentifiers, matchToEntityAlias } = require("./entity");
 const { clauses } = require("./clauses");
-const { KeyCasing, ServiceVersions, Pager, ElectroInstance, ElectroInstanceTypes, ModelVersions, IndexTypes } = require("./types");
+const { TableIndex, TransactionMethods, KeyCasing, ServiceVersions, Pager, ElectroInstance, ElectroInstanceTypes, ModelVersions, IndexTypes } = require("./types");
 const { FilterFactory } = require("./filters");
 const { FilterOperations } = require("./operations");
 const { WhereFactory } = require("./where");
-const { getInstanceType, getModelVersion, applyBetaModelOverrides } = require("./util");
 const v = require("./validations");
 const c = require('./client');
 const e = require("./errors");
 const u = require("./util");
+const txn = require("./transaction");
+const { getInstanceType, getModelVersion, applyBetaModelOverrides } = require("./util");
 
 const ConstructorTypes = {
 	beta: "beta",
@@ -12122,6 +12467,22 @@ class Service {
 		this.compositeAttributes = {};
 		this.collections = {};
 		this.identifiers = {};
+		this.transaction = {
+			get: (fn) => {
+				return txn.createTransaction({
+					fn,
+					getEntities: () => this.entities,
+					method: TransactionMethods.transactGet,
+				});
+			},
+			write: (fn) => {
+				return txn.createTransaction({
+					fn,
+					getEntities: () => this.entities,
+					method: TransactionMethods.transactWrite,
+				});
+			}
+		};
 		this._instance = ElectroInstance.service;
 		this._instanceType = ElectroInstanceTypes.service;
 	}
@@ -12148,6 +12509,22 @@ class Service {
 		this.compositeAttributes = {};
 		this.collections = {};
 		this.identifiers = {};
+		this.transaction = {
+			get: (fn) => {
+				return txn.createTransaction({
+					fn,
+					getEntities: () => this.entities,
+					method: TransactionMethods.transactGet,
+				});
+			},
+			write: (fn) => {
+				return txn.createTransaction({
+					fn,
+					getEntities: () => this.entities,
+					method: TransactionMethods.transactWrite,
+				});
+			}
+		};
 		this._instance = ElectroInstance.service;
 		this._instanceType = ElectroInstanceTypes.service;
 	}
@@ -12324,53 +12701,39 @@ class Service {
 		}
 	}
 
-	_getEntityIdentifiers(entities) {
-		let identifiers = [];
-		for (let alias of Object.keys(entities)) {
-			let entity = entities[alias];
-			let name = entity.model.entity;
-			let version = entity.model.version;
-			identifiers.push({
-				name,
-				alias,
-				version,
-				entity,
-				nameField: entity.identifiers.entity,
-				versionField: entity.identifiers.version
-			});
-		}
-		return identifiers;
-	}
-
-	cleanseRetrievedData(collection = "", entities, data = {}, config = {}) {
+	cleanseRetrievedData(index = TableIndex, entities, data = {}, config = {}) {
 		if (config.raw) {
 			return data;
 		}
+		const identifiers = getEntityIdentifiers(entities);
+
 		data.Items = data.Items || [];
-		let index = this.collectionSchema[collection].index;
-		let results = {};
-		let identifiers = this._getEntityIdentifiers(entities);
+
+		const results = {};
 		for (let {alias} of identifiers) {
 			results[alias] = [];
 		}
-		for (let record of data.Items) {
-			let entityAlias;
-			for (let {name, version, nameField, versionField, alias} of identifiers) {
-				if (record[nameField] !== undefined && record[nameField] === name && record[versionField] !== undefined && record[versionField] === version) {
-					entityAlias = alias;
-					break;
-				}
+
+		for (let i = 0; i < data.Items.length; i++) {
+			const record = data.Items[i];
+
+			if (!record) {
+				continue;
 			}
+
+			const entityAlias = matchToEntityAlias({identifiers, record});
+
 			if (!entityAlias) {
 				continue;
 			}
 			// pager=false because we don't want the entity trying to parse the lastEvaluatedKey
-			let items = this.collectionSchema[collection].entities[entityAlias].formatResponse({Item: record}, index, {
+			let formatted = entities[entityAlias].formatResponse({Item: record}, index, {
 				...config,
 				pager: false,
 				parse: undefined
 			});
-			results[entityAlias].push(items.data);
+
+			results[entityAlias].push(formatted.data);
 		}
 		return results;
 	}
@@ -12418,7 +12781,7 @@ class Service {
 		name = "",
 		initialClauses = {},
 	}, facets = {}) {
-		const { entities, attributes, identifiers, indexType } = this.collectionSchema[name];
+		const { entities, attributes, identifiers, indexType, index } = this.collectionSchema[name];
 		const compositeAttributes = this.compositeAttributes[name];
 		const allEntities = Object.values(entities);
 		const entity = allEntities[0];
@@ -12435,7 +12798,10 @@ class Service {
 		let options = {
 			// expressions, // DynamoDB doesnt return what I expect it would when provided with these entity filters
 			parse: (options, data) => {
-				return this.cleanseRetrievedData(name, entities, data, options);
+				if (options.raw) {
+					return data;
+				}
+				return this.cleanseRetrievedData(index, entities, data, options);
 			},
 			formatCursor: {
 				serialize: (key) => {
@@ -12445,12 +12811,17 @@ class Service {
 					return this.expectCursorOwner(cursor).deserializeCursor(cursor);
 				}
 			},
-			expressions: {
+			identifiers: {
 				names: identifiers.names || {},
 				values: identifiers.values || {},
 				expression: allEntities.length > 1
 					? `(${expression})`
 					: expression
+			},
+			expressions: {
+				names: {},
+				values: {},
+				expression: '',
 			},
 			attributes,
 			entities,
@@ -12784,9 +13155,11 @@ class Service {
 	}
 }
 
-module.exports = { Service };
+module.exports = {
+	Service,
+};
 
-},{"./clauses":17,"./client":18,"./entity":19,"./errors":20,"./filters":22,"./operations":23,"./types":27,"./util":29,"./validations":30,"./where":31}],26:[function(require,module,exports){
+},{"./clauses":17,"./client":18,"./entity":19,"./errors":20,"./filters":22,"./operations":23,"./transaction":27,"./types":28,"./util":30,"./validations":31,"./where":32}],26:[function(require,module,exports){
 const memberTypeToSetType = {
     'String': 'String',
     'Number': 'Number',
@@ -12826,6 +13199,186 @@ class DynamoDBSet {
 module.exports = {DynamoDBSet};
 
 },{}],27:[function(require,module,exports){
+const { TableIndex, TransactionMethods } = require('./types');
+const { getEntityIdentifiers, matchToEntityAlias } = require('./entity');
+
+function cleanseCanceledData(index = TableIndex, entities, data = {}, config = {}) {
+    if (config.raw) {
+        return data;
+    }
+    const identifiers = getEntityIdentifiers(entities);
+    const canceled = data.canceled || [];
+    const paramItems = config._paramItems || [];
+    const results = [];
+    for (let i = 0; i < canceled.length; i++) {
+        const { Item, Code, Message } = canceled[i] || {};
+        const paramItem = paramItems[i];
+        const code = Code || 'None';
+        const rejected = code !== 'None';
+        const result = {
+            rejected,
+            code,
+            message: Message,
+        }
+
+        if (Item) {
+            const entityAlias = matchToEntityAlias({
+                record: Item,
+                paramItem,
+                identifiers
+            });
+            result.item = entities[entityAlias].formatResponse({Item}, index, {
+                ...config,
+                pager: false,
+                parse: undefined,
+            }).data;
+        } else {
+            result.item = null;
+        }
+
+        results.push(result);
+    }
+
+    return results;
+}
+
+function cleanseTransactionData(index = TableIndex, entities, data = {}, config = {}) {
+    if (config.raw) {
+        return data;
+    }
+    const identifiers = getEntityIdentifiers(entities);
+    data.Items = data.Items || [];
+    const paramItems = config._paramItems || [];
+    const results = [];
+    for (let i = 0; i < data.Items.length; i++) {
+        const record = data.Items[i];
+        if (!record) {
+            results.push(null);
+            continue;
+        }
+
+        const paramItem = paramItems[i];
+        const entityAlias = matchToEntityAlias({paramItem, identifiers, record});
+        if (!entityAlias) {
+            continue;
+        }
+
+        // pager=false because we don't want the entity trying to parse the lastEvaluatedKey
+        let formatted = entities[entityAlias].formatResponse({ Item: record }, index, {
+            ...config,
+            pager: false,
+            parse: undefined
+        });
+
+        results.push(formatted.data);
+    }
+
+    return results.map(item => ({
+        rejected: false,
+        item,
+    }));
+}
+
+function createTransaction(options) {
+    const { fn, method, getEntities } = options;
+    const operations = {
+        params: (options = {}) => {
+            const paramItems = fn(getEntities());
+            const params = {
+                TransactItems: paramItems,
+            };
+
+            if (typeof options.token === 'string' && options.token.length) {
+                params['ClientRequestToken'] = options.token;
+            }
+            if (options._returnParamItems) {
+                return { params, paramItems };
+            }
+            return params;
+        },
+        go: async (options) => {
+            const driver = Object.values(getEntities())[0];
+
+            if (!driver) {
+                throw new Error('At least one entity must exist to perform a transaction');
+            }
+
+            const { params, paramItems } = operations.params({
+                ...options,
+                _returnParamItems: true
+            });
+
+            let canceled = false;
+            if (paramItems.length === 0) {
+                return {
+                    canceled,
+                    data: [],
+                }
+            }
+
+            const response = await driver.go(method, params, {
+                ...options,
+                parse: (options, data) => {
+                    if (options.raw) {
+                        return data;
+                    } else if (data.canceled) {
+                        canceled = true;
+                        return cleanseCanceledData(TableIndex, getEntities(), data, {
+                            ...options,
+                            _isTransaction: true,
+                            _paramItems: paramItems,
+                        });
+                    } else if (data.Responses) {
+                        return cleanseTransactionData(TableIndex, getEntities(), {
+                            Items: data.Responses.map(response => response.Item)
+                        }, {
+                            ...options,
+                            _isTransaction: true,
+                            _paramItems: paramItems,
+                        });
+                    } else {
+                        return new Array(paramItems ? paramItems.length : 0).fill({
+                            item: null,
+                            code: 'None',
+                            rejected: false,
+                            message: undefined,
+                        });
+                    }
+                }
+            });
+
+            return {
+                ...response,
+                canceled,
+            }
+        }
+    }
+
+    return operations;
+}
+
+function createWriteTransaction(entities, fn) {
+    return createTransaction({
+        fn,
+        method: TransactionMethods.transactWrite,
+        getEntities: () => entities,
+    });
+}
+
+function createGetTransaction(entities, fn) {
+    return createTransaction({
+        fn,
+        method: TransactionMethods.transactGet,
+        getEntities: () => entities,
+    });
+}
+
+module.exports = {
+    createTransaction,
+    createWriteTransaction,
+    createGetTransaction,
+}
+},{"./entity":19,"./types":28}],28:[function(require,module,exports){
 const KeyTypes = {
 	pk: "pk",
 	sk: "sk",
@@ -12851,6 +13404,7 @@ const QueryTypes = {
 };
 
 const MethodTypes = {
+	check: "check",
 	put: "put",
 	get: "get",
 	query: "query",
@@ -12863,7 +13417,26 @@ const MethodTypes = {
 	batchGet: "batchGet",
 	batchWrite: "batchWrite",
 	upsert: "upsert",
+	transactWrite: "transactWrite",
+	transactGet: "transactGet",
 };
+
+const TransactionMethods = {
+	transactWrite: MethodTypes.transactWrite,
+	transactGet: MethodTypes.transactGet,
+}
+
+const TransactionOperations = {
+	[MethodTypes.get]: "Get",
+	[MethodTypes.check]: "ConditionCheck",
+	[MethodTypes.put]: "Put",
+	[MethodTypes.create]: "Put",
+	[MethodTypes.upsert]: "Update",
+	[MethodTypes.update]: "Update",
+	[MethodTypes.patch]: "Update",
+	[MethodTypes.remove]: "Delete",
+	[MethodTypes.delete]: "Delete",
+}
 
 const MethodTypeTranslation = {
 	put: "put",
@@ -12878,6 +13451,8 @@ const MethodTypeTranslation = {
 	batchGet: "batchGet",
 	batchWrite: "batchWrite",
 	upsert: "update",
+	transactWrite: 'transactWrite',
+	transactGet: 'transactGet',
 }
 
 const IndexTypes = {
@@ -13026,6 +13601,7 @@ const ItemOperations = {
 };
 
 const AttributeProxySymbol = Symbol("attribute_proxy");
+const TransactionCommitSymbol = Symbol('transaction_commit');
 
 const BuilderTypes = {
 	update: "update",
@@ -13153,9 +13729,12 @@ module.exports = {
 	AllPages,
 	ResultOrderOption,
 	ResultOrderParam,
+	TransactionCommitSymbol,
+	TransactionOperations,
+	TransactionMethods,
 };
 
-},{}],28:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 const {AttributeOperationProxy, ExpressionState} = require("./operations");
 const {ItemOperations, BuilderTypes} = require("./types");
 
@@ -13225,7 +13804,7 @@ module.exports = {
     UpdateEntity,
     UpdateExpression
 }
-},{"./operations":23,"./types":27}],29:[function(require,module,exports){
+},{"./operations":23,"./types":28}],30:[function(require,module,exports){
 (function (Buffer){(function (){
 const t = require("./types");
 const e = require("./errors");
@@ -13488,7 +14067,7 @@ module.exports = {
 };
 
 }).call(this)}).call(this,require("buffer").Buffer)
-},{"./errors":20,"./types":27,"./validations":30,"buffer":3}],30:[function(require,module,exports){
+},{"./errors":20,"./types":28,"./validations":31,"buffer":3}],31:[function(require,module,exports){
 const e = require("./errors");
 const {KeyCasing} = require("./types")
 
@@ -13872,7 +14451,7 @@ module.exports = {
 	model: validateModel
 };
 
-},{"./errors":20,"./types":27,"jsonschema":9}],31:[function(require,module,exports){
+},{"./errors":20,"./types":28,"jsonschema":9}],32:[function(require,module,exports){
 const {MethodTypes, ExpressionTypes, BuilderTypes} = require("./types");
 const {AttributeOperationProxy, ExpressionState, FilterOperations} = require("./operations");
 const e = require("./errors");
@@ -13951,6 +14530,7 @@ class WhereFactory {
 		case MethodTypes.remove:
 		case MethodTypes.upsert:
 		case MethodTypes.get:
+		case MethodTypes.check:
 			return ExpressionTypes.ConditionExpression
 		default:
 			return ExpressionTypes.FilterExpression
@@ -13983,7 +14563,7 @@ class WhereFactory {
 		let filterParents = Object.entries(injected)
 			.filter(clause => {
 				let [name, { children }] = clause;
-				return children.includes("go");
+				return children.find(child => ['go', 'commit'].includes(child));
 			})
 			.map(([name]) => name);
 		let modelFilters = Object.keys(filters);
@@ -13993,7 +14573,7 @@ class WhereFactory {
 			injected[name] = {
 				name,
 				action: this.buildClause(filter),
-				children: ["params", "go", "where", ...modelFilters],
+				children: ["params", "go", "commit", "where", ...modelFilters],
 			};
 		}
 		filterChildren.push("where");
@@ -14002,7 +14582,7 @@ class WhereFactory {
 			action: (entity, state, fn) => {
 				return this.buildClause(fn)(entity, state);
 			},
-			children: ["params", "go", "where", ...modelFilters],
+			children: ["params", "go", "commit", "where", ...modelFilters],
 		};
 		for (let parent of filterParents) {
 			injected[parent] = { ...injected[parent] };
@@ -14020,4 +14600,4 @@ module.exports = {
 	FilterExpression
 };
 
-},{"./errors":20,"./operations":23,"./types":27}]},{},[16]);
+},{"./errors":20,"./operations":23,"./types":28}]},{},[16]);
