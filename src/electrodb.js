@@ -5105,7 +5105,7 @@
             if (!state) {
                 return null;
             } else if (typeof state === "string") {
-                return state;
+                return `<h2>${state}</h2>`;
             } else {
                 const method = state.query.method;
                 const type = state.query.type;
