@@ -5475,13 +5475,17 @@ let clauses = {
 			}
 			try {
 				const {pk, sk} = state.getCompositeAttributes();
+				const pkComposite = entity._expectFacets(facets, pk);
+				state.addOption('_includeOnResponseItem', pkComposite);
 				return state
 					.setMethod(MethodTypes.delete)
 					.setType(QueryTypes.eq)
-					.setPK(entity._expectFacets(facets, pk))
+					.setPK(pkComposite)
 					.ifSK(() => {
 						entity._expectFacets(facets, sk);
-						state.setSK(state.buildQueryComposites(facets, sk));
+						const skComposite = state.buildQueryComposites(facets, sk);
+						state.setSK(skComposite);
+						state.addOption('_includeOnResponseItem', {...skComposite, ...pkComposite});
 					});
 			} catch(err) {
 				state.setError(err);
@@ -5505,13 +5509,17 @@ let clauses = {
 				if (sk) {
 					filter.unsafeSet(FilterOperationNames.exists, sk);
 				}
+				const pkComposite = entity._expectFacets(facets, attributes.pk);
+				state.addOption('_includeOnResponseItem', pkComposite);
 				return state
 					.setMethod(MethodTypes.delete)
 					.setType(QueryTypes.eq)
-					.setPK(entity._expectFacets(facets, attributes.pk))
+					.setPK(pkComposite)
 					.ifSK(() => {
 						entity._expectFacets(facets, attributes.sk);
-						state.setSK(state.buildQueryComposites(facets, attributes.sk));
+						const skComposite = state.buildQueryComposites(facets, attributes.sk);
+						state.setSK(skComposite);
+						state.addOption('_includeOnResponseItem', {...skComposite, ...pkComposite});
 					});
 			} catch(err) {
 				state.setError(err);
@@ -5529,14 +5537,18 @@ let clauses = {
 			try {
 				let record = entity.model.schema.checkCreate({...payload});
 				const attributes = state.getCompositeAttributes();
+				const pkComposite = entity._expectFacets(record, attributes.pk);
+				state.addOption('_includeOnResponseItem', pkComposite);
 				return state
 					.setMethod(MethodTypes.upsert)
 					.setType(QueryTypes.eq)
 					.applyUpsert(record)
-					.setPK(entity._expectFacets(record, attributes.pk))
+					.setPK(pkComposite)
 					.ifSK(() => {
 						entity._expectFacets(record, attributes.sk);
-						state.setSK(entity._buildQueryFacets(record, attributes.sk));
+						const skComposite = entity._buildQueryFacets(record, attributes.sk);
+						state.setSK(skComposite);
+						state.addOption('_includeOnResponseItem', {...skComposite, ...pkComposite});
 					})
 					.whenOptions(({ state, options }) => {
 						if (!state.getParams()) {
@@ -5627,13 +5639,17 @@ let clauses = {
 				if (sk) {
 					filter.unsafeSet(FilterOperationNames.exists, sk);
 				}
+				const pkComposite = entity._expectFacets(facets, attributes.pk);
+				state.addOption('_includeOnResponseItem', pkComposite);
 				return state
 					.setMethod(MethodTypes.update)
 					.setType(QueryTypes.eq)
-					.setPK(entity._expectFacets(facets, attributes.pk))
+					.setPK(pkComposite)
 					.ifSK(() => {
 						entity._expectFacets(facets, attributes.sk);
-						state.setSK(state.buildQueryComposites(facets, attributes.sk));
+						const skComposite = state.buildQueryComposites(facets, attributes.sk);
+						state.setSK(skComposite);
+						state.addOption('_includeOnResponseItem', {...skComposite, ...pkComposite});
 					});
 			} catch(err) {
 				state.setError(err);
@@ -5650,13 +5666,17 @@ let clauses = {
 			}
 			try {
 				const attributes = state.getCompositeAttributes();
+				const pkComposite = entity._expectFacets(facets, attributes.pk);
+				state.addOption('_includeOnResponseItem', pkComposite);
 				return state
 					.setMethod(MethodTypes.update)
 					.setType(QueryTypes.eq)
-					.setPK(entity._expectFacets(facets, attributes.pk))
+					.setPK(pkComposite)
 					.ifSK(() => {
 						entity._expectFacets(facets, attributes.sk);
-						state.setSK(state.buildQueryComposites(facets, attributes.sk));
+						const skComposite = state.buildQueryComposites(facets, attributes.sk);
+						state.setSK(skComposite);
+						state.addOption('_includeOnResponseItem', {...pkComposite, ...skComposite});
 					});
 			} catch(err) {
 				state.setError(err);
@@ -6098,7 +6118,8 @@ class ChainState {
 				data: {},
 			},
 			upsert: {
-				data: {}
+				data: {},
+				ifNotExists: {},
 			},
 			keys: {
 				provided: [],
@@ -6308,8 +6329,12 @@ class ChainState {
 		}
 	}
 
-	applyUpsert(data = {}) {
-		this.query.upsert.data = {...this.query.upsert.data, ...data};
+	applyUpsert(data = {}, { ifNotExists } = {}) {
+		if (ifNotExists) {
+			this.query.upsert.ifNotExists = {...this.query.upsert.ifNotExists, ...data};
+		} else {
+			this.query.upsert.data = {...this.query.upsert.data, ...data};
+		}
 		return this;
 	}
 
@@ -7197,8 +7222,7 @@ class Entity {
 		let results = config._isCollectionQuery
 			? {}
 			: [];
-		// let ExclusiveStartKey = this._formatExclusiveStartKey({config, indexName: parameters.IndexName });
-		let ExclusiveStartKey = this._formatExclusiveStartKey(config);
+		let ExclusiveStartKey = this._formatExclusiveStartKey({config, indexName: parameters.IndexName });
 		if (ExclusiveStartKey === null) {
 			ExclusiveStartKey = undefined;
 		}
@@ -7295,7 +7319,7 @@ class Entity {
 			case MethodTypes.delete:
 			case MethodTypes.remove:
 			case MethodTypes.upsert:
-				return this.formatResponse(response, index, {...config, _objectOnEmpty: true});
+				return this.formatResponse(response, index, { ...config, _objectOnEmpty: true });
 			default:
 				return this.formatResponse(response, index, config);
 		}
@@ -7436,7 +7460,11 @@ class Entity {
 						results = null;
 					}
 				} else if (config._objectOnEmpty) {
-					return { data: {} };
+					return {
+						data: {
+							...config._includeOnResponseItem,
+						}
+					};
 				} else {
 					results = null;
 				}
@@ -7688,30 +7716,22 @@ class Entity {
 		return config.formatCursor.serialize(page) || null;
 	}
 
-	// _formatExclusiveStartKey({config, indexName = TableIndex}) {
-	// 	let exclusiveStartKey = config.cursor;
-	// 	if (config.raw || config.pager === Pager.raw) {
-	// 		return this._trimKeysToIndex({ provided: exclusiveStartKey, indexName }) || null;
-	// 	}
-	// 	let keys;
-	// 	if (config.pager === Pager.item) {
-	// 		keys = this._fromCompositeToKeysByIndex({indexName, provided: exclusiveStartKey});
-	// 	} else {
-	// 		keys = config.formatCursor.deserialize(exclusiveStartKey);
-	// 	}
-	// 	if (!keys) {
-	// 		return null;
-	// 	}
-	//
-	// 	return this._trimKeysToIndex({provided: keys, indexName}) || null;
-	// }
-
-	_formatExclusiveStartKey(config) {
+	_formatExclusiveStartKey({config, indexName = TableIndex}) {
 		let exclusiveStartKey = config.cursor;
 		if (config.raw || config.pager === Pager.raw) {
-			return exclusiveStartKey || null;
+			return this._trimKeysToIndex({ provided: exclusiveStartKey, indexName }) || null;
 		}
-		return config.formatCursor.deserialize(exclusiveStartKey) || null;
+		let keys;
+		if (config.pager === Pager.item) {
+			keys = this._fromCompositeToKeysByIndex({indexName, provided: exclusiveStartKey});
+		} else {
+			keys = config.formatCursor.deserialize(exclusiveStartKey);
+		}
+		if (!keys) {
+			return null;
+		}
+
+		return this._trimKeysToIndex({provided: keys, indexName}) || null;
 	}
 
 	setClient(client) {
@@ -7972,6 +7992,7 @@ class Entity {
 			order: undefined,
 			hydrate: false,
 			hydrator: (_entity, _indexName, items) => items,
+			_includeOnResponseItem: {},
 		};
 
 		return provided.filter(Boolean).reduce((config, option) => {
@@ -8131,6 +8152,13 @@ class Entity {
 
 			if (validations.isFunction(option.hydrator)) {
 				config.hydrator = option.hydrator;
+			}
+
+			if (option._includeOnResponseItem) {
+				config._includeOnResponseItem = {
+					...config._includeOnResponseItem,
+					...option._includeOnResponseItem,
+				}
 			}
 
 			config.page = Object.assign({}, config.page, option.page);
@@ -8581,12 +8609,18 @@ class Entity {
 		const { updatedKeys, setAttributes, indexKey } = this._getPutKeys(pk, sk && sk.facets, upsert.data);
 		const upsertAttributes = this.model.schema.translateToFields(setAttributes);
 		const keyNames = Object.keys(indexKey);
-		// update.set(this.identifiers.entity, this.getName());
-		// update.set(this.identifiers.version, this.getVersion());
 		for (const field of [...Object.keys(upsertAttributes), ...Object.keys(updatedKeys)]) {
 			const value = u.getFirstDefined(upsertAttributes[field], updatedKeys[field]);
 			if (!keyNames.includes(field)) {
-				update.set(field, value);
+				let operation = ItemOperations.set;
+				const name = this.model.schema.translationForRetrieval[field];
+				if (name) {
+					const attribute = this.model.schema.attributes[name];
+					if (this.model.schema.readOnlyAttributes.has(name) && (!attribute || !attribute.indexes || attribute.indexes.length === 0)) {
+						operation = ItemOperations.ifNotExists;
+					}
+				}
+				update.set(field, value, operation);
 			}
 		}
 
@@ -12829,15 +12863,14 @@ class Schema {
 			: attribute.getValidate(value);
 	}
 
-	checkUpdate(payload = {}) {
+	checkUpdate(payload = {}, { allowReadOnly } = {}) {
 		let record = {};
 		for (let [path, attribute] of this.traverser.getAll()) {
 			let value = payload[path];
 			if (value === undefined) {
 				continue;
 			}
-			if (attribute.readOnly) {
-				// todo: #electroerror
+			if (attribute.readOnly && !allowReadOnly) {
 				throw new e.ElectroAttributeValidationError(attribute.path, `Attribute "${attribute.path}" is Read-Only and cannot be updated`);
 			} else {
 				record[path] = attribute.getValidate(value);
@@ -14178,6 +14211,7 @@ const ItemOperations = {
 	"add": "add",
 	"subtract": "subtract",
 	"append": "append",
+	"ifNotExists": "ifNotExists"
 };
 
 const AttributeProxySymbol = Symbol("attribute_proxy");
@@ -14326,7 +14360,7 @@ class UpdateExpression extends ExpressionState {
             remove: new Set(),
             add: new Set(),
             subtract: new Set(),
-            delete: new Set()
+            delete: new Set(),
         };
         this.seen = new Map();
         this.type = BuilderTypes.update;
@@ -14340,25 +14374,33 @@ class UpdateExpression extends ExpressionState {
         this.operations[type].delete(expression);
     }
 
-    set(name, value, operation) {
+    set(name, value, operation = ItemOperations.set) {
+        let operationToApply = operation;
+        if (operation === ItemOperations.ifNotExists) {
+            operationToApply = ItemOperations.set;
+        }
         const seen = this.seen.get(name);
         let n;
         let v;
         if (seen) {
             n = seen.name;
             v = seen.value;
-            this.unadd(ItemOperations.set, seen.expression);
+            this.unadd(operationToApply, seen.expression);
+
         } else {
             n = this.setName({}, name, name);
             v = this.setValue(name, value);
         }
-        const expression = `${n.prop} = ${v}`;
+        let expression = `${n.prop} = ${v}`;
+        if (operation === ItemOperations.ifNotExists) {
+            expression = `${n.prop} = if_not_exists(${n.prop}, ${v})`;
+        }
         this.seen.set(name, {
             name: n,
             value: v,
             expression,
         });
-        this.add(operation || ItemOperations.set, expression);
+        this.add(operationToApply, expression);
     }
 
     remove(name) {
