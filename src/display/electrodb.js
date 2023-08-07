@@ -6672,6 +6672,7 @@ const {
 	PartialComparisons,
 	MethodTypeTranslation,
 	TransactionCommitSymbol,
+	CastKeyOptions,
 } = require("./types");
 const { FilterFactory } = require("./filters");
 const { FilterOperations } = require("./operations");
@@ -7925,7 +7926,7 @@ class Entity {
 			}
 			indexParts = { ...indexParts, ...tableIndexParts };
 		}
-		let noPartsFound = Object.keys(indexParts).length === 0;
+		let noPartsFound = Object.keys(indexParts).length === 0 && this.model.facets.byIndex[tableIndex].all.length > 0;
 		let partsAreIncomplete = this.model.facets.byIndex[tableIndex].all.find(facet => indexParts[facet.name] === undefined);
 		if (noPartsFound || partsAreIncomplete) {
 			// In this case no suitable record could be found be the deconstructed pager.
@@ -9238,7 +9239,8 @@ class Entity {
 		version = "1",
 		tableIndex,
 		modelVersion,
-		isClustered
+		isClustered,
+		schema
 	}) {
 		/*
 			Collections will prefix the sort key so they can be queried with
@@ -9254,12 +9256,14 @@ class Entity {
 				field: tableIndex.pk.field,
 				casing: tableIndex.pk.casing,
 				isCustom: tableIndex.customFacets.pk,
+				cast: tableIndex.pk.cast,
 			},
 			sk: {
 				prefix: "",
 				casing: tableIndex.sk.casing,
 				isCustom: tableIndex.customFacets.sk,
 				field: tableIndex.sk ? tableIndex.sk.field : undefined,
+				cast: tableIndex.sk ? tableIndex.sk.cast : undefined,
 			}
 		};
 
@@ -9298,7 +9302,7 @@ class Entity {
 			}
 		}
 
-		// If keys arent custom, set the prefixes
+		// If keys are not custom, set the prefixes
 		if (!keys.pk.isCustom) {
 			keys.pk.prefix = u.formatKeyCasing(pk, tableIndex.pk.casing);
 		}
@@ -9306,6 +9310,40 @@ class Entity {
 		if (!keys.sk.isCustom) {
 			keys.sk.prefix = u.formatKeyCasing(sk, tableIndex.sk.casing);
 			keys.sk.postfix = u.formatKeyCasing(postfix, tableIndex.sk.casing);
+		}
+
+		const castKeys = tableIndex.hasSk 
+			? [tableIndex.pk, tableIndex.sk]
+			: [tableIndex.pk];
+	
+		for (const castKey of castKeys) {
+			if (castKey.cast === CastKeyOptions.string) {
+				keys[castKey.type].cast = CastKeyOptions.string;
+			} else if (
+				// custom keys with only one facet and no labels are numeric by default
+				castKey.cast === undefined &&
+				castKey.isCustom &&
+				castKey.facets.length === 1 &&
+				castKey.facetLabels.every(({label}) => !label) &&
+				schema.attributes[castKey.facets[0]] &&
+				schema.attributes[castKey.facets[0]].type === 'number'
+			) {
+				keys[castKey.type].cast = CastKeyOptions.number;
+			} else if (
+				castKey.cast === CastKeyOptions.number &&
+				castKey.facets.length === 1 &&
+				schema.attributes[castKey.facets[0]] &&
+				['number', 'string', 'boolean'].includes(schema.attributes[castKey.facets[0]].type)
+			) {
+				keys[castKey.type].cast = CastKeyOptions.number;
+			} else if (
+				castKey.cast === CastKeyOptions.number &&
+				castKey.facets.length > 1
+			) {
+				throw new e.ElectroError(e.ErrorCodes.InvalidModel, `Invalid "cast" option provided for ${castKey.type} definition on index "${u.formatIndexNameForDisplay(tableIndex.index)}". Keys can only be cast to 'number' if they are a composite of one numeric attribute.`);
+			} else {
+				keys[castKey.type].cast = CastKeyOptions.string;
+			}
 		}
 
 		return keys;
@@ -9389,7 +9427,12 @@ class Entity {
 			throw new Error(`Invalid index: ${index}`);
 		}
 		// let partitionKey = this._makeKey(prefixes.pk, facets.pk, pkFacets, this.model.facets.labels[index].pk, { excludeLabelTail: true });
-		let partitionKey = this._makeKey(prefixes.pk, facets.pk, pkFacets, this.model.facets.labels[index].pk);
+		let partitionKey = this._makeKey(
+			prefixes.pk, 
+			facets.pk, 
+			pkFacets, 
+			this.model.facets.labels[index].pk,
+		);
 		let pk = partitionKey.key;
 		let sk = [];
 		let fulfilled = false;
@@ -9468,21 +9511,45 @@ class Entity {
 		};
 	}
 
-	_isNumericKey(isCustom, facets = [], labels = []) {
-		let attribute = this.model.schema.attributes[facets[0]];
-		let isSingleComposite = facets.length === 1;
-		let hasNoLabels = isCustom && labels.every(({label}) => !label);
-		let facetIsNonStringPrimitive = attribute && attribute.type === "number";
-		return isCustom && isSingleComposite && hasNoLabels && facetIsNonStringPrimitive
+	_formatNumericCastKey(attributeName, key) {
+		const fulfilled = key !== undefined;
+		if (!fulfilled) {
+			return {
+				fulfilled,
+				key,
+			}
+		}
+		if (typeof key === 'number') {
+			return {
+				fulfilled,
+				key,
+			}
+		}
+		if (typeof key === 'string') {
+			const parsed = parseInt(key);
+			if (!isNaN(parsed)) {
+				return {
+					fulfilled,
+					key: parsed,
+				}
+			}
+		}
+
+		if (typeof key === 'boolean') {
+			return {
+				fulfilled,
+				key: key === true ? 1 : 0,
+			}
+		}
+
+		throw new e.ElectroAttributeValidationError(attributeName, `Invalid key value provided, could not cast composite attribute ${attributeName} to number for index`);
 	}
 
+
 	/* istanbul ignore next */
-	_makeKey({prefix, isCustom, casing, postfix} = {}, facets = [], supplied = {}, labels = [], {excludeLabelTail, excludePostfix, transform = (val) => val} = {}) {
-		if (this._isNumericKey(isCustom, facets, labels)) {
-			return {
-				fulfilled: supplied[facets[0]] !== undefined,
-				key: supplied[facets[0]],
-			};
+	_makeKey({prefix, isCustom, casing, postfix, cast} = {}, facets = [], supplied = {}, labels = [], {excludeLabelTail, excludePostfix, transform = (val) => val} = {}) {
+		if (cast === CastKeyOptions.number) {
+			return this._formatNumericCastKey(facets[0], supplied[facets[0]]);
 		}
 
 		let key = prefix;
@@ -9799,7 +9866,6 @@ class Entity {
 		};
 		let seenIndexes = {};
 		let seenIndexFields = {};
-
 		let accessPatterns = Object.keys(indexes);
 
 		for (let i in accessPatterns) {
@@ -9848,6 +9914,7 @@ class Entity {
 				index: indexName,
 				casing: pkCasing,
 				type: KeyTypes.pk,
+				cast: index.pk.cast, 
 				field: index.pk.field || "",
 				facets: parsedPKAttributes.attributes,
 				isCustom: parsedPKAttributes.isCustom,
@@ -9865,6 +9932,7 @@ class Entity {
 					index: indexName,
 					casing: skCasing,
 					type: KeyTypes.sk,
+					cast: index.sk.cast, 
 					field: index.sk.field || "",
 					facets: parsedSKAttributes.attributes,
 					isCustom: parsedSKAttributes.isCustom,
@@ -10056,7 +10124,7 @@ class Entity {
 		return normalized;
 	}
 
-	_normalizeKeyFixings({service, entity, version, indexes, modelVersion, clusteredIndexes}) {
+	_normalizeKeyFixings({service, entity, version, indexes, modelVersion, clusteredIndexes, schema}) {
 		let prefixes = {};
 		for (let accessPattern of Object.keys(indexes)) {
 			let tableIndex = indexes[accessPattern];
@@ -10067,6 +10135,7 @@ class Entity {
 				tableIndex,
 				modelVersion,
 				isClustered: clusteredIndexes.has(accessPattern),
+				schema,
 			});
 		}
 		return prefixes;
@@ -10172,7 +10241,6 @@ class Entity {
 
 	_parseModel(model, config = {}) {
 		/** start beta/v1 condition **/
-		const {client} = config;
 		let modelVersion = u.getModelVersion(model);
 		let service, entity, version, table, name;
 		switch(modelVersion) {
@@ -10212,20 +10280,23 @@ class Entity {
 			indexAccessPattern,
 			indexHasSubCollections,
 		} = this._normalizeIndexes(model.indexes);
-		let schema = new Schema(model.attributes, facets, {client, isRoot: true});
+		let schema = new Schema(model.attributes, facets, {
+			getClient: () => this.client,
+			isRoot: true,
+		});
 		let filters = this._normalizeFilters(model.filters);
 		// todo: consider a rename
-		let prefixes = this._normalizeKeyFixings({service, entity, version, indexes, modelVersion, clusteredIndexes});
+		let prefixes = this._normalizeKeyFixings({service, entity, version, indexes, modelVersion, clusteredIndexes, schema});
 
 		// apply model defined labels
 		let schemaDefinedLabels = schema.getLabels();
+		const deconstructors = {};
 		facets.labels = this._mergeKeyDefinitions(facets.labels, schemaDefinedLabels);
 		for (let indexName of Object.keys(facets.labels)) {
-			indexes[indexAccessPattern.fromIndexToAccessPattern[indexName]].pk.labels = facets.labels[indexName].pk;
-			indexes[indexAccessPattern.fromIndexToAccessPattern[indexName]].sk.labels = facets.labels[indexName].sk;
-		}
-		const deconstructors = {};
-		for (const indexName of Object.keys(facets.labels)) {
+			const accessPattern = indexAccessPattern.fromIndexToAccessPattern[indexName];
+			indexes[accessPattern].pk.labels = facets.labels[indexName].pk;
+			indexes[accessPattern].sk.labels = facets.labels[indexName].sk;
+			
 			const keyTypes = prefixes[indexName] || {};
 			deconstructors[indexName] = {};
 			for (const keyType in keyTypes) {
@@ -10477,7 +10548,7 @@ const ErrorCodes = {
   InconsistentIndexDefinition: {
     code: 1022,
     section: "inconsistent-index-definition",
-    name: "InvalidClientProvided",
+    name: "Inconsistent Index Definition",
     sym: ErrorCode,
   },
   MissingAttribute: {
@@ -11561,7 +11632,7 @@ class Attribute {
 		this.parent = { parentType: this.type, parentPath: this.path };
 		this.get = this._makeGet(definition.get);
 		this.set = this._makeSet(definition.set);
-		this.client = definition.client;
+		this.getClient = definition.getClient;
 	}
 
 	static buildChildAttributes(type, definition, parent) {
@@ -11579,25 +11650,25 @@ class Attribute {
 	}
 
 	static buildChildListItems(definition, parent) {
-		const {items, client} = definition;
+		const {items, getClient} = definition;
 		const prop = {...items, ...parent};
 		// The use of "*" is to ensure the child's name is "*" when added to the traverser and searching for the children of a list
-		return Schema.normalizeAttributes({ '*': prop }, {}, {client, traverser: parent.traverser, parent}).attributes["*"];
+		return Schema.normalizeAttributes({ '*': prop }, {}, {getClient, traverser: parent.traverser, parent}).attributes["*"];
 	}
 
 	static buildChildSetItems(definition, parent) {
-		const {items, client} = definition;
+		const {items, getClient} = definition;
 
 		const allowedTypes = [AttributeTypes.string, AttributeTypes.boolean, AttributeTypes.number, AttributeTypes.enum];
 		if (!Array.isArray(items) && !allowedTypes.includes(items)) {
 			throw new e.ElectroError(e.ErrorCodes.InvalidAttributeDefinition, `Invalid "items" definition for Set attribute: "${definition.path}". Acceptable item types include ${u.commaSeparatedString(allowedTypes)}`);
 		}
 		const prop = {type: items, ...parent};
-		return Schema.normalizeAttributes({ prop }, {}, {client, traverser: parent.traverser, parent}).attributes.prop;
+		return Schema.normalizeAttributes({ prop }, {}, {getClient, traverser: parent.traverser, parent}).attributes.prop;
 	}
 
 	static buildChildMapProperties(definition, parent) {
-		const {properties, client} = definition;
+		const {properties, getClient} = definition;
 		if (!properties || typeof properties !== "object") {
 			throw new e.ElectroError(e.ErrorCodes.InvalidAttributeDefinition, `Invalid "properties" definition for Map attribute: "${definition.path}". The "properties" definition must describe the attributes that the Map will accept`);
 		}
@@ -11605,7 +11676,7 @@ class Attribute {
 		for (let name of Object.keys(properties)) {
 			attributes[name] = {...properties[name], ...parent};
 		}
-		return Schema.normalizeAttributes(attributes, {}, {client, traverser: parent.traverser, parent});
+		return Schema.normalizeAttributes(attributes, {}, {getClient, traverser: parent.traverser, parent});
 	}
 
 	static buildPath(name, type, parentPath) {
@@ -11976,8 +12047,9 @@ class MapAttribute extends Attribute {
 		const getter = get || ((val) => {
 			const isEmpty = !val || Object.keys(val).length === 0;
 			const isNotRequired = !this.required;
+			const doesNotHaveDefault = this.default === undefined;
 			const isRoot = this.isRoot;
-			if (isEmpty && isRoot && !isNotRequired) {
+			if (isEmpty && isRoot && isNotRequired && doesNotHaveDefault) {
 				return undefined;
 			}
 			return val;
@@ -12016,11 +12088,16 @@ class MapAttribute extends Attribute {
 		const setter = set || ((val) => {
 			const isEmpty = !val || Object.keys(val).length === 0;
 			const isNotRequired = !this.required;
+			const doesNotHaveDefault = this.default === undefined;
+			const defaultIsValue = this.default === val;
 			const isRoot = this.isRoot;
-			if (isEmpty && isRoot && !isNotRequired) {
+			if (defaultIsValue) {
+				return val;
+			} else if (isEmpty && isRoot && isNotRequired && doesNotHaveDefault) {
 				return undefined;
+			} else {
+				return val;
 			}
-			return val;
 		});
 
 		return (values, siblings) => {
@@ -12314,11 +12391,12 @@ class SetAttribute extends Attribute {
 	}
 
 	_createDDBSet(value) {
-		if (this.client && typeof this.client.createSet === "function") {
+		const client = this.getClient();
+		if (client && typeof client.createSet === "function") {
 			value = Array.isArray(value)
 				? Array.from(new Set(value))
 				: value;
-			return this.client.createSet(value, { validate: true });
+			return client.createSet(value, { validate: true });
 		} else {
 			return new DynamoDBSet(value, this.items.type);
 		}
@@ -12433,10 +12511,10 @@ class SetAttribute extends Attribute {
 }
 
 class Schema {
-	constructor(properties = {}, facets = {}, {traverser = new AttributeTraverser(), client, parent, isRoot} = {}) {
+	constructor(properties = {}, facets = {}, {traverser = new AttributeTraverser(), getClient, parent, isRoot} = {}) {
 		this._validateProperties(properties, parent);
-		let schema = Schema.normalizeAttributes(properties, facets, {traverser, client, parent, isRoot});
-		this.client = client;
+		let schema = Schema.normalizeAttributes(properties, facets, {traverser, getClient, parent, isRoot});
+		this.getClient = getClient;
 		this.attributes = schema.attributes;
 		this.enums = schema.enums;
 		this.translationForTable = schema.translationForTable;
@@ -12449,7 +12527,7 @@ class Schema {
 		this.isRoot = !!isRoot;
 	}
 
-	static normalizeAttributes(attributes = {}, facets = {}, {traverser, client, parent, isRoot} = {}) {
+	static normalizeAttributes(attributes = {}, facets = {}, {traverser, getClient, parent, isRoot} = {}) {
 		const attributeHasParent = !!parent;
 		let invalidProperties = [];
 		let normalized = {};
@@ -12542,12 +12620,12 @@ class Schema {
 			let definition = {
 				name,
 				field,
-				client,
+				getClient,
 				casing,
 				prefix,
 				postfix,
 				traverser,
-				isKeyField,
+				isKeyField: isKeyField || isKey,
 				isRoot: !!isRoot,
 				label: attribute.label,
 				required: !!attribute.required,
@@ -14306,6 +14384,11 @@ const DynamoDBAttributeTypes = Object.entries({
 	return obj;
 }, {});
 
+const CastKeyOptions = {
+	string: 'string',
+	number: 'number',
+}
+
 module.exports = {
 	Pager,
 	KeyTypes,
@@ -14325,6 +14408,7 @@ module.exports = {
 	ItemOperations,
 	AttributeTypes,
 	EntityVersions,
+	CastKeyOptions,
 	ServiceVersions,
 	ExpressionTypes,
 	ElectroInstance,
@@ -14830,6 +14914,11 @@ const Index = {
 					type: "string",
 					enum: ["upper", "lower", "none", "default"],
 					required: false,
+				},
+				cast: {
+					type: "string",
+					enum: ["string", "number"],
+					required: false,
 				}
 			},
 		},
@@ -14862,6 +14951,11 @@ const Index = {
 				casing: {
 					type: "string",
 					enum: ["upper", "lower", "none", "default"],
+					required: false,
+				},
+				cast: {
+					type: "string",
+					enum: ["string", "number"],
 					required: false,
 				}
 			},
