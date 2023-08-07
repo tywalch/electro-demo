@@ -106,3 +106,5 @@ dist
 .DS_Store
 
 netlify/functions/**/*.js
+
+.idea
