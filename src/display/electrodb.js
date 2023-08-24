@@ -5289,7 +5289,7 @@ window.ElectroDB = {
 };
 },{"../index":1}],17:[function(require,module,exports){
 const { QueryTypes, MethodTypes, ItemOperations, ExpressionTypes, TransactionCommitSymbol, TransactionOperations, TerminalOperation, KeyTypes, IndexTypes } = require("./types");
-const {AttributeOperationProxy, UpdateOperations, FilterOperationNames} = require("./operations");
+const {AttributeOperationProxy, UpdateOperations, FilterOperationNames, UpdateOperationNames} = require("./operations");
 const {UpdateExpression} = require("./update");
 const {FilterExpression} = require("./where");
 const v = require("./validations");
@@ -5656,7 +5656,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["set", "append","updateRemove", "updateDelete", "add", "subtract", "data", "commit"],
+		children: ["set", "append","updateRemove", "updateDelete", "add", "subtract", "data", "composite", "commit"],
 	},
 	update: {
 		name: "update",
@@ -5683,7 +5683,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit"],
+		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
 	},
 	data: {
 		name: "data",
@@ -5713,7 +5713,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit"],
+		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
 	},
 	set: {
 		name: "set",
@@ -5730,7 +5730,32 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit"],
+		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
+	},
+	composite: {
+		name: "composite",
+		action(entity, state, composites = {}) {
+			if (state.getError() !== null) {
+				return state;
+			}
+			try {
+				for (const attrName in composites) {
+					// todo: validate attrName is facet
+					if (entity.model.facets.byAttr[attrName]) {
+						const wasSet = state.query.update.addComposite(attrName, composites[attrName]);
+						if (!wasSet) {
+							throw new e.ElectroError(e.ErrorCodes.DuplicateUpdateCompositesProvided, `The composite attribute ${attrName} has been provided more than once with different values. Remove the duplication before running again`);
+						}
+						state.applyCondition(FilterOperationNames.eq, attrName, composites[attrName]);
+					}
+				}
+				return state;
+			} catch(err) {
+				state.setError(err);
+				return state;
+			}
+		},
+		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
 	},
 	append: {
 		name: "append",
@@ -5747,7 +5772,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit"],
+		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
 	},
 	updateRemove: {
 		name: "remove",
@@ -5767,7 +5792,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit"],
+		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
 	},
 	updateDelete: {
 		name: "delete",
@@ -5784,7 +5809,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit"],
+		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
 	},
 	add: {
 		name: "add",
@@ -5801,7 +5826,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit"],
+		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
 	},
 	subtract: {
 		name: "subtract",
@@ -5818,7 +5843,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit"],
+		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
 	},
 	query: {
 		name: "query",
@@ -6250,6 +6275,17 @@ class ChainState {
 			const attribute = this.attributes[name];
 			if (attribute !== undefined) {
 				this.unsafeApplyFilter(operation, attribute.field, ...values);
+			}
+		}
+		return this;
+	}
+
+	applyCondition(operation, name, ...values) {
+		if (FilterOperationNames[operation] !== undefined && name !== undefined && values.length > 0) {
+			const attribute = this.attributes[name];
+			if (attribute !== undefined) {
+				const filter = this.query.filter[ExpressionTypes.ConditionExpression];
+				filter.unsafeSet(operation, attribute.field, ...values);
 			}
 		}
 		return this;
@@ -8530,14 +8566,26 @@ class Entity {
 		// We need to remove the pk/sk facets from before applying the Attribute setters because these values didnt
 		// change, and we also don't want to trigger the setters of any attributes watching these facets because that
 		// should only happen when an attribute is changed.
-		const { indexKey, updatedKeys, deletedKeys = [] } = this._getUpdatedKeys(pk, sk, preparedUpdateValues, removed);
+		const attributesAndComposites = {
+			...update.composites,
+			...preparedUpdateValues,
+		};
+		const { indexKey, updatedKeys, deletedKeys = [] } = this._getUpdatedKeys(pk, sk, attributesAndComposites, removed);
 		const accessPattern = this.model.translations.indexes.fromIndexToAccessPattern[TableIndex];
-
 		for (const path of Object.keys(preparedUpdateValues)) {
 			if (modifiedAttributeNames[path] !== undefined && preparedUpdateValues[path] !== undefined) {
 				update.updateValue(modifiedAttributeNames[path], preparedUpdateValues[path]);
 			} else if (preparedUpdateValues[path] !== undefined) {
-				update.set(path, preparedUpdateValues[path]);
+				const attr = this.model.schema.getAttribute(path);
+				if (attr) {
+					// attributes might enter into this flow because they were triggered via a `watch` event and were
+					// not supplied directly by the user. In this case we should set the field name.
+					// TODO: This will only work with root attributes and should be refactored for nested attributes.
+					update.set(attr.field, preparedUpdateValues[path]);
+				} else {
+					// this could be fields added by electro that don't apeear in the schema
+					update.set(path, preparedUpdateValues[path]);
+				}
 			}
 		}
 
@@ -8547,7 +8595,6 @@ class Entity {
 			const wasNotAlreadyModified = modifiedAttributeNames[indexKey] === undefined;
 			if (isNotTablePK && isNotTableSK && wasNotAlreadyModified) {
 				update.set(indexKey, updatedKeys[indexKey]);
-
 			}
 		}
 
@@ -8594,7 +8641,6 @@ class Entity {
 	_makePutParams({ data } = {}, pk, sk) {
 		let { updatedKeys, setAttributes } = this._getPutKeys(pk, sk && sk.facets, data);
 		let translatedFields = this.model.schema.translateToFields(setAttributes);
-
 		return {
 			Item: {
 				...translatedFields,
@@ -8983,7 +9029,7 @@ class Entity {
 			let incompleteAccessPatterns = incomplete.map(({index}) => this.model.translations.indexes.fromIndexToAccessPattern[index]);
 			let missingFacets = incomplete.reduce((result, { missing }) => [...result, ...missing], []);
 			throw new e.ElectroError(e.ErrorCodes.IncompleteCompositeAttributes,
-				`Incomplete composite attributes: Without the composite attributes ${u.commaSeparatedString(missingFacets)} the following access patterns cannot be updated: ${u.commaSeparatedString(incompleteAccessPatterns.filter((val) => val !== undefined))} `,
+				`Incomplete composite attributes: Without the composite attributes ${u.commaSeparatedString(missingFacets)} the following access patterns cannot be updated: ${u.commaSeparatedString(incompleteAccessPatterns.filter((val) => val !== undefined))}. If a composite attribute is readOnly and cannot be set, use the 'composite' chain method on update to supply the value for key formatting purposes.`,
 			);
 		}
 		return complete;
@@ -9052,8 +9098,10 @@ class Entity {
 					indexKey[sk] = keys.sk[0];
 				}
 			}
-			updatedKeys[pk] = keys.pk;
-			if (sk) {
+			if (keys.pk !== undefined && keys.pk !== '') {
+				updatedKeys[pk] = keys.pk;
+			}
+			if (sk && keys.sk[0] !== undefined && keys.sk[0] !== '') {
 				updatedKeys[sk] = keys.sk[0];
 			}
 		}
@@ -9944,7 +9992,9 @@ class Entity {
 			if (Array.isArray(sk.facets)) {
 				let duplicates = pk.facets.filter(facet => sk.facets.includes(facet));
 				if (duplicates.length !== 0) {
-					throw new e.ElectroError(e.ErrorCodes.DuplicateIndexCompositeAttributes, `The Access Pattern '${accessPattern}' contains duplicate references the composite attribute(s): ${u.commaSeparatedString(duplicates)}. Composite attributes may only be used once within an index. If this leaves the Sort Key (sk) without any composite attributes simply set this to be an empty array.`);
+					if (sk.facets.length > 1) {
+						throw new e.ElectroError(e.ErrorCodes.DuplicateIndexCompositeAttributes, `The Access Pattern '${accessPattern}' contains duplicate references the composite attribute(s): ${u.commaSeparatedString(duplicates)}. Composite attributes can only be used more than once in an index if your sort key is limitted to a single attribute. This is to prevent unexpected runtime errors related to the inability to generate keys.`);
+					}
 				}
 			}
 
@@ -10603,6 +10653,12 @@ const ErrorCodes = {
     code: 2009,
     section: "invalid-conversion-values-provided",
     name: "InvalidConversionCompositeProvided",
+    sym: ErrorCode,
+  },
+  DuplicateUpdateCompositesProvided: {
+    code: 2010,
+    section: "duplicate-update-composites-provided",
+    name: "DuplicateUpdateCompositesProvided",
     sym: ErrorCode,
   },
   InvalidAttribute: {
@@ -11501,7 +11557,12 @@ const FilterOperationNames = Object.keys(FilterOperations).reduce((ops, name) =>
     return ops;
 }, {});
 
-module.exports = {UpdateOperations, FilterOperations, FilterOperationNames, ExpressionState, AttributeOperationProxy};
+const UpdateOperationNames = Object.keys(UpdateOperations).reduce((ops, name) => {
+    ops[name] = name;
+    return ops;
+}, {});
+
+module.exports = {UpdateOperations, UpdateOperationNames, FilterOperations, FilterOperationNames, ExpressionState, AttributeOperationProxy};
 },{"./errors":20,"./types":28,"./util":30}],24:[function(require,module,exports){
 const { CastTypes, ValueTypes, KeyCasing, AttributeTypes, AttributeMutationMethods, AttributeWildCard, PathTypes, TableIndex, ItemOperations } = require("./types");
 const AttributeTypeNames = Object.keys(AttributeTypes);
@@ -12676,7 +12737,7 @@ class Schema {
 
 			if (facets.byAttr && facets.byAttr[definition.name] !== undefined && (!ValidFacetTypes.includes(definition.type) && !Array.isArray(definition.type))) {
 				let assignedIndexes = facets.byAttr[name].map(assigned => assigned.index === "" ? "Table Index" : assigned.index);
-				throw new e.ElectroError(e.ErrorCodes.InvalidAttributeDefinition, `Invalid composite attribute definition: Composite attributes must be one of the following: ${ValidFacetTypes.join(", ")}. The attribute "${name}" is defined as being type "${attribute.type}" but is a composite attribute of the the following indexes: ${assignedIndexes.join(", ")}`);
+				throw new e.ElectroError(e.ErrorCodes.InvalidAttributeDefinition, `Invalid composite attribute definition: Composite attributes must be one of the following: ${ValidFacetTypes.join(", ")}. The attribute "${name}" is defined as being type "${attribute.type}" but is a composite attribute of the following indexes: ${assignedIndexes.join(", ")}`);
 			}
 
 			if (usedAttrs[definition.field] || usedAttrs[name]) {
@@ -12943,9 +13004,9 @@ class Schema {
 
 	checkUpdate(payload = {}, { allowReadOnly } = {}) {
 		let record = {};
-		for (let [path, attribute] of this.traverser.getAll()) {
-			let value = payload[path];
-			if (value === undefined) {
+		for (let [path, value] of Object.entries(payload)) {
+			let attribute = this.traverser.paths.get(path);
+			if (attribute === undefined) {
 				continue;
 			}
 			if (attribute.readOnly && !allowReadOnly) {
@@ -13535,6 +13596,8 @@ class Service {
 	}
 
 	_validateCollectionDefinition(definition = {}, providedIndex = {}) {
+		let isCustomMatchPK = definition.pk.isCustom === providedIndex.pk.isCustom;
+		let isCustomMatchSK = !!(definition.sk && definition.sk.isCustom) === !!(providedIndex.sk && providedIndex.sk.isCustom);
 		let indexMatch = definition.index === providedIndex.index;
 		let pkFieldMatch = definition.pk.field === providedIndex.pk.field;
 		let pkFacetLengthMatch = definition.pk.facets.length === providedIndex.pk.facets.length;
@@ -13543,37 +13606,74 @@ class Service {
 		let definitionIndexName = u.formatIndexNameForDisplay(definition.index);
 		let providedIndexName = u.formatIndexNameForDisplay(providedIndex.index);
 		let matchingKeyCasing = this._validateIndexCasingMatch(definition, providedIndex);
-		if (pkFacetLengthMatch) {
-			for (let i = 0; i < definition.pk.labels.length; i++) {
-				let definitionFacet = definition.pk.labels[i].name;
-				let definitionLabel = definition.pk.labels[i].label;
-				let providedFacet = providedIndex.pk.labels[i].name;
-				let providedLabel = providedIndex.pk.labels[i].label;
-				let noLabels = definition.pk.labels[i].label === definition.pk.labels[i].name && providedIndex.pk.labels[i].label === providedIndex.pk.labels[i].name;
-				if (definitionLabel !== providedLabel) {
-					mismatchedFacetLabels.push({
-						definitionFacet,
-						definitionLabel,
-						providedFacet,
-						providedLabel,
-						type: noLabels ? "facet" : "label"
-					});
-				} else if (definitionFacet !== providedFacet) {
-					mismatchedFacetLabels.push({
-						definitionFacet,
-						definitionLabel,
-						providedFacet,
-						providedLabel,
-						type: "facet"
-					});
+
+		for (let i = 0; i < Math.max(definition.pk.labels.length, providedIndex.pk.labels.length); i++) {
+			let definitionFacet = definition.pk.labels[i] && definition.pk.labels[i].name;
+			let definitionLabel = definition.pk.labels[i] && definition.pk.labels[i].label;
+			let providedFacet = providedIndex.pk.labels[i] && providedIndex.pk.labels[i].name;
+			let providedLabel = providedIndex.pk.labels[i] && providedIndex.pk.labels[i].label;
+			let noLabels = definitionLabel === definitionFacet && providedLabel === providedFacet;
+			if (definitionLabel !== providedLabel) {
+				mismatchedFacetLabels.push({
+					definitionFacet,
+					definitionLabel,
+					providedFacet,
+					providedLabel,
+					kind: "Partition",
+					type: noLabels ? "facet" : "label"
+				});
+				break;
+			} else if (definitionFacet !== providedFacet) {
+				mismatchedFacetLabels.push({
+					definitionFacet,
+					definitionLabel,
+					providedFacet,
+					providedLabel,
+					kind: "Partition",
+					type: "facet"
+				});
+				break;
+			}
+		}
+
+		if (!isCustomMatchPK) {
+			collectionDifferences.push(`The usage of key templates the partition key on index ${definitionIndexName} must be consistent across all Entities, some entities provided use template while others do not`);
+		}
+
+		if (!isCustomMatchSK) {
+			collectionDifferences.push(`The usage of key templates the sort key on index ${definitionIndexName} must be consistent across all Entities, some entities provided use template while others do not`);
+		}
+
+		if (definition.type === "clustered") {
+			for (let i = 0; i < Math.min(definition.sk.labels.length, providedIndex.sk.labels.length); i++) {
+				let definitionFacet = definition.sk.labels[i] && definition.sk.labels[i].name;
+				let definitionLabel = definition.sk.labels[i] && definition.sk.labels[i].label;
+				let providedFacet = providedIndex.sk.labels[i] && providedIndex.sk.labels[i].name;
+				let providedLabel = providedIndex.sk.labels[i] && providedIndex.sk.labels[i].label;
+				let noLabels = definitionLabel === definitionFacet && providedLabel === providedFacet;
+				if (definitionFacet === providedFacet) {
+					if (definitionLabel !== providedLabel) {
+						mismatchedFacetLabels.push({
+							definitionFacet,
+							definitionLabel,
+							providedFacet,
+							providedLabel,
+							kind: "Sort",
+							type: noLabels ? "facet" : "label"
+						});
+					}
+				} else {
+					break;
 				}
 			}
 		}
+
 		if (!matchingKeyCasing.pk) {
 			collectionDifferences.push(
 				`The pk property "casing" provided "${providedIndex.pk.casing || KeyCasing.default}" does not match established casing "${definition.pk.casing || KeyCasing.default}" on index "${providedIndexName}". Index casing options must match across all entities participating in a collection`
 			);
 		}
+
 		if (!matchingKeyCasing.sk) {
 			const definedSk = definition.sk || {};
 			const providedSk = providedIndex.sk || {};
@@ -13581,6 +13681,7 @@ class Service {
 				`The sk property "casing" provided "${definedSk.casing || KeyCasing.default}" does not match established casing "${providedSk.casing || KeyCasing.default}" on index "${providedIndexName}". Index casing options must match across all entities participating in a collection`
 			);
 		}
+
 		if (!indexMatch) {
 			collectionDifferences.push(
 				`Collection defined on provided index "${providedIndexName}" does not match collection established index "${definitionIndexName}". Collections must be defined on the same index across all entities within a service.`,
@@ -13590,6 +13691,7 @@ class Service {
 				`Partition Key composite attributes provided "${providedIndex.pk.field}" for index "${providedIndexName}" do not match established field "${definition.pk.field}" on established index "${definitionIndexName}"`,
 			);
 		}
+
 		if (!pkFacetLengthMatch) {
 			collectionDifferences.push(
 				`Partition Key composite attributes provided [${providedIndex.pk.facets.map(val => `"${val}"`).join(", ")}] for index "${providedIndexName}" do not match established composite attributes [${definition.pk.facets.map(val => `"${val}"`).join(", ")}] on established index "${definitionIndexName}"`,
@@ -13600,11 +13702,11 @@ class Service {
 			for (let mismatch of mismatchedFacetLabels) {
 				if (mismatch.type === "facet") {
 					collectionDifferences.push(
-						`Partition Key composite attributes provided for index "${providedIndexName}" do not match established composite attribute "${mismatch.definitionFacet}" on established index "${definitionIndexName}": "${mismatch.definitionLabel}" != "${mismatch.providedLabel}"; Composite attribute definitions must match between all members of a collection to ensure key structures will resolve to identical Partition Keys. Please ensure these composite attribute definitions are identical for all entities associated with this service.`
+						`${mismatch.kind} Key composite attributes provided for index "${providedIndexName}" do not match established composite attribute "${mismatch.definitionFacet}" on established index "${definitionIndexName}": "${mismatch.definitionLabel}" != "${mismatch.providedLabel}"; Composite attribute definitions must match between all members of a collection to ensure key structures will resolve to identical Partition Keys. Please ensure these composite attribute definitions are identical for all entities associated with this service.`
 					);
 				} else {
 					collectionDifferences.push(
-						`Partition Key composite attributes provided for index "${providedIndexName}" contain conflicting composite attribute labels for established composite attribute "${mismatch.definitionFacet}" on established index "${definitionIndexName}". Established composite attribute "${mismatch.definitionFacet}" on established index "${definitionIndexName}" was defined with label "${mismatch.definitionLabel}" while provided composite attribute "${mismatch.providedFacet}" on provided index "${providedIndexName}" is defined with label "${mismatch.providedLabel}". Composite attribute labels definitions must match between all members of a collection to ensure key structures will resolve to identical Partition Keys. Please ensure these labels definitions are identical for all entities associated with this service.`
+						`${mismatch.kind} Key composite attributes provided for index "${providedIndexName}" contain conflicting composite attribute labels for established composite attribute "${mismatch.definitionFacet || ""}" on established index "${definitionIndexName}". Established composite attribute "${mismatch.definitionFacet || ""}" on established index "${definitionIndexName}" was defined with label "${mismatch.definitionLabel}" while provided composite attribute "${mismatch.providedFacet || ""}" on provided index "${providedIndexName}" is defined with label "${mismatch.providedLabel}". Composite attribute labels definitions must match between all members of a collection to ensure key structures will resolve to identical Partition Keys. Please ensure these labels definitions are identical for all entities associated with this service.`
 					);
 				}
 
@@ -13661,7 +13763,7 @@ class Service {
 		}
 		const [invalidDefinition, invalidIndexMessages] = this._validateCollectionDefinition(definition, providedIndex);
 		if (invalidDefinition) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Validation Error while joining entity, "${name}". ${invalidIndexMessages.join(", ")}`);
+			throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Validation Error while joining entity, "${name}". ${invalidIndexMessages.join("; ")}`);
 		}
 		const sharedSortKeyAttributes = [];
 		const sharedSortKeyCompositeAttributeLabels = [];
@@ -14446,8 +14548,18 @@ class UpdateExpression extends ExpressionState {
             subtract: new Set(),
             delete: new Set(),
         };
+        this.composites = {};
         this.seen = new Map();
         this.type = BuilderTypes.update;
+    }
+    addComposite(attrName, value) {
+        if (value !== undefined) {
+            if (this.composites[attrName] === undefined || this.composites[attrName] === value) {
+                this.composites[attrName] = value;
+                return true;
+            }
+        }
+        return false;
     }
 
     add(type, expression) {
@@ -15242,7 +15354,7 @@ class FilterExpression extends ExpressionState {
 	unsafeSet(operation, name, ...values) {
 		const {template} = FilterOperations[operation] || {};
 		if (template === undefined) {
-			throw new Error(`Invalid operation: "${operation}". Please report`);
+			throw new Error(`Invalid operation: "${operation}". Please report this issue via a bug ticket.`);
 		}
 		const names = this.setName({}, name, name);
 		const valueExpressions = values.map(value => this.setValue(name, value));
