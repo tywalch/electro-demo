@@ -5746,7 +5746,7 @@ let clauses = {
 						if (!wasSet) {
 							throw new e.ElectroError(e.ErrorCodes.DuplicateUpdateCompositesProvided, `The composite attribute ${attrName} has been provided more than once with different values. Remove the duplication before running again`);
 						}
-						state.applyCondition(FilterOperationNames.eq, attrName, composites[attrName]);
+						state.applyCondition(FilterOperationNames.eqOrNotExists, attrName, composites[attrName]);
 					}
 				}
 				return state;
@@ -9079,7 +9079,7 @@ class Entity {
 		let keyTranslations = this.model.translations.keys;
 		let keyAttributes = { ...sk, ...pk };
 		let completeFacets = this._expectIndexFacets(
-			{ ...set },
+			{ ...setAttributes },
 			{ ...keyAttributes },
 		);
 
@@ -11267,6 +11267,12 @@ const FilterOperations = {
         },
         strict: false,
         canNest: true,
+    },
+    eqOrNotExists: {
+        template: function eq(options, attr, name, value) {
+            return `(${name} = ${value} OR attribute_not_exists(${name}))`;
+        },
+        strict: false,
     }
 };
 
