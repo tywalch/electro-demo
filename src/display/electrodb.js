@@ -5604,7 +5604,7 @@ let clauses = {
 				let record = entity.model.schema.checkCreate({...payload});
 				const attributes = state.getCompositeAttributes();
 				const filter = state.query.filter[ExpressionTypes.ConditionExpression];
-				const {pk, sk} = entity._getPrimaryIndexFieldNames();
+				const { pk, sk } = entity._getPrimaryIndexFieldNames();
 				filter.unsafeSet(FilterOperationNames.notExists, pk);
 				if (sk) {
 					filter.unsafeSet(FilterOperationNames.notExists, sk);
@@ -5746,7 +5746,7 @@ let clauses = {
 						if (!wasSet) {
 							throw new e.ElectroError(e.ErrorCodes.DuplicateUpdateCompositesProvided, `The composite attribute ${attrName} has been provided more than once with different values. Remove the duplication before running again`);
 						}
-						state.applyCondition(FilterOperationNames.eqOrNotExists, attrName, composites[attrName]);
+						state.applyCondition(FilterOperationNames.eq, attrName, composites[attrName]);
 					}
 				}
 				return state;
