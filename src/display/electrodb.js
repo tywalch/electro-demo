@@ -17,7 +17,7 @@ module.exports = {
     createWriteTransaction,
 };
 
-},{"./src/entity":19,"./src/errors":20,"./src/schema":24,"./src/service":25,"./src/transaction":27}],2:[function(require,module,exports){
+},{"./src/entity":19,"./src/errors":20,"./src/schema":25,"./src/service":26,"./src/transaction":28}],2:[function(require,module,exports){
 'use strict'
 
 exports.byteLength = byteLength
@@ -5288,13 +5288,22 @@ window.ElectroDB = {
     CustomAttributeType,
 };
 },{"../index":1}],17:[function(require,module,exports){
-const { QueryTypes, MethodTypes, ItemOperations, ExpressionTypes, TransactionCommitSymbol, TransactionOperations, TerminalOperation, KeyTypes, IndexTypes } = require("./types");
+const { QueryTypes, MethodTypes, ItemOperations, ExpressionTypes, TransactionCommitSymbol, TransactionOperations, TerminalOperation, KeyTypes, IndexTypes,
+	UpsertOperations
+} = require("./types");
 const {AttributeOperationProxy, UpdateOperations, FilterOperationNames, UpdateOperationNames} = require("./operations");
 const {UpdateExpression} = require("./update");
 const {FilterExpression} = require("./where");
 const v = require("./validations");
 const e = require("./errors");
 const u = require("./util");
+
+const methodChildren = {
+	upsert: ["upsertSet", "upsertAppend", "upsertAdd", "go", "params", "upsertSubtract", "commit", "upsertIfNotExists", "where"],
+	update: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite", "ifNotExists", "where"],
+	put: ["where", "params", "go", "commit"],
+	del: ["where", "params", "go", "commit"],
+}
 
 function batchAction(action, type, entity, state, payload) {
 	if (state.getError() !== null) {
@@ -5526,7 +5535,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["where", "params", "go", "commit"],
+		children: methodChildren.del,
 	},
 	upsert: {
 		name: 'upsert',
@@ -5535,33 +5544,115 @@ let clauses = {
 				return state;
 			}
 			try {
-				let record = entity.model.schema.checkCreate({...payload});
-				const attributes = state.getCompositeAttributes();
-				const pkComposite = entity._expectFacets(record, attributes.pk);
-				state.addOption('_includeOnResponseItem', pkComposite);
+
 				return state
 					.setMethod(MethodTypes.upsert)
 					.setType(QueryTypes.eq)
-					.applyUpsert(record)
-					.setPK(pkComposite)
-					.ifSK(() => {
-						entity._expectFacets(record, attributes.sk);
-						const skComposite = entity._buildQueryFacets(record, attributes.sk);
-						state.setSK(skComposite);
-						state.addOption('_includeOnResponseItem', {...skComposite, ...pkComposite});
-					})
-					.whenOptions(({ state, options }) => {
-						if (!state.getParams()) {
-							state.query.update.set(entity.identifiers.entity, entity.getName());
-							state.query.update.set(entity.identifiers.version, entity.getVersion());
+					.applyUpsert(UpsertOperations.set, payload)
+					.beforeBuildParams(({ state }) => {
+						const { upsert, update, updateProxy } = state.query;
+
+						state.query.update.set(entity.identifiers.entity, entity.getName());
+						state.query.update.set(entity.identifiers.version, entity.getVersion());
+
+						// only "set" data is used to make keys
+						const setData = {};
+						const nonSetData = {};
+						let allData = {};
+
+						for (const name in upsert.data) {
+							const { operation, value } = upsert.data[name];
+							allData[name] = value;
+							if (operation === UpsertOperations.set) {
+								setData[name] = value;
+							} else {
+								nonSetData[name] = value;
+							}
 						}
+
+						const upsertData = entity.model.schema.checkCreate({ ...allData });
+						const attributes = state.getCompositeAttributes();
+						const pkComposite = entity._expectFacets(upsertData, attributes.pk);
+
+						state
+							.addOption('_includeOnResponseItem', pkComposite)
+							.setPK(pkComposite)
+							.ifSK(() => {
+								entity._expectFacets(upsertData, attributes.sk);
+								const skComposite = entity._buildQueryFacets(upsertData, attributes.sk);
+								state.setSK(skComposite);
+								state.addOption('_includeOnResponseItem', {...skComposite, ...pkComposite});
+							});
+
+						const appliedData = entity.model.schema.applyAttributeSetters({...upsertData});
+
+						const onlySetAppliedData = {};
+						const nonSetAppliedData = {};
+						for (const name in appliedData) {
+							const value = appliedData[name];
+							const isSetOperation = setData[name] !== undefined;
+							const cameFromApplyingSetters = allData[name] === undefined;
+							const isNotUndefined = appliedData[name] !== undefined;
+							const applyAsSet = isSetOperation || cameFromApplyingSetters;
+							if (applyAsSet && isNotUndefined) {
+								onlySetAppliedData[name] = value;
+							} else {
+								nonSetAppliedData[name] = value;
+							}
+						}
+
+						// we build this above, and set them to state, but use it here, not ideal but
+						// the way it worked out so that this could be wrapped in beforeBuildParams
+						const { pk } = state.query.keys;
+						const sk = state.query.keys.sk[0];
+
+						const { updatedKeys, setAttributes, indexKey } = entity._getPutKeys(pk, sk && sk.facets, onlySetAppliedData);
+
+						// calculated here but needs to be used when building the params
+						upsert.indexKey = indexKey;
+
+						// only "set" data is used to make keys
+						const setFields = Object.entries(entity.model.schema.translateToFields(setAttributes));
+
+						// add the keys impacted except for the table index keys; they are upserted
+						// automatically by dynamo
+						for (const key in updatedKeys) {
+							const value = updatedKeys[key];
+							if (indexKey[key] === undefined) {
+								setFields.push([key, value]);
+							}
+						}
+
+						entity._maybeApplyUpsertUpdate({
+							fields: setFields,
+							operation: UpsertOperations.set,
+							updateProxy,
+							update,
+						});
+
+						for (const name in nonSetData) {
+							const value = appliedData[name];
+							if (value === undefined || upsert.data[name] === undefined) {
+								continue;
+							}
+
+							const { operation } = upsert.data[name];
+							const fields = entity.model.schema.translateToFields({ [name]: value });
+							entity._maybeApplyUpsertUpdate({
+								fields: Object.entries(fields),
+								updateProxy,
+								operation,
+								update,
+							});
+						}
+
 					});
 			} catch(err) {
 				state.setError(err);
 				return state;
 			}
 		},
-		children: ["params", "go", "where", "commit"],
+		children: methodChildren.upsert,
 	},
 	put: {
 		name: "put",
@@ -5587,7 +5678,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["params", "go", "commit"],
+		children: methodChildren.put,
 	},
 	batchPut: {
 		name: "batchPut",
@@ -5623,7 +5714,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["params", "go", "commit"],
+		children: methodChildren.put,
 	},
 	patch: {
 		name: "patch",
@@ -5656,7 +5747,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["set", "append","updateRemove", "updateDelete", "add", "subtract", "data", "composite", "commit"],
+		children: methodChildren.update,
 	},
 	update: {
 		name: "update",
@@ -5683,7 +5774,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
+		children: methodChildren.update,
 	},
 	data: {
 		name: "data",
@@ -5713,7 +5804,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
+		children: methodChildren.update,
 	},
 	set: {
 		name: "set",
@@ -5730,7 +5821,24 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
+		children: methodChildren.update,
+	},
+	upsertSet: {
+		name: "set",
+		action(entity, state, data) {
+			if (state.getError() !== null) {
+				return state;
+			}
+			try {
+				entity.model.schema.checkUpdate(data, { allowReadOnly: true });
+				state.query.upsert.addData(UpsertOperations.set, data);
+				return state;
+			} catch(err) {
+				state.setError(err);
+				return state;
+			}
+		},
+		children: methodChildren.upsert,
 	},
 	composite: {
 		name: "composite",
@@ -5755,7 +5863,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
+		children: methodChildren.update,
 	},
 	append: {
 		name: "append",
@@ -5772,7 +5880,50 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
+		children: methodChildren.update,
+	},
+	ifNotExists: {
+		name: 'ifNotExists',
+		action(entity, state, data = {}) {
+			entity.model.schema.checkUpdate(data);
+			state.query.updateProxy.fromObject(ItemOperations.ifNotExists, data);
+			return state;
+		},
+		children: methodChildren.update,
+	},
+	upsertIfNotExists: {
+		name: 'ifNotExists',
+		action(entity, state, data = {}) {
+			if (state.getError() !== null) {
+				return state;
+			}
+			try {
+				entity.model.schema.checkUpdate(data, { allowReadOnly: true });
+				state.query.upsert.addData(UpsertOperations.ifNotExists, data);
+				return state;
+			} catch(err) {
+				state.setError(err);
+				return state;
+			}
+		},
+		children: methodChildren.upsert,
+	},
+	upsertAppend: {
+		name: "append",
+		action(entity, state, data = {}) {
+			if (state.getError() !== null) {
+				return state;
+			}
+			try {
+				entity.model.schema.checkUpdate(data, { allowReadOnly: true });
+				state.query.upsert.addData(UpsertOperations.append, data);
+				return state;
+			} catch(err) {
+				state.setError(err);
+				return state;
+			}
+		},
+		children: methodChildren.upsert,
 	},
 	updateRemove: {
 		name: "remove",
@@ -5792,7 +5943,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
+		children: methodChildren.update
 	},
 	updateDelete: {
 		name: "delete",
@@ -5809,7 +5960,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
+		children: methodChildren.update
 	},
 	add: {
 		name: "add",
@@ -5826,7 +5977,41 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
+		children: methodChildren.update
+	},
+	upsertAdd: {
+		name: "add",
+		action(entity, state, data) {
+			if (state.getError() !== null) {
+				return state;
+			}
+			try {
+				entity.model.schema.checkUpdate(data, { allowReadOnly: true });
+				state.query.upsert.addData(UpsertOperations.add, data);
+				return state;
+			} catch(err) {
+				state.setError(err);
+				return state;
+			}
+		},
+		children: methodChildren.upsert
+	},
+	upsertSubtract: {
+		name: "subtract",
+		action(entity, state, data) {
+			if (state.getError() !== null) {
+				return state;
+			}
+			try {
+				entity.model.schema.checkUpdate(data, { allowReadOnly: true });
+				state.query.upsert.addData(UpsertOperations.subtract, data);
+				return state;
+			} catch(err) {
+				state.setError(err);
+				return state;
+			}
+		},
+		children: methodChildren.upsert
 	},
 	subtract: {
 		name: "subtract",
@@ -5843,7 +6028,7 @@ let clauses = {
 				return state;
 			}
 		},
-		children: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite"],
+		children: methodChildren.update
 	},
 	query: {
 		name: "query",
@@ -6057,6 +6242,7 @@ let clauses = {
 				});
 
 				state.applyWithOptions(normalizedOptions);
+				state.applyBeforeBuildParams(normalizedOptions);
 
 				let results;
 				switch (method) {
@@ -6084,14 +6270,14 @@ let clauses = {
 					delete results.ExpressionAttributeValues;
 				}
 
-				state.setParams(results);
-
 				if (options._returnOptions) {
-					return {
+					results = {
 						params: results,
 						options: normalizedOptions,
 					}
 				}
+
+				state.setParams(results);
 
 				return results;
 			} catch(err) {
@@ -6144,7 +6330,27 @@ class ChainState {
 			},
 			upsert: {
 				data: {},
-				ifNotExists: {},
+				indexKey: null,
+				addData(operation = UpsertOperations.set, data = {}) {
+					for (const name of Object.keys(data)) {
+						const value = data[name];
+						this.data[name] = {
+							operation,
+							value,
+						}
+					}
+				},
+				getData(operationFilter) {
+					const results = {};
+					for (const name in this.data) {
+						const { operation, value } = this.data[name];
+						if (!operationFilter || operationFilter === operation) {
+							results[name] = value;
+						}
+					}
+
+					return results;
+				}
 			},
 			keys: {
 				provided: [],
@@ -6158,11 +6364,13 @@ class ChainState {
 			options,
 		};
 		this.subStates = [];
-		this.applyAfterOptions = [];
 		this.hasSortKey = hasSortKey;
 		this.prev = null;
 		this.self = null;
 		this.params = null;
+		this.applyAfterOptions = [];
+		this.beforeBuildParamsOperations = [];
+		this.beforeBuildParamsHasRan = false;
 	}
 
 	getParams() {
@@ -6203,6 +6411,7 @@ class ChainState {
 
 	addOption(key, value) {
 		this.query.options[key] = value;
+		return this;
 	}
 
 	_appendProvided(type, attributes) {
@@ -6365,12 +6574,8 @@ class ChainState {
 		}
 	}
 
-	applyUpsert(data = {}, { ifNotExists } = {}) {
-		if (ifNotExists) {
-			this.query.upsert.ifNotExists = {...this.query.upsert.ifNotExists, ...data};
-		} else {
-			this.query.upsert.data = {...this.query.upsert.data, ...data};
-		}
+	applyUpsert(operation = UpsertOperations.set, data = {}) {
+		this.query.upsert.addData(operation, data);
 		return this;
 	}
 
@@ -6390,6 +6595,21 @@ class ChainState {
 	applyWithOptions(options = {}) {
 		this.applyAfterOptions.forEach((fn) => fn(options));
 	}
+
+	beforeBuildParams(fn) {
+		if (v.isFunction(fn)) {
+			this.beforeBuildParamsOperations.push((options) => {
+				fn({ options, state: this });
+			});
+		}
+	}
+
+	applyBeforeBuildParams(options = {}) {
+		if (!this.beforeBuildParamsHasRan) {
+			this.beforeBuildParamsHasRan = true;
+			this.beforeBuildParamsOperations.forEach((fn) => fn(options));
+		}
+	}
 }
 
 module.exports = {
@@ -6397,7 +6617,7 @@ module.exports = {
 	ChainState,
 };
 
-},{"./errors":20,"./operations":23,"./types":28,"./update":29,"./util":30,"./validations":31,"./where":32}],18:[function(require,module,exports){
+},{"./errors":20,"./operations":24,"./types":29,"./update":30,"./util":32,"./validations":33,"./where":34}],18:[function(require,module,exports){
 const lib = {}
 const util = {}
 const { isFunction } = require('./validations');
@@ -6679,7 +6899,7 @@ module.exports = {
     DocumentClientV2Wrapper,
 };
 
-},{"./errors":20,"./validations":31}],19:[function(require,module,exports){
+},{"./errors":20,"./validations":33}],19:[function(require,module,exports){
 "use strict";
 const { Schema } = require("./schema");
 const {
@@ -6709,6 +6929,7 @@ const {
 	MethodTypeTranslation,
 	TransactionCommitSymbol,
 	CastKeyOptions,
+	UpsertOperations,
 } = require("./types");
 const { FilterFactory } = require("./filters");
 const { FilterOperations } = require("./operations");
@@ -8263,7 +8484,7 @@ class Entity {
 	}
 	/* istanbul ignore next */
 	_params(state, config = {}) {
-		const { keys = {}, method = "", put = {}, update = {}, filter = {}, upsert } = state.query;
+		const { keys = {}, method = "", put = {}, update = {}, filter = {}, upsert, updateProxy } = state.query;
 		let consolidatedQueryFacets = this._consolidateQueryFacets(keys.sk);
 		let params = {};
 		switch (method) {
@@ -8274,7 +8495,7 @@ class Entity {
 				params = this._makeSimpleIndexParams(keys.pk, ...consolidatedQueryFacets);
 				break;
 			case MethodTypes.upsert:
-				params = this._makeUpsertParams({update, upsert}, keys.pk, ...keys.sk)
+				params = this._makeUpsertParams({update, upsert, updateProxy}, keys.pk, ...keys.sk)
 				break;
 			case MethodTypes.put:
 			case MethodTypes.create:
@@ -8639,7 +8860,8 @@ class Entity {
 
 	/* istanbul ignore next */
 	_makePutParams({ data } = {}, pk, sk) {
-		let { updatedKeys, setAttributes } = this._getPutKeys(pk, sk && sk.facets, data);
+		let appliedData = this.model.schema.applyAttributeSetters(data);
+		let { updatedKeys, setAttributes } = this._getPutKeys(pk, sk && sk.facets, appliedData);
 		let translatedFields = this.model.schema.translateToFields(setAttributes);
 		return {
 			Item: {
@@ -8652,31 +8874,52 @@ class Entity {
 		};
 	}
 
-	_makeUpsertParams({ update, upsert } = {}, pk, sk) {
-		const { updatedKeys, setAttributes, indexKey } = this._getPutKeys(pk, sk && sk.facets, upsert.data);
-		const upsertAttributes = this.model.schema.translateToFields(setAttributes);
-		const keyNames = Object.keys(indexKey);
-		for (const field of [...Object.keys(upsertAttributes), ...Object.keys(updatedKeys)]) {
-			const value = u.getFirstDefined(upsertAttributes[field], updatedKeys[field]);
-			if (!keyNames.includes(field)) {
-				let operation = ItemOperations.set;
-				const name = this.model.schema.translationForRetrieval[field];
-				if (name) {
-					const attribute = this.model.schema.attributes[name];
-					if (this.model.schema.readOnlyAttributes.has(name) && (!attribute || !attribute.indexes || attribute.indexes.length === 0)) {
-						operation = ItemOperations.ifNotExists;
-					}
+	_maybeApplyUpsertUpdate({fields = [], operation, updateProxy, update}) {
+		for (let [field, value] of fields) {
+			const name = this.model.schema.translationForRetrieval[field];
+			if (name) {
+				const attribute = this.model.schema.attributes[name];
+				if (this.model.schema.readOnlyAttributes.has(name) && (!attribute || !attribute.indexes || attribute.indexes.length === 0)) {
+					/*
+						// this should be considered but is likely overkill at best and unexpected at worst. 
+						// It also is likely symbolic of a deeper issue. That said maybe it could be helpful
+						// in the future? It is unclear, if this were added, whether this should get the
+						// default value and then call the setter on the defaultValue. That would at least
+						// make parity between upsert and a create (without including the attribute) and then
+						// an "update"
+
+						const defaultValue = attribute.default();
+						const valueIsNumber = typeof value === 'number';
+						const resolvedDefaultValue  = typeof defaultValue === 'number' ? defaultValue : 0;
+						if (operation === UpsertOperations.subtract && valueIsNumber) {
+							value = resolvedDefaultValue - value;
+						} else if (operation === UpsertOperations.add && valueIsNumber) {
+							value = resolvedDefaultValue + value;
+					// }
+					*/
+					update.set(field, value, ItemOperations.ifNotExists);
+				} else {
+					updateProxy.performOperation({
+						value,
+						operation,
+						path: name,
+						force: true
+					});
 				}
+			} else {
+				// I think this is for keys
 				update.set(field, value, operation);
 			}
 		}
+	}
 
+	_makeUpsertParams({ update, upsert } = {}) {
 		return {
 			TableName: this.getTableName(),
 			UpdateExpression: update.build(),
 			ExpressionAttributeNames: update.getNames(),
 			ExpressionAttributeValues: update.getValues(),
-			Key: indexKey,
+			Key: upsert.indexKey,
 		};
 	}
 
@@ -9073,13 +9316,13 @@ class Entity {
 		return indexKeys;
 	}
 
-	_getPutKeys(pk, sk, set) {
-		let setAttributes = this.model.schema.applyAttributeSetters(set);
+	_getPutKeys(pk, sk, set, validationAssistance) {
+		let setAttributes = set;
 		let updateIndex = TableIndex;
 		let keyTranslations = this.model.translations.keys;
 		let keyAttributes = { ...sk, ...pk };
 		let completeFacets = this._expectIndexFacets(
-			{ ...setAttributes },
+			{ ...setAttributes, ...validationAssistance },
 			{ ...keyAttributes },
 		);
 
@@ -10447,7 +10690,7 @@ module.exports = {
 	matchToEntityAlias,
 };
 
-},{"./clauses":17,"./client":18,"./errors":20,"./events":21,"./filters":22,"./operations":23,"./schema":24,"./types":28,"./util":30,"./validations":31,"./where":32}],20:[function(require,module,exports){
+},{"./clauses":17,"./client":18,"./errors":20,"./events":21,"./filters":23,"./operations":24,"./schema":25,"./types":29,"./util":32,"./validations":33,"./where":34}],20:[function(require,module,exports){
 // # Errors:
 // 1000 - Configuration Errors
 // 2000 - Invalid Queries
@@ -10889,7 +11132,134 @@ class EventManager {
 module.exports = {
   EventManager
 };
-},{"./errors":20,"./validations":31}],22:[function(require,module,exports){
+},{"./errors":20,"./validations":33}],22:[function(require,module,exports){
+const FilterOperations = {
+    escape: {
+        template: function escape(options, attr) {
+            return `${attr}`;
+        },
+        rawValue: true,
+    },
+    size: {
+        template: function size(options, attr, name) {
+            return `size(${name})`
+        },
+        strict: false,
+    },
+    type: {
+        template: function attributeType(options, attr, name, value) {
+            return `attribute_type(${name}, ${value})`;
+        },
+        strict: false
+    },
+    ne: {
+        template: function ne(options, attr, name, value) {
+            return `${name} <> ${value}`;
+        },
+        strict: false,
+    },
+    eq: {
+        template: function eq(options, attr, name, value) {
+            return `${name} = ${value}`;
+        },
+        strict: false,
+    },
+    gt: {
+        template: function gt(options, attr, name, value) {
+            return `${name} > ${value}`;
+        },
+        strict: false
+    },
+    lt: {
+        template: function lt(options, attr, name, value) {
+            return `${name} < ${value}`;
+        },
+        strict: false
+    },
+    gte: {
+        template: function gte(options, attr, name, value) {
+            return `${name} >= ${value}`;
+        },
+        strict: false
+    },
+    lte: {
+        template: function lte(options, attr, name, value) {
+            return `${name} <= ${value}`;
+        },
+        strict: false
+    },
+    between: {
+        template: function between(options, attr, name, value1, value2) {
+            return `(${name} between ${value1} and ${value2})`;
+        },
+        strict: false
+    },
+    begins: {
+        template: function begins(options, attr, name, value) {
+            return `begins_with(${name}, ${value})`;
+        },
+        strict: false
+    },
+    exists: {
+        template: function exists(options, attr, name) {
+            return `attribute_exists(${name})`;
+        },
+        strict: false
+    },
+    notExists: {
+        template: function notExists(options, attr, name) {
+            return `attribute_not_exists(${name})`;
+        },
+        strict: false
+    },
+    contains: {
+        template: function contains(options, attr, name, value) {
+            return `contains(${name}, ${value})`;
+        },
+        strict: false
+    },
+    notContains: {
+        template: function notContains(options, attr, name, value) {
+            return `not contains(${name}, ${value})`;
+        },
+        strict: false
+    },
+    value: {
+        template: function(options, attr, name, value) {
+            return value;
+        },
+        strict: false,
+        canNest: true,
+    },
+    name: {
+        template: function(options, attr, name) {
+            return name;
+        },
+        strict: false,
+        canNest: true,
+    },
+    eqOrNotExists: {
+        template: function eq(options, attr, name, value) {
+            return `(${name} = ${value} OR attribute_not_exists(${name}))`;
+        },
+        strict: false,
+    },
+    field: {
+        template: function(options, _, fieldName) {
+            return fieldName !== undefined
+                ? `${fieldName}`
+                : '';
+        },
+        strict: false,
+        canNest: true,
+        rawField: true,
+    }
+};
+
+module.exports = {
+    FilterOperations
+}
+},{}],23:[function(require,module,exports){
 const e = require("./errors");
 const {MethodTypes, ExpressionTypes} = require("./types");
 
@@ -11002,279 +11372,12 @@ class FilterFactory {
 
 module.exports = { FilterFactory };
 
-},{"./errors":20,"./types":28}],23:[function(require,module,exports){
-const {AttributeTypes, ItemOperations, AttributeProxySymbol, BuilderTypes, DynamoDBAttributeTypes} = require("./types");
+},{"./errors":20,"./types":29}],24:[function(require,module,exports){
+const { AttributeTypes, ItemOperations, AttributeProxySymbol, BuilderTypes} = require("./types");
+const { UpdateOperations } = require('./updateOperations');
+const { FilterOperations } = require('./filterOperations');
 const e = require("./errors");
 const u = require("./util");
-
-const deleteOperations = {
-    canNest: false,
-    template: function del(options, attr, path, value) {
-        let operation = "";
-        let expression = "";
-        switch(attr.type) {
-            case AttributeTypes.any:
-            case AttributeTypes.set:
-                operation = ItemOperations.delete;
-                expression = `${path} ${value}`;
-                break;
-            default:
-                throw new Error(`Invalid Update Attribute Operation: "DELETE" Operation can only be performed on attributes with type "set" or "any".`);
-        }
-        return {operation, expression};
-    },
-};
-
-const UpdateOperations = {
-    ifNotExists: {
-        template: function if_not_exists(options, attr, path, value) {
-            const operation = ItemOperations.set;
-            const expression = `${path} = if_not_exists(${path}, ${value})`;
-            return {operation, expression};
-        }
-    },
-    name: {
-        canNest: true,
-        template: function name(options, attr, path) {
-            return path;
-        }
-    },
-    value: {
-        canNest: true,
-        template: function value(options, attr, path, value) {
-            return value;
-        }
-    },
-    append: {
-        canNest: false,
-        template: function append(options, attr, path, value) {
-            let operation = "";
-            let expression = "";
-            switch(attr.type) {
-                case AttributeTypes.any:
-                case AttributeTypes.list:
-                    operation = ItemOperations.set;
-                    expression = `${path} = list_append(${path}, ${value})`;
-                    break;
-                default:
-                    throw new Error(`Invalid Update Attribute Operation: "APPEND" Operation can only be performed on attributes with type "list" or "any".`);
-            }
-            return {operation, expression};
-        }
-    },
-    add: {
-        canNest: false,
-        template: function add(options, attr, path, value) {
-            let operation = "";
-            let expression = "";
-            let type = attr.type;
-            if (type === AttributeTypes.any) {
-                type = typeof value === 'number'
-                    ? AttributeTypes.number
-                    : AttributeTypes.any;
-            }
-            switch(type) {
-                case AttributeTypes.any:
-                case AttributeTypes.set:
-                    operation = ItemOperations.add;
-                    expression = `${path} ${value}`;
-                    break;
-                case AttributeTypes.number:
-                    if (options.nestedValue) {
-                        operation = ItemOperations.set;
-                        expression = `${path} = ${path} + ${value}`;
-                    } else {
-                        operation = ItemOperations.add;
-                        expression = `${path} ${value}`;
-                    }
-                    break;
-                default:
-                    throw new Error(`Invalid Update Attribute Operation: "ADD" Operation can only be performed on attributes with type "number", "set", or "any".`);
-            }
-            return {operation, expression};
-        }
-    },
-    subtract: {
-        canNest: false,
-        template: function subtract(options, attr, path, value) {
-            let operation = "";
-            let expression = "";
-            switch(attr.type) {
-                case AttributeTypes.any:
-                case AttributeTypes.number:
-                    operation = ItemOperations.set;
-                    expression = `${path} = ${path} - ${value}`;
-                    break;
-                default:
-                    throw new Error(`Invalid Update Attribute Operation: "SUBTRACT" Operation can only be performed on attributes with type "number" or "any".`);
-            }
-
-            return {operation, expression};
-        }
-    },
-    set: {
-        canNest: false,
-        template: function set(options, attr, path, value) {
-            let operation = "";
-            let expression = "";
-            switch(attr.type) {
-                case AttributeTypes.set:
-                case AttributeTypes.list:
-                case AttributeTypes.map:
-                case AttributeTypes.enum:
-                case AttributeTypes.string:
-                case AttributeTypes.number:
-                case AttributeTypes.boolean:
-                case AttributeTypes.any:
-                    operation = ItemOperations.set;
-                    expression = `${path} = ${value}`;
-                    break;
-                default:
-                    throw new Error(`Invalid Update Attribute Operation: "SET" Operation can only be performed on attributes with type "list", "map", "string", "number", "boolean", or "any".`);
-            }
-            return {operation, expression};
-        }
-    },
-    remove: {
-        canNest: false,
-        template: function remove(options, attr, ...paths) {
-            let operation = "";
-            let expression = "";
-            switch(attr.type) {
-                case AttributeTypes.set:
-                case AttributeTypes.any:
-                case AttributeTypes.list:
-                case AttributeTypes.map:
-                case AttributeTypes.string:
-                case AttributeTypes.number:
-                case AttributeTypes.boolean:
-                case AttributeTypes.enum:
-                    operation = ItemOperations.remove;
-                    expression = paths.join(", ");
-                    break;
-                default: {
-                    throw new Error(`Invalid Update Attribute Operation: "REMOVE" Operation can only be performed on attributes with type "map", "list", "string", "number", "boolean", or "any".`);
-                }
-            }
-            return {operation, expression};
-        }
-    },
-    del: deleteOperations,
-    delete: deleteOperations
-}
-
-const FilterOperations = {
-    escape: {
-        template: function escape(options, attr) {
-            return `${attr}`;
-        },
-        noAttribute: true,
-    },
-    size: {
-      template: function size(options, attr, name) {
-        return `size(${name})`
-      },
-      strict: false,
-    },
-    type: {
-        template: function attributeType(options, attr, name, value) {
-            return `attribute_type(${name}, ${value})`;
-        },
-        strict: false
-    },
-    ne: {
-        template: function ne(options, attr, name, value) {
-            return `${name} <> ${value}`;
-        },
-        strict: false,
-    },
-    eq: {
-        template: function eq(options, attr, name, value) {
-            return `${name} = ${value}`;
-        },
-        strict: false,
-    },
-    gt: {
-        template: function gt(options, attr, name, value) {
-            return `${name} > ${value}`;
-        },
-        strict: false
-    },
-    lt: {
-        template: function lt(options, attr, name, value) {
-            return `${name} < ${value}`;
-        },
-        strict: false
-    },
-    gte: {
-        template: function gte(options, attr, name, value) {
-            return `${name} >= ${value}`;
-        },
-        strict: false
-    },
-    lte: {
-        template: function lte(options, attr, name, value) {
-            return `${name} <= ${value}`;
-        },
-        strict: false
-    },
-    between: {
-        template: function between(options, attr, name, value1, value2) {
-            return `(${name} between ${value1} and ${value2})`;
-        },
-        strict: false
-    },
-    begins: {
-        template: function begins(options, attr, name, value) {
-            return `begins_with(${name}, ${value})`;
-        },
-        strict: false
-    },
-    exists: {
-        template: function exists(options, attr, name) {
-            return `attribute_exists(${name})`;
-        },
-        strict: false
-    },
-    notExists: {
-        template: function notExists(options, attr, name) {
-            return `attribute_not_exists(${name})`;
-        },
-        strict: false
-    },
-    contains: {
-        template: function contains(options, attr, name, value) {
-            return `contains(${name}, ${value})`;
-        },
-        strict: false
-    },
-    notContains: {
-        template: function notContains(options, attr, name, value) {
-            return `not contains(${name}, ${value})`;
-        },
-        strict: false
-    },
-    value: {
-        template: function(options, attr, name, value) {
-            return value;
-        },
-        strict: false,
-        canNest: true,
-    },
-    name: {
-        template: function(options, attr, name) {
-            return name;
-        },
-        strict: false,
-        canNest: true,
-    },
-    eqOrNotExists: {
-        template: function eq(options, attr, name, value) {
-            return `(${name} = ${value} OR attribute_not_exists(${name}))`;
-        },
-        strict: false,
-    }
-};
 
 class ExpressionState {
     constructor({prefix} = {}) {
@@ -11309,10 +11412,10 @@ class ExpressionState {
             expression = `${paths.expression}.${prop}`;
             this.names[prop] = value;
         } else {
-            json = `${paths.json}[*]`;
+            json = `${paths.json}[${name}]`;
             expression = `${paths.expression}[${name}]`;
         }
-        return {json, expression, prop};
+        return { json, expression, prop };
     }
 
     getNames() {
@@ -11366,24 +11469,31 @@ class AttributeOperationProxy {
         return op(this.attributes, this.operations, ...params);
     }
 
+    performOperation({operation, path, value, force = false}) {
+        if (value === undefined) {
+            return;
+        }
+        const parts = u.parseJSONPath(path);
+        let attribute = this.attributes;
+        for (let part of parts) {
+            attribute = attribute[part];
+        }
+        if (attribute) {
+            this.operations[operation](attribute, value);
+            const {target} = attribute();
+            if (target.readOnly && !force) {
+                throw new Error(`Attribute "${target.path}" is Read-Only and cannot be updated`);
+            }
+        }
+    }
+
     fromObject(operation, record) {
         for (let path of Object.keys(record)) {
-            if (record[path] === undefined) {
-                continue;
-            }
-            const value = record[path];
-            const parts = u.parseJSONPath(path);
-            let attribute = this.attributes;
-            for (let part of parts) {
-                attribute = attribute[part];
-            }
-            if (attribute) {
-                this.operations[operation](attribute, value);
-                const {target} = attribute();
-                if (target.readOnly) {
-                    throw new Error(`Attribute "${target.path}" is Read-Only and cannot be updated`);
-                }
-            }
+            this.performOperation({
+                operation,
+                path,
+                value: record[path]
+            });
         }
     }
 
@@ -11410,7 +11520,7 @@ class AttributeOperationProxy {
         let ops = {};
         let seen = new Map();
         for (let operation of Object.keys(operations)) {
-            let {template, canNest, noAttribute} = operations[operation];
+            let {template, canNest, rawValue, rawField} = operations[operation];
             Object.defineProperty(ops, operation, {
                 get: () => {
                     return (property, ...values) => {
@@ -11467,7 +11577,8 @@ class AttributeOperationProxy {
                             }
 
                             const options = {
-                                nestedValue: hasNestedValue
+                                nestedValue: hasNestedValue,
+                                createValue: (name, value) => builder.setValue(`${target.name}_${name}`, value),
                             }
 
                             const formatted = template(options, target, paths.expression, ...attributeValues);
@@ -11483,7 +11594,7 @@ class AttributeOperationProxy {
                             }
 
                             return formatted;
-                        } else if (noAttribute) {
+                        } else if (rawValue) {
                             // const {json, expression} = builder.setName({}, property, property);
                             let attributeValueName = builder.setValue(property, property);
                             builder.setPath(property, {
@@ -11492,6 +11603,12 @@ class AttributeOperationProxy {
                             });
                             const formatted = template({}, attributeValueName);
                             seen.set(attributeValueName, [property]);
+                            seen.set(formatted, [property]);
+                            return formatted;
+                        } else if (rawField) {
+                            const { prop, expression } = builder.setName({}, property, property);
+                            const formatted = template({}, null, prop);
+                            seen.set(expression, [property]);
                             seen.set(formatted, [property]);
                             return formatted;
                         } else {
@@ -11569,7 +11686,7 @@ const UpdateOperationNames = Object.keys(UpdateOperations).reduce((ops, name) =>
 }, {});
 
 module.exports = {UpdateOperations, UpdateOperationNames, FilterOperations, FilterOperationNames, ExpressionState, AttributeOperationProxy};
-},{"./errors":20,"./types":28,"./util":30}],24:[function(require,module,exports){
+},{"./errors":20,"./filterOperations":22,"./types":29,"./updateOperations":31,"./util":32}],25:[function(require,module,exports){
 const { CastTypes, ValueTypes, KeyCasing, AttributeTypes, AttributeMutationMethods, AttributeWildCard, PathTypes, TableIndex, ItemOperations } = require("./types");
 const AttributeTypeNames = Object.keys(AttributeTypes);
 const ValidFacetTypes = [AttributeTypes.string, AttributeTypes.number, AttributeTypes.boolean, AttributeTypes.enum];
@@ -13081,7 +13198,7 @@ module.exports = {
 	createCustomAttribute,
 };
 
-},{"./errors":20,"./set":26,"./types":28,"./util":30,"./validations":31}],25:[function(require,module,exports){
+},{"./errors":20,"./set":27,"./types":29,"./util":32,"./validations":33}],26:[function(require,module,exports){
 const { Entity, getEntityIdentifiers, matchToEntityAlias } = require("./entity");
 const { clauses } = require("./clauses");
 const { TableIndex, TransactionMethods, KeyCasing, ServiceVersions, Pager, ElectroInstance, ElectroInstanceTypes, ModelVersions, IndexTypes } = require("./types");
@@ -13958,7 +14075,7 @@ module.exports = {
 	Service,
 };
 
-},{"./clauses":17,"./client":18,"./entity":19,"./errors":20,"./filters":22,"./operations":23,"./transaction":27,"./types":28,"./util":30,"./validations":31,"./where":32}],26:[function(require,module,exports){
+},{"./clauses":17,"./client":18,"./entity":19,"./errors":20,"./filters":23,"./operations":24,"./transaction":28,"./types":29,"./util":32,"./validations":33,"./where":34}],27:[function(require,module,exports){
 const memberTypeToSetType = {
     'String': 'String',
     'Number': 'Number',
@@ -13997,7 +14114,7 @@ class DynamoDBSet {
 
 module.exports = {DynamoDBSet};
 
-},{}],27:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 const { TableIndex, TransactionMethods } = require('./types');
 const { getEntityIdentifiers, matchToEntityAlias } = require('./entity');
 
@@ -14177,7 +14294,7 @@ module.exports = {
     createWriteTransaction,
     createGetTransaction,
 }
-},{"./entity":19,"./types":28}],28:[function(require,module,exports){
+},{"./entity":19,"./types":29}],29:[function(require,module,exports){
 const KeyTypes = {
 	pk: "pk",
 	sk: "sk",
@@ -14400,6 +14517,14 @@ const ItemOperations = {
 	"ifNotExists": "ifNotExists"
 };
 
+const UpsertOperations = {
+	"set": "set",
+	"add": "add",
+	"subtract": "subtract",
+	"append": "append",
+	"ifNotExists": "ifNotExists"
+};
+
 const AttributeProxySymbol = Symbol("attribute_proxy");
 const TransactionCommitSymbol = Symbol('transaction_commit');
 
@@ -14538,9 +14663,11 @@ module.exports = {
 	TransactionCommitSymbol,
 	TransactionOperations,
 	TransactionMethods,
+	UpsertOperations,
 };
 
-},{}],29:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
+const { UpdateOperations } = require('./updateOperations');
 const {AttributeOperationProxy, ExpressionState} = require("./operations");
 const {ItemOperations, BuilderTypes} = require("./types");
 
@@ -14576,7 +14703,7 @@ class UpdateExpression extends ExpressionState {
         this.operations[type].delete(expression);
     }
 
-    set(name, value, operation = ItemOperations.set) {
+    set(name, value, operation = ItemOperations.set, attribute) {
         let operationToApply = operation;
         if (operation === ItemOperations.ifNotExists) {
             operationToApply = ItemOperations.set;
@@ -14630,7 +14757,7 @@ class UpdateEntity {
 
     buildCallbackHandler(entity, state) {
         const proxy = new AttributeOperationProxy({
-            builder: state.query.updates,
+            builder: state.query.update,
             attributes: this.attributes,
             operations: this.operations,
         });
@@ -14648,7 +14775,186 @@ module.exports = {
     UpdateEntity,
     UpdateExpression
 }
-},{"./operations":23,"./types":28}],30:[function(require,module,exports){
+},{"./operations":24,"./types":29,"./updateOperations":31}],31:[function(require,module,exports){
+const {AttributeTypes, ItemOperations} = require("./types");
+
+const deleteOperations = {
+    canNest: false,
+    template: function del(options, attr, path, value) {
+        let operation = "";
+        let expression = "";
+        switch(attr.type) {
+            case AttributeTypes.any:
+            case AttributeTypes.set:
+                operation = ItemOperations.delete;
+                expression = `${path} ${value}`;
+                break;
+            default:
+                throw new Error(`Invalid Update Attribute Operation: "DELETE" Operation can only be performed on attributes with type "set" or "any".`);
+        }
+        return { operation, expression };
+    },
+};
+
+const UpdateOperations = {
+    ifNotExists: {
+        template: function if_not_exists(options, attr, path, value) {
+            const operation = ItemOperations.set;
+            const expression = `${path} = if_not_exists(${path}, ${value})`;
+            return {operation, expression};
+        }
+    },
+    name: {
+        canNest: true,
+        template: function name(options, attr, path) {
+            return path;
+        }
+    },
+    value: {
+        canNest: true,
+        template: function value(options, attr, path, value) {
+            return value;
+        }
+    },
+    append: {
+        canNest: false,
+        template: function append(options, attr, path, value) {
+            let operation = "";
+            let expression = "";
+            switch(attr.type) {
+                case AttributeTypes.any:
+                case AttributeTypes.list:
+                    const defaultValue = options.createValue('default_value', []);
+                    expression = `${path} = list_append(if_not_exists(${path}, ${defaultValue}), ${value})`;
+                    operation = ItemOperations.set;
+                    break;
+                default:
+                    throw new Error(`Invalid Update Attribute Operation: "APPEND" Operation can only be performed on attributes with type "list" or "any".`);
+            }
+            return {operation, expression};
+        }
+    },
+    add: {
+        canNest: false,
+        template: function add(options, attr, path, value, defaultValue) {
+            let operation = "";
+            let expression = "";
+            let type = attr.type;
+            if (type === AttributeTypes.any) {
+                type = typeof value === 'number'
+                    ? AttributeTypes.number
+                    : AttributeTypes.any;
+            }
+            switch(type) {
+                case AttributeTypes.any:
+                case AttributeTypes.set: {
+                    operation = ItemOperations.add;
+                    expression = `${path} ${value}`;
+                    break;
+                }
+                case AttributeTypes.number: {
+                    if (options.nestedValue) {
+                        operation = ItemOperations.set;
+                        expression = `${path} = ${path} + ${value}`;
+                    } else if (defaultValue !== undefined) {
+                        // const defaultValueName = options.createValue(`default_value`, defaultValue)
+                        operation = ItemOperations.set;
+                        expression = `${path} = (if_not_exists(${path}, ${defaultValue}) + ${value})`
+                    } else {
+                        operation = ItemOperations.add;
+                        expression = `${path} ${value}`;
+                    }
+                    break;
+                }
+                default:
+                    throw new Error(`Invalid Update Attribute Operation: "ADD" Operation can only be performed on attributes with type "number", "set", or "any".`);
+            }
+            return { operation, expression };
+        }
+    },
+    subtract: {
+        canNest: false,
+        template: function subtract(options, attr, path, value, defaultValue = 0) {
+            let operation = "";
+            let expression = "";
+            switch(attr.type) {
+                case AttributeTypes.any:
+                case AttributeTypes.number: {
+                    let resolvedDefaultValue;
+                    if (typeof defaultValue === 'string' && defaultValue.startsWith(':')) {
+                        resolvedDefaultValue = defaultValue;
+                    } else if (defaultValue !== undefined) {
+                        resolvedDefaultValue = options.createValue('default_value', defaultValue);
+                    } else {
+                        resolvedDefaultValue = options.createValue('default_value', 0);
+                    }
+                    // const defaultValuePath = options.createValue('default_value', resolvedDefaultValue);
+                    operation = ItemOperations.set;
+                    expression = `${path} = (if_not_exists(${path}, ${resolvedDefaultValue}) - ${value})`;
+                    break;
+                }
+                default:
+                    throw new Error(`Invalid Update Attribute Operation: "SUBTRACT" Operation can only be performed on attributes with type "number" or "any".`);
+            }
+
+            return {operation, expression};
+        }
+    },
+    set: {
+        canNest: false,
+        template: function set(options, attr, path, value) {
+            let operation = "";
+            let expression = "";
+            switch(attr.type) {
+                case AttributeTypes.set:
+                case AttributeTypes.list:
+                case AttributeTypes.map:
+                case AttributeTypes.enum:
+                case AttributeTypes.string:
+                case AttributeTypes.number:
+                case AttributeTypes.boolean:
+                case AttributeTypes.any:
+                    operation = ItemOperations.set;
+                    expression = `${path} = ${value}`;
+                    break;
+                default:
+                    throw new Error(`Invalid Update Attribute Operation: "SET" Operation can only be performed on attributes with type "list", "map", "string", "number", "boolean", or "any".`);
+            }
+            return {operation, expression};
+        }
+    },
+    remove: {
+        canNest: false,
+        template: function remove(options, attr, ...paths) {
+            let operation = "";
+            let expression = "";
+            switch(attr.type) {
+                case AttributeTypes.set:
+                case AttributeTypes.any:
+                case AttributeTypes.list:
+                case AttributeTypes.map:
+                case AttributeTypes.string:
+                case AttributeTypes.number:
+                case AttributeTypes.boolean:
+                case AttributeTypes.enum:
+                    operation = ItemOperations.remove;
+                    expression = paths.join(", ");
+                    break;
+                default: {
+                    throw new Error(`Invalid Update Attribute Operation: "REMOVE" Operation can only be performed on attributes with type "map", "list", "string", "number", "boolean", or "any".`);
+                }
+            }
+            return {operation, expression};
+        }
+    },
+    del: deleteOperations,
+    delete: deleteOperations
+}
+
+module.exports = {
+    UpdateOperations
+}
+},{"./types":29}],32:[function(require,module,exports){
 (function (Buffer){(function (){
 const t = require("./types");
 const e = require("./errors");
@@ -14660,7 +14966,7 @@ function parseJSONPath(path = "") {
   }
   path = path.replace(/\[/g, ".");
   path = path.replace(/\]/g, "");
-  return path.split(".");
+  return path.split(".").filter(part => part !== '');
 }
 
 function genericizeJSONPath(path = "") {
@@ -14916,7 +15222,7 @@ module.exports = {
 };
 
 }).call(this)}).call(this,require("buffer").Buffer)
-},{"./errors":20,"./types":28,"./validations":31,"buffer":3}],31:[function(require,module,exports){
+},{"./errors":20,"./types":29,"./validations":33,"buffer":3}],33:[function(require,module,exports){
 const e = require("./errors");
 const {KeyCasing} = require("./types")
 
@@ -15310,7 +15616,7 @@ module.exports = {
 	model: validateModel
 };
 
-},{"./errors":20,"./types":28,"jsonschema":9}],32:[function(require,module,exports){
+},{"./errors":20,"./types":29,"jsonschema":9}],34:[function(require,module,exports){
 const {MethodTypes, ExpressionTypes, BuilderTypes} = require("./types");
 const {AttributeOperationProxy, ExpressionState, FilterOperations} = require("./operations");
 const e = require("./errors");
@@ -15459,4 +15765,4 @@ module.exports = {
 	FilterExpression
 };
 
-},{"./errors":20,"./operations":23,"./types":28}]},{},[16]);
+},{"./errors":20,"./operations":24,"./types":29}]},{},[16]);
