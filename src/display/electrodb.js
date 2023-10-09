@@ -1,20 +1,32 @@
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 const { Entity } = require("./src/entity");
 const { Service } = require("./src/service");
-const { createGetTransaction, createWriteTransaction } = require('./src/transaction');
-const { createCustomAttribute, CustomAttributeType, createSchema } = require('./src/schema');
-const { ElectroError, ElectroValidationError, ElectroUserValidationError, ElectroAttributeValidationError } = require('./src/errors');
+const {
+  createGetTransaction,
+  createWriteTransaction,
+} = require("./src/transaction");
+const {
+  createCustomAttribute,
+  CustomAttributeType,
+  createSchema,
+} = require("./src/schema");
+const {
+  ElectroError,
+  ElectroValidationError,
+  ElectroUserValidationError,
+  ElectroAttributeValidationError,
+} = require("./src/errors");
 
 module.exports = {
-    Entity,
-    Service,
-    ElectroError,
-    createSchema,
-    CustomAttributeType,
-    createCustomAttribute,
-    ElectroValidationError,
-    createGetTransaction,
-    createWriteTransaction,
+  Entity,
+  Service,
+  ElectroError,
+  createSchema,
+  CustomAttributeType,
+  createCustomAttribute,
+  ElectroValidationError,
+  createGetTransaction,
+  createWriteTransaction,
 };
 
 },{"./src/entity":19,"./src/errors":20,"./src/schema":25,"./src/service":26,"./src/transaction":28}],2:[function(require,module,exports){
@@ -5049,224 +5061,257 @@ const ElectroDB = require("../index");
 
 window.Prism = window.Prism || {};
 window.electroParams = window.electroParams || [];
-const appDiv = document.getElementById('param-container');
+const appDiv = document.getElementById("param-container");
 
 window.notifyRedirect = function notifyRedirect(e) {
-    if (top.location !== self.location) {
-        e.preventDefault();
-        window.top.postMessage(JSON.stringify({type: "redirect", data: e.target.href}), "*");
-    }
-}
+  if (top.location !== self.location) {
+    e.preventDefault();
+    window.top.postMessage(
+      JSON.stringify({ type: "redirect", data: e.target.href }),
+      "*",
+    );
+  }
+};
 
 function aOrAn(value = "") {
-    return ["a", "e", "i", "o", "u"].includes(value[0].toLowerCase())
-        ? "an"
-        : "a"
+  return ["a", "e", "i", "o", "u"].includes(value[0].toLowerCase())
+    ? "an"
+    : "a";
 }
 
 function properCase(str = "") {
-    let newStr = "";
-    for (let i = 0; i < str.length; i++) {
-        let value = i === 0
-            ? str[i].toUpperCase()
-            : str[i];
-        newStr += value;
-    }
-    return newStr;
+  let newStr = "";
+  for (let i = 0; i < str.length; i++) {
+    let value = i === 0 ? str[i].toUpperCase() : str[i];
+    newStr += value;
+  }
+  return newStr;
 }
 
 function formatProper(value) {
-    return formatStrict(properCase(value));
+  return formatStrict(properCase(value));
 }
 
 function formatStrict(value) {
-    return `<b>${value}</b>`
+  return `<b>${value}</b>`;
 }
 
 function formatProvidedKeys(pk = {}, sks = []) {
-    let keys = {...pk};
-    for (const sk of sks) {
-        keys = {...keys, ...sk.facets};
-    }
-    const provided = Object.keys(keys).map(key => formatStrict(key));
-    if (provided.length === 0) {
-        return "";
-    } else if (provided.length === 1) {
-        return provided[0];
-    } else if (provided.length === 2) {
-        return provided.join(" and ");
-    } else {
-        provided[provided.length - 1] = `and ${provided[provided.length - 1]}`;
-        return provided.join(", ");
-    }
+  let keys = { ...pk };
+  for (const sk of sks) {
+    keys = { ...keys, ...sk.facets };
+  }
+  const provided = Object.keys(keys).map((key) => formatStrict(key));
+  if (provided.length === 0) {
+    return "";
+  } else if (provided.length === 1) {
+    return provided[0];
+  } else if (provided.length === 2) {
+    return provided.join(" and ");
+  } else {
+    provided[provided.length - 1] = `and ${provided[provided.length - 1]}`;
+    return provided.join(", ");
+  }
 }
 
 function formatParamLabel(state, entity) {
-    if (!state) {
-        return null;
-    } else if (typeof state === "string") {
-        return `<h2>${state}</h2>`;
+  if (!state) {
+    return null;
+  } else if (typeof state === "string") {
+    return `<h2>${state}</h2>`;
+  } else {
+    const method = state.query.method;
+    const type = state.query.type;
+    const collection = state.query.collection;
+    const accessPattern =
+      entity.model.translations.indexes.fromIndexToAccessPattern[
+        state.query.index
+      ];
+    const keys = formatProvidedKeys(state.query.keys.pk, state.query.keys.sk);
+    if (collection) {
+      return `<h2>Queries the collection ${formatProper(
+        collection,
+      )}, on the service ${formatProper(
+        entity.model.service,
+      )}, by ${keys}</h2>`;
+    } else if (method === "query") {
+      return `<h2>Queries the access pattern ${formatProper(
+        accessPattern,
+      )}, on the entity ${formatProper(entity.model.name)}, by ${keys}</h2>`;
+    } else if (state.self === "commit") {
+      // handled inside the "client" so each operation doesn't get its own printed line
     } else {
-        const method = state.query.method;
-        const type = state.query.type;
-        const collection = state.query.collection;
-        const accessPattern = entity.model.translations.indexes.fromIndexToAccessPattern[state.query.index];
-        const keys = formatProvidedKeys(state.query.keys.pk, state.query.keys.sk);
-        if (collection) {
-            return `<h2>Queries the collection ${formatProper(collection)}, on the service ${formatProper(entity.model.service)}, by ${keys}</h2>`;
-        } else if (method === "query") {
-            return `<h2>Queries the access pattern ${formatProper(accessPattern)}, on the entity ${formatProper(entity.model.name)}, by ${keys}</h2>`;
-        } else if (state.self === 'commit') {
-            // handled inside the "client" so each operation doesn't get its own printed line
-        } else {
-            return `<h2>Performs ${aOrAn(method)} ${formatProper(method)} operation, on the entity ${formatProper(entity.model.name)}</h2>`;
-        }
+      return `<h2>Performs ${aOrAn(method)} ${formatProper(
+        method,
+      )} operation, on the entity ${formatProper(entity.model.name)}</h2>`;
     }
+  }
 }
 
-function printToScreen({params, state, entity, cache} = {}) {
-    const innerHtml = appDiv.innerHTML;
-    const label = formatParamLabel(state, entity);
-    if (cache) {
-        window.electroParams.push({ title: label, json: params });
-    }
-    let code = `<pre class="language-json"><code class="language-json">${JSON.stringify(params, null, 4)}</code></pre>`;
-    if (label) {
-        code = `<hr>${label}${code}`;
-    } else {
-        code = `<hr>${code}`;
-    }
-    appDiv.innerHTML = innerHtml + code;
-    window.Prism.highlightAll();
+function printToScreen({ params, state, entity, cache } = {}) {
+  const innerHtml = appDiv.innerHTML;
+  const label = formatParamLabel(state, entity);
+  if (cache) {
+    window.electroParams.push({ title: label, json: params });
+  }
+  let code = `<pre class="language-json"><code class="language-json">${JSON.stringify(
+    params,
+    null,
+    4,
+  )}</code></pre>`;
+  if (label) {
+    code = `<hr>${label}${code}`;
+  } else {
+    code = `<hr>${code}`;
+  }
+  appDiv.innerHTML = innerHtml + code;
+  window.Prism.highlightAll();
 }
 
 function formatError(message) {
-    const electroErrorPattern = "- For more detail on this error reference:";
-    const isElectroError = message.match(electroErrorPattern);
-    if (!isElectroError) {
-        return `<h3>${message}</h3>`;
-    }
-    const [description, link] = message.split(electroErrorPattern);
-    return `<h3>${description}</h3><br><h3>For more detail on this error reference <a href="${link}" onclick="notifyRedirect(event)">${link}</a></h3>`
+  const electroErrorPattern = "- For more detail on this error reference:";
+  const isElectroError = message.match(electroErrorPattern);
+  if (!isElectroError) {
+    return `<h3>${message}</h3>`;
+  }
+  const [description, link] = message.split(electroErrorPattern);
+  return `<h3>${description}</h3><br><h3>For more detail on this error reference <a href="${link}" onclick="notifyRedirect(event)">${link}</a></h3>`;
 }
 
 function printMessage(type, message) {
-    const error = formatError(message);
-    const innerHtml = appDiv.innerHTML;
-    const label = type === "info" ? "" : "<h2>Query Error</h2>";
-    const code = `<hr>${label}<div class="${type} message">${error}</div>`;
-    appDiv.innerHTML = innerHtml + code;
+  const error = formatError(message);
+  const innerHtml = appDiv.innerHTML;
+  const label = type === "info" ? "" : "<h2>Query Error</h2>";
+  const code = `<hr>${label}<div class="${type} message">${error}</div>`;
+  appDiv.innerHTML = innerHtml + code;
 }
 
 function clearScreen() {
-    appDiv.innerHTML = '';
-    window.electroParams = [];
+  appDiv.innerHTML = "";
+  window.electroParams = [];
 }
 
 function promiseCallback(results) {
-    return {
-        promise: async () => results
-    }
+  return {
+    promise: async () => results,
+  };
 }
 
 class Entity extends ElectroDB.Entity {
-    constructor(schema, options = {}) {
-        super(schema, {
-            ...options,
-            client: {
-                put: () => promiseCallback({}),
-                delete: () => promiseCallback({}),
-                update: () => promiseCallback({}),
-                get: () => promiseCallback({Item: {}}),
-                query: () => promiseCallback({Items: []}),
-                scan: () => promiseCallback({Items: []}),
-                batchWrite: () => promiseCallback({UnprocessedKeys: {[options.table]: {Keys: []}}}),
-                batchGet: () => promiseCallback({Responses: {[options.table]: []}, UnprocessedKeys: {[options.table]: {Keys: []}}}),
-                transactWrite: (params) => {
-                    return {
-                        promise: async () => {
-                            printToScreen({ params, entity: this, cache: true, state: 'Performs a TransactWrite operation' });
-                            return {};
-                        },
-                        on: () => {},
-                    }
-                },
-                transactGet: (params) => {
-                    return {
-                        promise: async () => {
-                            printToScreen({ params, entity: this, cache: true, state: 'Performs a TransactGet operation' });
-                            return { Responses: [] };
-                        },
-                        on: () => {},
-                    }
-                },
-                createSet: (val) => val,
-            }
+  constructor(schema, options = {}) {
+    super(schema, {
+      ...options,
+      client: {
+        put: () => promiseCallback({}),
+        delete: () => promiseCallback({}),
+        update: () => promiseCallback({}),
+        get: () => promiseCallback({ Item: {} }),
+        query: () => promiseCallback({ Items: [] }),
+        scan: () => promiseCallback({ Items: [] }),
+        batchWrite: () =>
+          promiseCallback({
+            UnprocessedKeys: { [options.table]: { Keys: [] } },
+          }),
+        batchGet: () =>
+          promiseCallback({
+            Responses: { [options.table]: [] },
+            UnprocessedKeys: { [options.table]: { Keys: [] } },
+          }),
+        transactWrite: (params) => {
+          return {
+            promise: async () => {
+              printToScreen({
+                params,
+                entity: this,
+                cache: true,
+                state: "Performs a TransactWrite operation",
+              });
+              return {};
+            },
+            on: () => {},
+          };
+        },
+        transactGet: (params) => {
+          return {
+            promise: async () => {
+              printToScreen({
+                params,
+                entity: this,
+                cache: true,
+                state: "Performs a TransactGet operation",
+              });
+              return { Responses: [] };
+            },
+            on: () => {},
+          };
+        },
+        createSet: (val) => val,
+      },
+    });
+  }
+
+  _demoParams(method, state, config) {
+    try {
+      const params = super[method](state, config);
+      if (params && typeof params.catch === "function") {
+        params.catch((err) => {
+          console.log("param creation rejected: %o", err);
+          printMessage("error", err.message);
         });
+      }
+      if (state.self !== "commit") {
+        printToScreen({ params, state, entity: this, cache: true });
+      }
+      return params;
+    } catch (err) {
+      console.log("create params error: %o", err);
+      printMessage("error", err.message);
     }
+  }
 
-    _demoParams(method, state, config) {
-        try {
-            const params = super[method](state, config);
-            if (params && typeof params.catch === "function") {
-                params.catch(err => {
-                    console.log('param creation rejected: %o', err);
-                    printMessage("error", err.message);
-                });
-            }
-            if (state.self !== "commit") {
-                printToScreen({params, state, entity: this, cache: true});
-            }
-            return params;
-        } catch(err) {
-            console.log('create params error: %o', err);
-            printMessage("error", err.message);
-        }
-    }
+  _queryParams(state, config) {
+    return this._demoParams("_queryParams", state, config);
+  }
 
-    _queryParams(state, config) {
-        return this._demoParams("_queryParams", state, config);
-    }
+  _batchWriteParams(state, config) {
+    return this._demoParams("_batchWriteParams", state, config);
+  }
 
-    _batchWriteParams(state, config) {
-        return this._demoParams("_batchWriteParams", state, config);
-    }
+  _batchGetParams(state, config) {
+    return this._demoParams("_batchGetParams", state, config);
+  }
 
-    _batchGetParams(state, config) {
-        return this._demoParams("_batchGetParams", state, config);
-    }
+  _params(state, config) {
+    return this._demoParams("_params", state, config);
+  }
 
-    _params(state, config) {
-        return this._demoParams("_params", state, config);
-    }
-
-    _makeChain(index, clauses, rootClause, options) {
-        const params = clauses.params.action;
-        const go = clauses.go.action;
-        const commit = clauses.commit.action;
-        clauses.params.action = (entity, state, options) => {
-            try {
-                return params(entity, state, options);
-            } catch(err) {
-                printMessage("error", err.message);
-            }
-        }
-        clauses.go.action = async (entity, state, options) => {
-            try {
-                return await go(entity, state, options);
-            } catch(err) {
-                printMessage("error", err.message);
-            }
-        }
-        clauses.commit.action = (entity, state, options) => {
-            try {
-                return commit(entity, state, options);
-            } catch(err) {
-                printMessage("error", err.message);
-            }
-        }
-        return super._makeChain(index, clauses, rootClause, options);
-    }
+  _makeChain(index, clauses, rootClause, options) {
+    const params = clauses.params.action;
+    const go = clauses.go.action;
+    const commit = clauses.commit.action;
+    clauses.params.action = (entity, state, options) => {
+      try {
+        return params(entity, state, options);
+      } catch (err) {
+        printMessage("error", err.message);
+      }
+    };
+    clauses.go.action = async (entity, state, options) => {
+      try {
+        return await go(entity, state, options);
+      } catch (err) {
+        printMessage("error", err.message);
+      }
+    };
+    clauses.commit.action = (entity, state, options) => {
+      try {
+        return commit(entity, state, options);
+      } catch (err) {
+        printMessage("error", err.message);
+      }
+    };
+    return super._makeChain(index, clauses, rootClause, options);
+  }
 }
 
 class Service extends ElectroDB.Service {}
@@ -5278,3609 +5323,4330 @@ const createCustomAttribute = ElectroDB.createCustomAttribute;
 const CustomAttributeType = ElectroDB.CustomAttributeType;
 
 window.ElectroDB = {
-    Entity,
-    Service,
-    clearScreen,
-    printMessage,
-    printToScreen,
-    createSchema,
-    createCustomAttribute,
-    CustomAttributeType,
+  Entity,
+  Service,
+  clearScreen,
+  printMessage,
+  printToScreen,
+  createSchema,
+  createCustomAttribute,
+  CustomAttributeType,
 };
+
 },{"../index":1}],17:[function(require,module,exports){
-const { QueryTypes, MethodTypes, ItemOperations, ExpressionTypes, TransactionCommitSymbol, TransactionOperations, TerminalOperation, KeyTypes, IndexTypes,
-	UpsertOperations
+const {
+  QueryTypes,
+  MethodTypes,
+  ItemOperations,
+  ExpressionTypes,
+  TransactionCommitSymbol,
+  TransactionOperations,
+  TerminalOperation,
+  KeyTypes,
+  IndexTypes,
+  UpsertOperations,
 } = require("./types");
-const {AttributeOperationProxy, UpdateOperations, FilterOperationNames, UpdateOperationNames} = require("./operations");
-const {UpdateExpression} = require("./update");
-const {FilterExpression} = require("./where");
+const {
+  AttributeOperationProxy,
+  UpdateOperations,
+  FilterOperationNames,
+  UpdateOperationNames,
+} = require("./operations");
+const { UpdateExpression } = require("./update");
+const { FilterExpression } = require("./where");
 const v = require("./validations");
 const e = require("./errors");
 const u = require("./util");
 
 const methodChildren = {
-	upsert: ["upsertSet", "upsertAppend", "upsertAdd", "go", "params", "upsertSubtract", "commit", "upsertIfNotExists", "where"],
-	update: ["data", "set", "append", "add", "updateRemove", "updateDelete", "go", "params", "subtract", "commit", "composite", "ifNotExists", "where"],
-	put: ["where", "params", "go", "commit"],
-	del: ["where", "params", "go", "commit"],
-}
+  upsert: [
+    "upsertSet",
+    "upsertAppend",
+    "upsertAdd",
+    "go",
+    "params",
+    "upsertSubtract",
+    "commit",
+    "upsertIfNotExists",
+    "where",
+  ],
+  update: [
+    "data",
+    "set",
+    "append",
+    "add",
+    "updateRemove",
+    "updateDelete",
+    "go",
+    "params",
+    "subtract",
+    "commit",
+    "composite",
+    "ifNotExists",
+    "where",
+  ],
+  put: ["where", "params", "go", "commit"],
+  del: ["where", "params", "go", "commit"],
+};
 
 function batchAction(action, type, entity, state, payload) {
-	if (state.getError() !== null) {
-		return state;
-	}
-	try {
-		state.setMethod(type);
-		for (let facets of payload) {
-			let batchState = action(entity, state.createSubState(), facets);
-			if (batchState.getError() !== null) {
-				throw batchState.getError();
-			}
-		}
-		return state;
-	} catch(err) {
-		state.setError(err);
-		return state;
-	}
+  if (state.getError() !== null) {
+    return state;
+  }
+  try {
+    state.setMethod(type);
+    for (let facets of payload) {
+      let batchState = action(entity, state.createSubState(), facets);
+      if (batchState.getError() !== null) {
+        throw batchState.getError();
+      }
+    }
+    return state;
+  } catch (err) {
+    state.setError(err);
+    return state;
+  }
 }
 
 let clauses = {
-	index: {
-		name: "index",
-		children: ["check", "get", "delete", "update", "query", "upsert", "put", "scan", "collection", "clusteredCollection", "create", "remove", "patch", "batchPut", "batchDelete", "batchGet"],
-	},
-	clusteredCollection: {
-		name: "clusteredCollection",
-		action(entity, state, collection = "", facets /* istanbul ignore next */ = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				const { pk, sk } = state.getCompositeAttributes();
-				return state
-					.setType(QueryTypes.clustered_collection)
-					.setMethod(MethodTypes.query)
-					.setCollection(collection)
-					.setPK(entity._expectFacets(facets, pk))
-					.ifSK(() => {
-						const {composites, unused} = state.identifyCompositeAttributes(facets, sk, pk);
-						state.setSK(composites);
-						// we must apply eq on filter on all provided because if the user then does a sort key operation, it'd actually then unexpect results
-						if (sk.length > 1) {
-							state.filterProperties(FilterOperationNames.eq, {...unused, ...composites});
-						}
-					})
-					.whenOptions(({ options, state }) => {
-						if (!options.ignoreOwnership && !state.getParams()) {
-							state.query.options.expressions.names = {
-								...state.query.options.expressions.names,
-								...state.query.options.identifiers.names,
-							};
-							state.query.options.expressions.values = {
-								...state.query.options.expressions.values,
-								...state.query.options.identifiers.values,
-							};
-							state.query.options.expressions.expression =
-								state.query.options.expressions.expression.length > 1
-									? `(${state.query.options.expressions.expression}) AND ${state.query.options.identifiers.expression}`
-									: `${state.query.options.identifiers.expression}`;
-						}
-					});
+  index: {
+    name: "index",
+    children: [
+      "check",
+      "get",
+      "delete",
+      "update",
+      "query",
+      "upsert",
+      "put",
+      "scan",
+      "collection",
+      "clusteredCollection",
+      "create",
+      "remove",
+      "patch",
+      "batchPut",
+      "batchDelete",
+      "batchGet",
+    ],
+  },
+  clusteredCollection: {
+    name: "clusteredCollection",
+    action(
+      entity,
+      state,
+      collection = "",
+      facets /* istanbul ignore next */ = {},
+    ) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        const { pk, sk } = state.getCompositeAttributes();
+        return state
+          .setType(QueryTypes.clustered_collection)
+          .setMethod(MethodTypes.query)
+          .setCollection(collection)
+          .setPK(entity._expectFacets(facets, pk))
+          .ifSK(() => {
+            const { composites, unused } = state.identifyCompositeAttributes(
+              facets,
+              sk,
+              pk,
+            );
+            state.setSK(composites);
+            // we must apply eq on filter on all provided because if the user then does a sort key operation, it'd actually then unexpect results
+            if (sk.length > 1) {
+              state.filterProperties(FilterOperationNames.eq, {
+                ...unused,
+                ...composites,
+              });
+            }
+          })
+          .whenOptions(({ options, state }) => {
+            if (!options.ignoreOwnership && !state.getParams()) {
+              state.query.options.expressions.names = {
+                ...state.query.options.expressions.names,
+                ...state.query.options.identifiers.names,
+              };
+              state.query.options.expressions.values = {
+                ...state.query.options.expressions.values,
+                ...state.query.options.identifiers.values,
+              };
+              state.query.options.expressions.expression =
+                state.query.options.expressions.expression.length > 1
+                  ? `(${state.query.options.expressions.expression}) AND ${state.query.options.identifiers.expression}`
+                  : `${state.query.options.identifiers.expression}`;
+            }
+          });
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: ["between", "gte", "gt", "lte", "lt", "begins", "params", "go"],
+  },
+  collection: {
+    name: "collection",
+    /* istanbul ignore next */
+    action(
+      entity,
+      state,
+      collection = "",
+      facets /* istanbul ignore next */ = {},
+    ) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        const { pk, sk } = state.getCompositeAttributes();
+        return state
+          .setType(QueryTypes.collection)
+          .setMethod(MethodTypes.query)
+          .setCollection(collection)
+          .setPK(entity._expectFacets(facets, pk))
+          .whenOptions(({ options, state }) => {
+            if (!options.ignoreOwnership && !state.getParams()) {
+              state.query.options.expressions.names = {
+                ...state.query.options.expressions.names,
+                ...state.query.options.identifiers.names,
+              };
+              state.query.options.expressions.values = {
+                ...state.query.options.expressions.values,
+                ...state.query.options.identifiers.values,
+              };
+              state.query.options.expressions.expression =
+                state.query.options.expressions.expression.length > 1
+                  ? `(${state.query.options.expressions.expression}) AND ${state.query.options.identifiers.expression}`
+                  : `${state.query.options.identifiers.expression}`;
+            }
+          });
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: ["params", "go"],
+  },
+  scan: {
+    name: "scan",
+    action(entity, state, config) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        return state
+          .setMethod(MethodTypes.scan)
+          .whenOptions(({ state, options }) => {
+            if (!options.ignoreOwnership && !state.getParams()) {
+              state.unsafeApplyFilter(
+                FilterOperationNames.eq,
+                entity.identifiers.entity,
+                entity.getName(),
+              );
+              state.unsafeApplyFilter(
+                FilterOperationNames.eq,
+                entity.identifiers.version,
+                entity.getVersion(),
+              );
+            }
+          });
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: ["params", "go"],
+  },
+  get: {
+    name: "get",
+    /* istanbul ignore next */
+    action(entity, state, facets = {}) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        const { pk, sk } = state.getCompositeAttributes();
+        const { composites } = state.identifyCompositeAttributes(
+          facets,
+          sk,
+          pk,
+        );
+        return state
+          .setMethod(MethodTypes.get)
+          .setType(QueryTypes.eq)
+          .setPK(entity._expectFacets(facets, pk))
+          .ifSK(() => {
+            entity._expectFacets(facets, sk);
+            state.setSK(composites);
+          });
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: ["params", "go", "commit"],
+  },
+  check: {
+    name: "check",
+    action(...params) {
+      return clauses.get.action(...params).setMethod(MethodTypes.check);
+    },
+    children: ["commit"],
+  },
+  batchGet: {
+    name: "batchGet",
+    action: (entity, state, payload) =>
+      batchAction(
+        clauses.get.action,
+        MethodTypes.batchGet,
+        entity,
+        state,
+        payload,
+      ),
+    children: ["params", "go"],
+  },
+  batchDelete: {
+    name: "batchDelete",
+    action: (entity, state, payload) =>
+      batchAction(
+        clauses.delete.action,
+        MethodTypes.batchWrite,
+        entity,
+        state,
+        payload,
+      ),
+    children: ["params", "go"],
+  },
+  delete: {
+    name: "delete",
+    /* istanbul ignore next */
+    action(entity, state, facets = {}) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        const { pk, sk } = state.getCompositeAttributes();
+        const pkComposite = entity._expectFacets(facets, pk);
+        state.addOption("_includeOnResponseItem", pkComposite);
+        return state
+          .setMethod(MethodTypes.delete)
+          .setType(QueryTypes.eq)
+          .setPK(pkComposite)
+          .ifSK(() => {
+            entity._expectFacets(facets, sk);
+            const skComposite = state.buildQueryComposites(facets, sk);
+            state.setSK(skComposite);
+            state.addOption("_includeOnResponseItem", {
+              ...skComposite,
+              ...pkComposite,
+            });
+          });
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: ["where", "params", "go", "commit"],
+  },
+  remove: {
+    name: "remove",
+    /* istanbul ignore next */
+    action(entity, state, facets = {}) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        const attributes = state.getCompositeAttributes();
+        const filter = state.query.filter[ExpressionTypes.ConditionExpression];
+        const { pk, sk } = entity._getPrimaryIndexFieldNames();
+        filter.unsafeSet(FilterOperationNames.exists, pk);
+        if (sk) {
+          filter.unsafeSet(FilterOperationNames.exists, sk);
+        }
+        const pkComposite = entity._expectFacets(facets, attributes.pk);
+        state.addOption("_includeOnResponseItem", pkComposite);
+        return state
+          .setMethod(MethodTypes.delete)
+          .setType(QueryTypes.eq)
+          .setPK(pkComposite)
+          .ifSK(() => {
+            entity._expectFacets(facets, attributes.sk);
+            const skComposite = state.buildQueryComposites(
+              facets,
+              attributes.sk,
+            );
+            state.setSK(skComposite);
+            state.addOption("_includeOnResponseItem", {
+              ...skComposite,
+              ...pkComposite,
+            });
+          });
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.del,
+  },
+  upsert: {
+    name: "upsert",
+    action(entity, state, payload = {}) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        return state
+          .setMethod(MethodTypes.upsert)
+          .setType(QueryTypes.eq)
+          .applyUpsert(UpsertOperations.set, payload)
+          .beforeBuildParams(({ state }) => {
+            const { upsert, update, updateProxy } = state.query;
 
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: ["between", "gte", "gt", "lte", "lt", "begins", "params", "go"],
-	},
-	collection: {
-		name: "collection",
-		/* istanbul ignore next */
-		action(entity, state, collection = "", facets /* istanbul ignore next */ = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				const {pk, sk} = state.getCompositeAttributes();
-				return state
-					.setType(QueryTypes.collection)
-					.setMethod(MethodTypes.query)
-					.setCollection(collection)
-					.setPK(entity._expectFacets(facets, pk))
-					.whenOptions(({ options, state }) => {
-						if (!options.ignoreOwnership && !state.getParams()) {
-							state.query.options.expressions.names = {
-								...state.query.options.expressions.names,
-								...state.query.options.identifiers.names,
-							};
-							state.query.options.expressions.values = {
-								...state.query.options.expressions.values,
-								...state.query.options.identifiers.values,
-							};
-							state.query.options.expressions.expression =
-								state.query.options.expressions.expression.length > 1
-									? `(${state.query.options.expressions.expression}) AND ${state.query.options.identifiers.expression}`
-									: `${state.query.options.identifiers.expression}`;
-						}
-					});
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: ["params", "go"],
-	},
-	scan: {
-		name: "scan",
-		action(entity, state, config) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				return state.setMethod(MethodTypes.scan)
-					.whenOptions(({ state, options }) => {
-						if (!options.ignoreOwnership && !state.getParams()) {
-							state.unsafeApplyFilter(FilterOperationNames.eq, entity.identifiers.entity, entity.getName());
-							state.unsafeApplyFilter(FilterOperationNames.eq, entity.identifiers.version, entity.getVersion());
-						}
-					});
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: ["params", "go"],
-	},
-	get: {
-		name: "get",
-		/* istanbul ignore next */
-		action(entity, state, facets = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				const {pk, sk} = state.getCompositeAttributes();
-				const {composites} = state.identifyCompositeAttributes(facets, sk, pk);
-				return state
-					.setMethod(MethodTypes.get)
-					.setType(QueryTypes.eq)
-					.setPK(entity._expectFacets(facets, pk))
-					.ifSK(() => {
-						entity._expectFacets(facets, sk);
-						state.setSK(composites);
-					});
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: ["params", "go", "commit"],
-	},
-	check: {
-		name: 'check',
-		action(...params) {
-			return clauses.get.action(...params)
-				.setMethod(MethodTypes.check);
-		},
-		children: ["commit"],
-	},
-	batchGet: {
-		name: "batchGet",
-		action: (entity, state, payload) => batchAction(clauses.get.action, MethodTypes.batchGet, entity, state, payload),
-		children: ["params", "go"],
-	},
-	batchDelete: {
-		name: "batchDelete",
-		action: (entity, state, payload) => batchAction(clauses.delete.action, MethodTypes.batchWrite, entity, state, payload),
-		children: ["params", "go"],
-	},
-	delete: {
-		name: "delete",
-		/* istanbul ignore next */
-		action(entity, state, facets = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				const {pk, sk} = state.getCompositeAttributes();
-				const pkComposite = entity._expectFacets(facets, pk);
-				state.addOption('_includeOnResponseItem', pkComposite);
-				return state
-					.setMethod(MethodTypes.delete)
-					.setType(QueryTypes.eq)
-					.setPK(pkComposite)
-					.ifSK(() => {
-						entity._expectFacets(facets, sk);
-						const skComposite = state.buildQueryComposites(facets, sk);
-						state.setSK(skComposite);
-						state.addOption('_includeOnResponseItem', {...skComposite, ...pkComposite});
-					});
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: ["where", "params", "go", "commit"],
-	},
-	remove: {
-		name: "remove",
-		/* istanbul ignore next */
-		action(entity, state, facets = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				const attributes = state.getCompositeAttributes();
-				const filter = state.query.filter[ExpressionTypes.ConditionExpression];
-				const {pk, sk} = entity._getPrimaryIndexFieldNames();
-				filter.unsafeSet(FilterOperationNames.exists, pk);
-				if (sk) {
-					filter.unsafeSet(FilterOperationNames.exists, sk);
-				}
-				const pkComposite = entity._expectFacets(facets, attributes.pk);
-				state.addOption('_includeOnResponseItem', pkComposite);
-				return state
-					.setMethod(MethodTypes.delete)
-					.setType(QueryTypes.eq)
-					.setPK(pkComposite)
-					.ifSK(() => {
-						entity._expectFacets(facets, attributes.sk);
-						const skComposite = state.buildQueryComposites(facets, attributes.sk);
-						state.setSK(skComposite);
-						state.addOption('_includeOnResponseItem', {...skComposite, ...pkComposite});
-					});
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.del,
-	},
-	upsert: {
-		name: 'upsert',
-		action(entity, state, payload = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
+            state.query.update.set(entity.identifiers.entity, entity.getName());
+            state.query.update.set(
+              entity.identifiers.version,
+              entity.getVersion(),
+            );
 
-				return state
-					.setMethod(MethodTypes.upsert)
-					.setType(QueryTypes.eq)
-					.applyUpsert(UpsertOperations.set, payload)
-					.beforeBuildParams(({ state }) => {
-						const { upsert, update, updateProxy } = state.query;
+            // only "set" data is used to make keys
+            const setData = {};
+            const nonSetData = {};
+            let allData = {};
 
-						state.query.update.set(entity.identifiers.entity, entity.getName());
-						state.query.update.set(entity.identifiers.version, entity.getVersion());
+            for (const name in upsert.data) {
+              const { operation, value } = upsert.data[name];
+              allData[name] = value;
+              if (operation === UpsertOperations.set) {
+                setData[name] = value;
+              } else {
+                nonSetData[name] = value;
+              }
+            }
 
-						// only "set" data is used to make keys
-						const setData = {};
-						const nonSetData = {};
-						let allData = {};
+            const upsertData = entity.model.schema.checkCreate({ ...allData });
+            const attributes = state.getCompositeAttributes();
+            const pkComposite = entity._expectFacets(upsertData, attributes.pk);
 
-						for (const name in upsert.data) {
-							const { operation, value } = upsert.data[name];
-							allData[name] = value;
-							if (operation === UpsertOperations.set) {
-								setData[name] = value;
-							} else {
-								nonSetData[name] = value;
-							}
-						}
+            state
+              .addOption("_includeOnResponseItem", pkComposite)
+              .setPK(pkComposite)
+              .ifSK(() => {
+                entity._expectFacets(upsertData, attributes.sk);
+                const skComposite = entity._buildQueryFacets(
+                  upsertData,
+                  attributes.sk,
+                );
+                state.setSK(skComposite);
+                state.addOption("_includeOnResponseItem", {
+                  ...skComposite,
+                  ...pkComposite,
+                });
+              });
 
-						const upsertData = entity.model.schema.checkCreate({ ...allData });
-						const attributes = state.getCompositeAttributes();
-						const pkComposite = entity._expectFacets(upsertData, attributes.pk);
+            const appliedData = entity.model.schema.applyAttributeSetters({
+              ...upsertData,
+            });
 
-						state
-							.addOption('_includeOnResponseItem', pkComposite)
-							.setPK(pkComposite)
-							.ifSK(() => {
-								entity._expectFacets(upsertData, attributes.sk);
-								const skComposite = entity._buildQueryFacets(upsertData, attributes.sk);
-								state.setSK(skComposite);
-								state.addOption('_includeOnResponseItem', {...skComposite, ...pkComposite});
-							});
+            const onlySetAppliedData = {};
+            const nonSetAppliedData = {};
+            for (const name in appliedData) {
+              const value = appliedData[name];
+              const isSetOperation = setData[name] !== undefined;
+              const cameFromApplyingSetters = allData[name] === undefined;
+              const isNotUndefined = appliedData[name] !== undefined;
+              const applyAsSet = isSetOperation || cameFromApplyingSetters;
+              if (applyAsSet && isNotUndefined) {
+                onlySetAppliedData[name] = value;
+              } else {
+                nonSetAppliedData[name] = value;
+              }
+            }
 
-						const appliedData = entity.model.schema.applyAttributeSetters({...upsertData});
+            // we build this above, and set them to state, but use it here, not ideal but
+            // the way it worked out so that this could be wrapped in beforeBuildParams
+            const { pk } = state.query.keys;
+            const sk = state.query.keys.sk[0];
 
-						const onlySetAppliedData = {};
-						const nonSetAppliedData = {};
-						for (const name in appliedData) {
-							const value = appliedData[name];
-							const isSetOperation = setData[name] !== undefined;
-							const cameFromApplyingSetters = allData[name] === undefined;
-							const isNotUndefined = appliedData[name] !== undefined;
-							const applyAsSet = isSetOperation || cameFromApplyingSetters;
-							if (applyAsSet && isNotUndefined) {
-								onlySetAppliedData[name] = value;
-							} else {
-								nonSetAppliedData[name] = value;
-							}
-						}
+            const { updatedKeys, setAttributes, indexKey } = entity._getPutKeys(
+              pk,
+              sk && sk.facets,
+              onlySetAppliedData,
+            );
 
-						// we build this above, and set them to state, but use it here, not ideal but
-						// the way it worked out so that this could be wrapped in beforeBuildParams
-						const { pk } = state.query.keys;
-						const sk = state.query.keys.sk[0];
+            // calculated here but needs to be used when building the params
+            upsert.indexKey = indexKey;
 
-						const { updatedKeys, setAttributes, indexKey } = entity._getPutKeys(pk, sk && sk.facets, onlySetAppliedData);
+            // only "set" data is used to make keys
+            const setFields = Object.entries(
+              entity.model.schema.translateToFields(setAttributes),
+            );
 
-						// calculated here but needs to be used when building the params
-						upsert.indexKey = indexKey;
+            // add the keys impacted except for the table index keys; they are upserted
+            // automatically by dynamo
+            for (const key in updatedKeys) {
+              const value = updatedKeys[key];
+              if (indexKey[key] === undefined) {
+                setFields.push([key, value]);
+              }
+            }
 
-						// only "set" data is used to make keys
-						const setFields = Object.entries(entity.model.schema.translateToFields(setAttributes));
+            entity._maybeApplyUpsertUpdate({
+              fields: setFields,
+              operation: UpsertOperations.set,
+              updateProxy,
+              update,
+            });
 
-						// add the keys impacted except for the table index keys; they are upserted
-						// automatically by dynamo
-						for (const key in updatedKeys) {
-							const value = updatedKeys[key];
-							if (indexKey[key] === undefined) {
-								setFields.push([key, value]);
-							}
-						}
+            for (const name in nonSetData) {
+              const value = appliedData[name];
+              if (value === undefined || upsert.data[name] === undefined) {
+                continue;
+              }
 
-						entity._maybeApplyUpsertUpdate({
-							fields: setFields,
-							operation: UpsertOperations.set,
-							updateProxy,
-							update,
-						});
+              const { operation } = upsert.data[name];
+              const fields = entity.model.schema.translateToFields({
+                [name]: value,
+              });
+              entity._maybeApplyUpsertUpdate({
+                fields: Object.entries(fields),
+                updateProxy,
+                operation,
+                update,
+              });
+            }
+          });
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.upsert,
+  },
+  put: {
+    name: "put",
+    /* istanbul ignore next */
+    action(entity, state, payload = {}) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        let record = entity.model.schema.checkCreate({ ...payload });
+        const attributes = state.getCompositeAttributes();
+        return state
+          .setMethod(MethodTypes.put)
+          .setType(QueryTypes.eq)
+          .applyPut(record)
+          .setPK(entity._expectFacets(record, attributes.pk))
+          .ifSK(() => {
+            entity._expectFacets(record, attributes.sk);
+            state.setSK(state.buildQueryComposites(record, attributes.sk));
+          });
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.put,
+  },
+  batchPut: {
+    name: "batchPut",
+    action: (entity, state, payload) =>
+      batchAction(
+        clauses.put.action,
+        MethodTypes.batchWrite,
+        entity,
+        state,
+        payload,
+      ),
+    children: ["params", "go"],
+  },
+  create: {
+    name: "create",
+    action(entity, state, payload) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        let record = entity.model.schema.checkCreate({ ...payload });
+        const attributes = state.getCompositeAttributes();
+        const filter = state.query.filter[ExpressionTypes.ConditionExpression];
+        const { pk, sk } = entity._getPrimaryIndexFieldNames();
+        filter.unsafeSet(FilterOperationNames.notExists, pk);
+        if (sk) {
+          filter.unsafeSet(FilterOperationNames.notExists, sk);
+        }
+        return state
+          .setMethod(MethodTypes.put)
+          .setType(QueryTypes.eq)
+          .applyPut(record)
+          .setPK(entity._expectFacets(record, attributes.pk))
+          .ifSK(() => {
+            entity._expectFacets(record, attributes.sk);
+            state.setSK(state.buildQueryComposites(record, attributes.sk));
+          });
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.put,
+  },
+  patch: {
+    name: "patch",
+    action(entity, state, facets) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        const attributes = state.getCompositeAttributes();
+        const filter = state.query.filter[ExpressionTypes.ConditionExpression];
+        const { pk, sk } = entity._getPrimaryIndexFieldNames();
+        filter.unsafeSet(FilterOperationNames.exists, pk);
+        if (sk) {
+          filter.unsafeSet(FilterOperationNames.exists, sk);
+        }
+        const pkComposite = entity._expectFacets(facets, attributes.pk);
+        state.addOption("_includeOnResponseItem", pkComposite);
+        return state
+          .setMethod(MethodTypes.update)
+          .setType(QueryTypes.eq)
+          .setPK(pkComposite)
+          .ifSK(() => {
+            entity._expectFacets(facets, attributes.sk);
+            const skComposite = state.buildQueryComposites(
+              facets,
+              attributes.sk,
+            );
+            state.setSK(skComposite);
+            state.addOption("_includeOnResponseItem", {
+              ...skComposite,
+              ...pkComposite,
+            });
+          });
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.update,
+  },
+  update: {
+    name: "update",
+    action(entity, state, facets) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        const attributes = state.getCompositeAttributes();
+        const pkComposite = entity._expectFacets(facets, attributes.pk);
+        state.addOption("_includeOnResponseItem", pkComposite);
+        return state
+          .setMethod(MethodTypes.update)
+          .setType(QueryTypes.eq)
+          .setPK(pkComposite)
+          .ifSK(() => {
+            entity._expectFacets(facets, attributes.sk);
+            const skComposite = state.buildQueryComposites(
+              facets,
+              attributes.sk,
+            );
+            state.setSK(skComposite);
+            state.addOption("_includeOnResponseItem", {
+              ...pkComposite,
+              ...skComposite,
+            });
+          });
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.update,
+  },
+  data: {
+    name: "data",
+    action(entity, state, cb) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        state.query.updateProxy.invokeCallback(cb);
+        for (const path of Object.keys(state.query.update.refs)) {
+          const operation = state.query.update.impacted[path];
+          const attribute = state.query.update.refs[path];
+          // note: keyValue will be empty if the user used `name`/`value` operations
+          // because it becomes hard to know how they are used and which attribute
+          // should validate the change. This is an edge case however, this change
+          // still improves on the existing implementation.
+          const keyValue = state.query.update.paths[path] || {};
+          if (!attribute) {
+            throw new e.ElectroAttributeValidationError(
+              path,
+              `Attribute "${path}" does not exist on model.`,
+            );
+          }
 
-						for (const name in nonSetData) {
-							const value = appliedData[name];
-							if (value === undefined || upsert.data[name] === undefined) {
-								continue;
-							}
+          entity.model.schema.checkOperation(
+            attribute,
+            operation,
+            keyValue.value,
+          );
+        }
+        return state;
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.update,
+  },
+  set: {
+    name: "set",
+    action(entity, state, data) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        entity.model.schema.checkUpdate(data);
+        state.query.updateProxy.fromObject(ItemOperations.set, data);
+        return state;
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.update,
+  },
+  upsertSet: {
+    name: "set",
+    action(entity, state, data) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        entity.model.schema.checkUpdate(data, { allowReadOnly: true });
+        state.query.upsert.addData(UpsertOperations.set, data);
+        return state;
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.upsert,
+  },
+  composite: {
+    name: "composite",
+    action(entity, state, composites = {}) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        for (const attrName in composites) {
+          // todo: validate attrName is facet
+          if (entity.model.facets.byAttr[attrName]) {
+            const wasSet = state.query.update.addComposite(
+              attrName,
+              composites[attrName],
+            );
+            if (!wasSet) {
+              throw new e.ElectroError(
+                e.ErrorCodes.DuplicateUpdateCompositesProvided,
+                `The composite attribute ${attrName} has been provided more than once with different values. Remove the duplication before running again`,
+              );
+            }
+            state.applyCondition(
+              FilterOperationNames.eq,
+              attrName,
+              composites[attrName],
+            );
+          }
+        }
+        return state;
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.update,
+  },
+  append: {
+    name: "append",
+    action(entity, state, data = {}) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        entity.model.schema.checkUpdate(data);
+        state.query.updateProxy.fromObject(ItemOperations.append, data);
+        return state;
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.update,
+  },
+  ifNotExists: {
+    name: "ifNotExists",
+    action(entity, state, data = {}) {
+      entity.model.schema.checkUpdate(data);
+      state.query.updateProxy.fromObject(ItemOperations.ifNotExists, data);
+      return state;
+    },
+    children: methodChildren.update,
+  },
+  upsertIfNotExists: {
+    name: "ifNotExists",
+    action(entity, state, data = {}) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        entity.model.schema.checkUpdate(data, { allowReadOnly: true });
+        state.query.upsert.addData(UpsertOperations.ifNotExists, data);
+        return state;
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.upsert,
+  },
+  upsertAppend: {
+    name: "append",
+    action(entity, state, data = {}) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        entity.model.schema.checkUpdate(data, { allowReadOnly: true });
+        state.query.upsert.addData(UpsertOperations.append, data);
+        return state;
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.upsert,
+  },
+  updateRemove: {
+    name: "remove",
+    action(entity, state, data) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        if (!Array.isArray(data)) {
+          throw new Error("Update method 'remove' expects type Array");
+        }
+        entity.model.schema.checkRemove(data);
+        state.query.updateProxy.fromArray(ItemOperations.remove, data);
+        return state;
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.update,
+  },
+  updateDelete: {
+    name: "delete",
+    action(entity, state, data) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        entity.model.schema.checkUpdate(data);
+        state.query.updateProxy.fromObject(ItemOperations.delete, data);
+        return state;
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.update,
+  },
+  add: {
+    name: "add",
+    action(entity, state, data) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        entity.model.schema.checkUpdate(data);
+        state.query.updateProxy.fromObject(ItemOperations.add, data);
+        return state;
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.update,
+  },
+  upsertAdd: {
+    name: "add",
+    action(entity, state, data) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        entity.model.schema.checkUpdate(data, { allowReadOnly: true });
+        state.query.upsert.addData(UpsertOperations.add, data);
+        return state;
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.upsert,
+  },
+  upsertSubtract: {
+    name: "subtract",
+    action(entity, state, data) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        entity.model.schema.checkUpdate(data, { allowReadOnly: true });
+        state.query.upsert.addData(UpsertOperations.subtract, data);
+        return state;
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.upsert,
+  },
+  subtract: {
+    name: "subtract",
+    action(entity, state, data) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        entity.model.schema.checkUpdate(data);
+        state.query.updateProxy.fromObject(ItemOperations.subtract, data);
+        return state;
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: methodChildren.update,
+  },
+  query: {
+    name: "query",
+    action(entity, state, facets, options = {}) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        state.addOption("_isPagination", true);
+        const { pk, sk } = state.getCompositeAttributes();
+        return state
+          .setMethod(MethodTypes.query)
+          .setType(QueryTypes.is)
+          .setPK(entity._expectFacets(facets, pk))
+          .ifSK(() => {
+            const { composites, unused } = state.identifyCompositeAttributes(
+              facets,
+              sk,
+              pk,
+            );
+            state.setSK(state.buildQueryComposites(facets, sk));
+            // we must apply eq on filter on all provided because if the user then does a sort key operation, it'd actually then unexpect results
+            if (sk.length > 1) {
+              state.filterProperties(FilterOperationNames.eq, {
+                ...unused,
+                ...composites,
+              });
+            }
 
-							const { operation } = upsert.data[name];
-							const fields = entity.model.schema.translateToFields({ [name]: value });
-							entity._maybeApplyUpsertUpdate({
-								fields: Object.entries(fields),
-								updateProxy,
-								operation,
-								update,
-							});
-						}
+            state.whenOptions(({ options, state }) => {
+              if (
+                state.query.options.indexType === IndexTypes.clustered &&
+                Object.keys(composites).length < sk.length &&
+                !options.ignoreOwnership &&
+                !state.getParams()
+              ) {
+                state
+                  .unsafeApplyFilter(
+                    FilterOperationNames.eq,
+                    entity.identifiers.entity,
+                    entity.getName(),
+                  )
+                  .unsafeApplyFilter(
+                    FilterOperationNames.eq,
+                    entity.identifiers.version,
+                    entity.getVersion(),
+                  );
+              }
+            });
+          });
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: ["between", "gte", "gt", "lte", "lt", "begins", "params", "go"],
+  },
+  between: {
+    name: "between",
+    action(entity, state, startingFacets = {}, endingFacets = {}) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        const { pk, sk } = state.getCompositeAttributes();
+        const endingSk = state.identifyCompositeAttributes(
+          endingFacets,
+          sk,
+          pk,
+        );
+        const startingSk = state.identifyCompositeAttributes(
+          startingFacets,
+          sk,
+          pk,
+        );
 
-					});
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.upsert,
-	},
-	put: {
-		name: "put",
-		/* istanbul ignore next */
-		action(entity, state, payload = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				let record = entity.model.schema.checkCreate({...payload});
-				const attributes = state.getCompositeAttributes();
-				return state
-					.setMethod(MethodTypes.put)
-					.setType(QueryTypes.eq)
-					.applyPut(record)
-					.setPK(entity._expectFacets(record, attributes.pk))
-					.ifSK(() => {
-						entity._expectFacets(record, attributes.sk);
-						state.setSK(state.buildQueryComposites(record, attributes.sk));
-					});
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.put,
-	},
-	batchPut: {
-		name: "batchPut",
-		action: (entity, state, payload) => batchAction(clauses.put.action, MethodTypes.batchWrite, entity, state, payload),
-		children: ["params", "go"],
-	},
-	create: {
-		name: "create",
-		action(entity, state, payload) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				let record = entity.model.schema.checkCreate({...payload});
-				const attributes = state.getCompositeAttributes();
-				const filter = state.query.filter[ExpressionTypes.ConditionExpression];
-				const { pk, sk } = entity._getPrimaryIndexFieldNames();
-				filter.unsafeSet(FilterOperationNames.notExists, pk);
-				if (sk) {
-					filter.unsafeSet(FilterOperationNames.notExists, sk);
-				}
-				return state
-					.setMethod(MethodTypes.put)
-					.setType(QueryTypes.eq)
-					.applyPut(record)
-					.setPK(entity._expectFacets(record, attributes.pk))
-					.ifSK(() => {
-						entity._expectFacets(record, attributes.sk);
-						state.setSK(state.buildQueryComposites(record, attributes.sk));
-					});
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.put,
-	},
-	patch: {
-		name: "patch",
-		action(entity, state, facets) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				const attributes = state.getCompositeAttributes();
-				const filter = state.query.filter[ExpressionTypes.ConditionExpression];
-				const {pk, sk} = entity._getPrimaryIndexFieldNames();
-				filter.unsafeSet(FilterOperationNames.exists, pk);
-				if (sk) {
-					filter.unsafeSet(FilterOperationNames.exists, sk);
-				}
-				const pkComposite = entity._expectFacets(facets, attributes.pk);
-				state.addOption('_includeOnResponseItem', pkComposite);
-				return state
-					.setMethod(MethodTypes.update)
-					.setType(QueryTypes.eq)
-					.setPK(pkComposite)
-					.ifSK(() => {
-						entity._expectFacets(facets, attributes.sk);
-						const skComposite = state.buildQueryComposites(facets, attributes.sk);
-						state.setSK(skComposite);
-						state.addOption('_includeOnResponseItem', {...skComposite, ...pkComposite});
-					});
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.update,
-	},
-	update: {
-		name: "update",
-		action(entity, state, facets) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				const attributes = state.getCompositeAttributes();
-				const pkComposite = entity._expectFacets(facets, attributes.pk);
-				state.addOption('_includeOnResponseItem', pkComposite);
-				return state
-					.setMethod(MethodTypes.update)
-					.setType(QueryTypes.eq)
-					.setPK(pkComposite)
-					.ifSK(() => {
-						entity._expectFacets(facets, attributes.sk);
-						const skComposite = state.buildQueryComposites(facets, attributes.sk);
-						state.setSK(skComposite);
-						state.addOption('_includeOnResponseItem', {...pkComposite, ...skComposite});
-					});
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.update,
-	},
-	data: {
-		name: "data",
-		action(entity, state, cb) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				state.query.updateProxy.invokeCallback(cb);
-				for (const path of Object.keys(state.query.update.refs)) {
-					const operation = state.query.update.impacted[path];
-					const attribute = state.query.update.refs[path];
-					// note: keyValue will be empty if the user used `name`/`value` operations
-					// because it becomes hard to know how they are used and which attribute
-					// should validate the change. This is an edge case however, this change
-					// still improves on the existing implementation.
-					const keyValue = state.query.update.paths[path] || {};
-					if (!attribute) {
-						throw new e.ElectroAttributeValidationError(path, `Attribute "${path}" does not exist on model.`);
-					}
+        const accessPattern =
+          entity.model.translations.indexes.fromIndexToAccessPattern[
+            state.query.index
+          ];
 
-					entity.model.schema.checkOperation(attribute, operation, keyValue.value);
-				}
-				return state;
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.update,
-	},
-	set: {
-		name: "set",
-		action(entity, state, data) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				entity.model.schema.checkUpdate(data);
-				state.query.updateProxy.fromObject(ItemOperations.set, data);
-				return state;
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.update,
-	},
-	upsertSet: {
-		name: "set",
-		action(entity, state, data) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				entity.model.schema.checkUpdate(data, { allowReadOnly: true });
-				state.query.upsert.addData(UpsertOperations.set, data);
-				return state;
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.upsert,
-	},
-	composite: {
-		name: "composite",
-		action(entity, state, composites = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				for (const attrName in composites) {
-					// todo: validate attrName is facet
-					if (entity.model.facets.byAttr[attrName]) {
-						const wasSet = state.query.update.addComposite(attrName, composites[attrName]);
-						if (!wasSet) {
-							throw new e.ElectroError(e.ErrorCodes.DuplicateUpdateCompositesProvided, `The composite attribute ${attrName} has been provided more than once with different values. Remove the duplication before running again`);
-						}
-						state.applyCondition(FilterOperationNames.eq, attrName, composites[attrName]);
-					}
-				}
-				return state;
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.update,
-	},
-	append: {
-		name: "append",
-		action(entity, state, data = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				entity.model.schema.checkUpdate(data);
-				state.query.updateProxy.fromObject(ItemOperations.append, data);
-				return state;
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.update,
-	},
-	ifNotExists: {
-		name: 'ifNotExists',
-		action(entity, state, data = {}) {
-			entity.model.schema.checkUpdate(data);
-			state.query.updateProxy.fromObject(ItemOperations.ifNotExists, data);
-			return state;
-		},
-		children: methodChildren.update,
-	},
-	upsertIfNotExists: {
-		name: 'ifNotExists',
-		action(entity, state, data = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				entity.model.schema.checkUpdate(data, { allowReadOnly: true });
-				state.query.upsert.addData(UpsertOperations.ifNotExists, data);
-				return state;
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.upsert,
-	},
-	upsertAppend: {
-		name: "append",
-		action(entity, state, data = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				entity.model.schema.checkUpdate(data, { allowReadOnly: true });
-				state.query.upsert.addData(UpsertOperations.append, data);
-				return state;
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.upsert,
-	},
-	updateRemove: {
-		name: "remove",
-		action(entity, state, data) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				if (!Array.isArray(data)) {
-					throw new Error("Update method 'remove' expects type Array");
-				}
-				entity.model.schema.checkRemove(data);
-				state.query.updateProxy.fromArray(ItemOperations.remove, data);
-				return state;
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.update
-	},
-	updateDelete: {
-		name: "delete",
-		action(entity, state, data) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				entity.model.schema.checkUpdate(data);
-				state.query.updateProxy.fromObject(ItemOperations.delete, data);
-				return state;
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.update
-	},
-	add: {
-		name: "add",
-		action(entity, state, data) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				entity.model.schema.checkUpdate(data);
-				state.query.updateProxy.fromObject(ItemOperations.add, data);
-				return state;
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.update
-	},
-	upsertAdd: {
-		name: "add",
-		action(entity, state, data) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				entity.model.schema.checkUpdate(data, { allowReadOnly: true });
-				state.query.upsert.addData(UpsertOperations.add, data);
-				return state;
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.upsert
-	},
-	upsertSubtract: {
-		name: "subtract",
-		action(entity, state, data) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				entity.model.schema.checkUpdate(data, { allowReadOnly: true });
-				state.query.upsert.addData(UpsertOperations.subtract, data);
-				return state;
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.upsert
-	},
-	subtract: {
-		name: "subtract",
-		action(entity, state, data) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				entity.model.schema.checkUpdate(data);
-				state.query.updateProxy.fromObject(ItemOperations.subtract, data);
-				return state;
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: methodChildren.update
-	},
-	query: {
-		name: "query",
-		action(entity, state, facets, options = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				state.addOption('_isPagination', true);
-				const {pk, sk} = state.getCompositeAttributes();
-				return state
-					.setMethod(MethodTypes.query)
-					.setType(QueryTypes.is)
-					.setPK(entity._expectFacets(facets, pk))
-					.ifSK(() => {
-						const {composites, unused} = state.identifyCompositeAttributes(facets, sk, pk);
-						state.setSK(state.buildQueryComposites(facets, sk));
-						// we must apply eq on filter on all provided because if the user then does a sort key operation, it'd actually then unexpect results
-						if (sk.length > 1) {
-							state.filterProperties(FilterOperationNames.eq, {...unused, ...composites});
-						}
+        if (!entity.model.indexes[accessPattern].sk.isFieldRef) {
+          state.filterProperties(FilterOperationNames.lte, endingSk.composites);
+        }
 
-						state.whenOptions(({ options, state }) => {
-							if (state.query.options.indexType === IndexTypes.clustered && Object.keys(composites).length < sk.length && !options.ignoreOwnership && !state.getParams()) {
-								state.unsafeApplyFilter(FilterOperationNames.eq, entity.identifiers.entity, entity.getName())
-									.unsafeApplyFilter(FilterOperationNames.eq, entity.identifiers.version, entity.getVersion());
-							}
-						});
-					});
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: ["between", "gte", "gt", "lte", "lt", "begins", "params", "go"],
-	},
-	between: {
-		name: "between",
-		action(entity, state, startingFacets = {}, endingFacets = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				const {pk, sk} = state.getCompositeAttributes();
-				const endingSk = state.identifyCompositeAttributes(endingFacets, sk, pk);
-				const startingSk = state.identifyCompositeAttributes(startingFacets, sk, pk);
-				return state
-					.setType(QueryTypes.and)
-					.setSK(endingSk.composites)
-					.setType(QueryTypes.between)
-					.setSK(startingSk.composites)
-					.filterProperties(FilterOperationNames.lte, endingSk.composites);
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: ["go", "params"],
-	},
-	begins: {
-		name: "begins",
-		action(entity, state, facets = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				return state
-					.setType(QueryTypes.begins)
-					.ifSK(state => {
-						const attributes = state.getCompositeAttributes();
-						state.setSK(state.buildQueryComposites(facets, attributes.sk));
-					});
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: ["go", "params"],
-	},
-	gt: {
-		name: "gt",
-		action(entity, state, facets = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
+        return state
+          .setType(QueryTypes.and)
+          .setSK(endingSk.composites)
+          .setType(QueryTypes.between)
+          .setSK(startingSk.composites);
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: ["go", "params"],
+  },
+  begins: {
+    name: "begins",
+    action(entity, state, facets = {}) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        return state.setType(QueryTypes.begins).ifSK((state) => {
+          const attributes = state.getCompositeAttributes();
+          state.setSK(state.buildQueryComposites(facets, attributes.sk));
+        });
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: ["go", "params"],
+  },
+  gt: {
+    name: "gt",
+    action(entity, state, facets = {}) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        return state.setType(QueryTypes.gt).ifSK((state) => {
+          const { pk, sk } = state.getCompositeAttributes();
+          const { composites } = state.identifyCompositeAttributes(
+            facets,
+            sk,
+            pk,
+          );
+          state.setSK(composites);
+          const accessPattern =
+            entity.model.translations.indexes.fromIndexToAccessPattern[
+              state.query.index
+            ];
 
-				return state
-					.setType(QueryTypes.gt)
-					.ifSK(state => {
-						const {pk, sk} = state.getCompositeAttributes();
-						const {composites} = state.identifyCompositeAttributes(facets, sk, pk);
-						state.setSK(composites);
-						state.filterProperties(FilterOperationNames.gt, {
-							...composites,
-						});
-					});
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: ["go", "params"],
-	},
-	gte: {
-		name: "gte",
-		action(entity, state, facets = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				return state
-					.setType(QueryTypes.gte)
-					.ifSK(state => {
-						const attributes = state.getCompositeAttributes();
-						state.setSK(state.buildQueryComposites(facets, attributes.sk));
-					});
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: ["go", "params"],
-	},
-	lt: {
-		name: "lt",
-		action(entity, state, facets = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				return state.setType(QueryTypes.lt)
-					.ifSK(state => {
-						const {pk, sk} = state.getCompositeAttributes();
-						const {composites} = state.identifyCompositeAttributes(facets, sk, pk);
-						state.setSK(composites);
-					});
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: ["go", "params"],
-	},
-	lte: {
-		name: "lte",
-		action(entity, state, facets = {}) {
-			if (state.getError() !== null) {
-				return state;
-			}
-			try {
-				return state.setType(QueryTypes.lte)
-					.ifSK(state => {
-						const {pk, sk} = state.getCompositeAttributes();
-						const {composites} = state.identifyCompositeAttributes(facets, sk, pk);
-						state.setSK(composites);
-						state.filterProperties(FilterOperationNames.lte, {
-							...composites,
-						});
-					});
-			} catch(err) {
-				state.setError(err);
-				return state;
-			}
-		},
-		children: ["go", "params"],
-	},
-	commit: {
-		name: 'commit',
-		action(entity, state, options) {
-			if (state.getError() !== null) {
-				throw state.error;
-			}
+          if (!entity.model.indexes[accessPattern].sk.isFieldRef) {
+            state.filterProperties(FilterOperationNames.lte, composites);
+          }
+        });
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: ["go", "params"],
+  },
+  gte: {
+    name: "gte",
+    action(entity, state, facets = {}) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        return state.setType(QueryTypes.gte).ifSK((state) => {
+          const attributes = state.getCompositeAttributes();
+          state.setSK(state.buildQueryComposites(facets, attributes.sk));
+        });
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: ["go", "params"],
+  },
+  lt: {
+    name: "lt",
+    action(entity, state, facets = {}) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        return state.setType(QueryTypes.lt).ifSK((state) => {
+          const { pk, sk } = state.getCompositeAttributes();
+          const { composites } = state.identifyCompositeAttributes(
+            facets,
+            sk,
+            pk,
+          );
+          state.setSK(composites);
+        });
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: ["go", "params"],
+  },
+  lte: {
+    name: "lte",
+    action(entity, state, facets = {}) {
+      if (state.getError() !== null) {
+        return state;
+      }
+      try {
+        return state.setType(QueryTypes.lte).ifSK((state) => {
+          const { pk, sk } = state.getCompositeAttributes();
+          const { composites } = state.identifyCompositeAttributes(
+            facets,
+            sk,
+            pk,
+          );
+          state.setSK(composites);
+          const accessPattern =
+            entity.model.translations.indexes.fromIndexToAccessPattern[
+              state.query.index
+            ];
+          if (!entity.model.indexes[accessPattern].sk.isFieldRef) {
+            state.filterProperties(FilterOperationNames.lte, composites);
+          }
+        });
+      } catch (err) {
+        state.setError(err);
+        return state;
+      }
+    },
+    children: ["go", "params"],
+  },
+  commit: {
+    name: "commit",
+    action(entity, state, options) {
+      if (state.getError() !== null) {
+        throw state.error;
+      }
 
-			const results = clauses.params.action(entity, state, {
-				...options,
-				_returnOptions: true,
-				_isTransaction: true,
-			});
+      const results = clauses.params.action(entity, state, {
+        ...options,
+        _returnOptions: true,
+        _isTransaction: true,
+      });
 
-			const method = TransactionOperations[state.query.method];
-			if (!method) {
-				throw new Error('Invalid commit method');
-			}
+      const method = TransactionOperations[state.query.method];
+      if (!method) {
+        throw new Error("Invalid commit method");
+      }
 
-			return {
-				[method]: results.params,
-				[TransactionCommitSymbol]: () => {
-					return {
-						entity,
-					}
-				},
-			}
-		},
-		children: [],
-	},
-	params: {
-		name: "params",
-		action(entity, state, options = {}) {
-			if (state.getError() !== null) {
-				throw state.error;
-			}
-			try {
-				if (!v.isStringHasLength(options.table) && !v.isStringHasLength(entity.getTableName())) {
-					throw new e.ElectroError(e.ErrorCodes.MissingTable, `Table name not defined. Table names must be either defined on the model, instance configuration, or as a query option.`);
-				}
-				const method = state.getMethod();
-				const normalizedOptions = entity._normalizeExecutionOptions({
-					provided: [ state.getOptions(), state.query.options, options ],
-					context: { operation: options._isTransaction ? MethodTypes.transactWrite : undefined }
-				});
+      return {
+        [method]: results.params,
+        [TransactionCommitSymbol]: () => {
+          return {
+            entity,
+          };
+        },
+      };
+    },
+    children: [],
+  },
+  params: {
+    name: "params",
+    action(entity, state, options = {}) {
+      if (state.getError() !== null) {
+        throw state.error;
+      }
+      try {
+        if (
+          !v.isStringHasLength(options.table) &&
+          !v.isStringHasLength(entity.getTableName())
+        ) {
+          throw new e.ElectroError(
+            e.ErrorCodes.MissingTable,
+            `Table name not defined. Table names must be either defined on the model, instance configuration, or as a query option.`,
+          );
+        }
+        const method = state.getMethod();
+        const normalizedOptions = entity._normalizeExecutionOptions({
+          provided: [state.getOptions(), state.query.options, options],
+          context: {
+            operation: options._isTransaction
+              ? MethodTypes.transactWrite
+              : undefined,
+          },
+        });
 
-				state.applyWithOptions(normalizedOptions);
-				state.applyBeforeBuildParams(normalizedOptions);
+        state.applyWithOptions(normalizedOptions);
+        state.applyBeforeBuildParams(normalizedOptions);
 
-				let results;
-				switch (method) {
-					case MethodTypes.query: {
-						results = entity._queryParams(state, normalizedOptions);
-						break;
-					}
-					case MethodTypes.batchWrite: {
-						results = entity._batchWriteParams(state, normalizedOptions);
-						break;
-					}
-					case MethodTypes.batchGet: {
-						results = entity._batchGetParams(state, normalizedOptions);
-						break;
-					}
-					default: {
-						results = entity._params(state, normalizedOptions);
-						break;
-					}
-				}
+        let results;
+        switch (method) {
+          case MethodTypes.query: {
+            results = entity._queryParams(state, normalizedOptions);
+            break;
+          }
+          case MethodTypes.batchWrite: {
+            results = entity._batchWriteParams(state, normalizedOptions);
+            break;
+          }
+          case MethodTypes.batchGet: {
+            results = entity._batchGetParams(state, normalizedOptions);
+            break;
+          }
+          default: {
+            results = entity._params(state, normalizedOptions);
+            break;
+          }
+        }
 
-				if (method === MethodTypes.update && results.ExpressionAttributeValues && Object.keys(results.ExpressionAttributeValues).length === 0) {
-					// An update that only does a `remove` operation would result in an empty object
-					// todo: change the getValues() method to return undefined in this case (would potentially require a more generous refactor)
-					delete results.ExpressionAttributeValues;
-				}
+        if (
+          method === MethodTypes.update &&
+          results.ExpressionAttributeValues &&
+          Object.keys(results.ExpressionAttributeValues).length === 0
+        ) {
+          // An update that only does a `remove` operation would result in an empty object
+          // todo: change the getValues() method to return undefined in this case (would potentially require a more generous refactor)
+          delete results.ExpressionAttributeValues;
+        }
 
-				if (options._returnOptions) {
-					results = {
-						params: results,
-						options: normalizedOptions,
-					}
-				}
+        if (options._returnOptions) {
+          results = {
+            params: results,
+            options: normalizedOptions,
+          };
+        }
 
-				state.setParams(results);
+        state.setParams(results);
 
-				return results;
-			} catch(err) {
-				throw err;
-			}
-		},
-		children: [],
-	},
-	go: {
-		name: "go",
-		action(entity, state, options = {}) {
-			if (state.getError() !== null) {
-				return Promise.reject(state.error);
-			}
-			try {
-				if (entity.client === undefined) {
-					throw new e.ElectroError(e.ErrorCodes.NoClientDefined, "No client defined on model");
-				}
-				options.terminalOperation = TerminalOperation.go;
-				const paramResults = clauses.params.action(entity, state, { ...options, _returnOptions: true });
-				return entity.go(state.getMethod(), paramResults.params, paramResults.options);
-			} catch(err) {
-				return Promise.reject(err);
-			}
-		},
-		children: [],
-	},
+        return results;
+      } catch (err) {
+        throw err;
+      }
+    },
+    children: [],
+  },
+  go: {
+    name: "go",
+    action(entity, state, options = {}) {
+      if (state.getError() !== null) {
+        return Promise.reject(state.error);
+      }
+      try {
+        if (entity.client === undefined) {
+          throw new e.ElectroError(
+            e.ErrorCodes.NoClientDefined,
+            "No client defined on model",
+          );
+        }
+        options.terminalOperation = TerminalOperation.go;
+        const paramResults = clauses.params.action(entity, state, {
+          ...options,
+          _returnOptions: true,
+        });
+        return entity.go(
+          state.getMethod(),
+          paramResults.params,
+          paramResults.options,
+        );
+      } catch (err) {
+        return Promise.reject(err);
+      }
+    },
+    children: [],
+  },
 };
 
 class ChainState {
-	constructor({index = "", compositeAttributes = {}, attributes = {}, hasSortKey = false, options = {}, parentState = null} = {}) {
-		const update = new UpdateExpression({prefix: "_u"});
-		this.parentState = parentState;
-		this.error = null;
-		this.attributes = attributes;
-		this.query = {
-			collection: "",
-			index: index,
-			type: "",
-			method: "",
-			facets: { ...compositeAttributes },
-			update,
-			updateProxy: new AttributeOperationProxy({
-				builder: update,
-				attributes: attributes,
-				operations: UpdateOperations,
-			}),
-			put: {
-				data: {},
-			},
-			upsert: {
-				data: {},
-				indexKey: null,
-				addData(operation = UpsertOperations.set, data = {}) {
-					for (const name of Object.keys(data)) {
-						const value = data[name];
-						this.data[name] = {
-							operation,
-							value,
-						}
-					}
-				},
-				getData(operationFilter) {
-					const results = {};
-					for (const name in this.data) {
-						const { operation, value } = this.data[name];
-						if (!operationFilter || operationFilter === operation) {
-							results[name] = value;
-						}
-					}
+  constructor({
+    index = "",
+    compositeAttributes = {},
+    attributes = {},
+    hasSortKey = false,
+    options = {},
+    parentState = null,
+  } = {}) {
+    const update = new UpdateExpression({ prefix: "_u" });
+    this.parentState = parentState;
+    this.error = null;
+    this.attributes = attributes;
+    this.query = {
+      collection: "",
+      index: index,
+      type: "",
+      method: "",
+      facets: { ...compositeAttributes },
+      update,
+      updateProxy: new AttributeOperationProxy({
+        builder: update,
+        attributes: attributes,
+        operations: UpdateOperations,
+      }),
+      put: {
+        data: {},
+      },
+      upsert: {
+        data: {},
+        indexKey: null,
+        addData(operation = UpsertOperations.set, data = {}) {
+          for (const name of Object.keys(data)) {
+            const value = data[name];
+            this.data[name] = {
+              operation,
+              value,
+            };
+          }
+        },
+        getData(operationFilter) {
+          const results = {};
+          for (const name in this.data) {
+            const { operation, value } = this.data[name];
+            if (!operationFilter || operationFilter === operation) {
+              results[name] = value;
+            }
+          }
 
-					return results;
-				}
-			},
-			keys: {
-				provided: [],
-				pk: {},
-				sk: [],
-			},
-			filter: {
-				[ExpressionTypes.ConditionExpression]: new FilterExpression(),
-				[ExpressionTypes.FilterExpression]: new FilterExpression()
-			},
-			options,
-		};
-		this.subStates = [];
-		this.hasSortKey = hasSortKey;
-		this.prev = null;
-		this.self = null;
-		this.params = null;
-		this.applyAfterOptions = [];
-		this.beforeBuildParamsOperations = [];
-		this.beforeBuildParamsHasRan = false;
-	}
+          return results;
+        },
+      },
+      keys: {
+        provided: [],
+        pk: {},
+        sk: [],
+      },
+      filter: {
+        [ExpressionTypes.ConditionExpression]: new FilterExpression(),
+        [ExpressionTypes.FilterExpression]: new FilterExpression(),
+      },
+      options,
+    };
+    this.subStates = [];
+    this.hasSortKey = hasSortKey;
+    this.prev = null;
+    this.self = null;
+    this.params = null;
+    this.applyAfterOptions = [];
+    this.beforeBuildParamsOperations = [];
+    this.beforeBuildParamsHasRan = false;
+  }
 
-	getParams() {
-		return this.params;
-	}
+  getParams() {
+    return this.params;
+  }
 
-	setParams(params) {
-		if (params) {
-			this.params = params;
-		}
-	}
+  setParams(params) {
+    if (params) {
+      this.params = params;
+    }
+  }
 
-	init(entity, allClauses, currentClause) {
-		let current = {};
-		for (let child of currentClause.children) {
-			const name = allClauses[child].name;
-			current[name] = (...args) => {
-				this.prev = this.self;
-				this.self = child;
-				let results = allClauses[child].action(entity, this, ...args);
-				if (allClauses[child].children.length) {
-					return this.init(entity, allClauses, allClauses[child]);
-				} else {
-					return results;
-				}
-			};
-		}
-		return current;
-	}
+  init(entity, allClauses, currentClause) {
+    let current = {};
+    for (let child of currentClause.children) {
+      const name = allClauses[child].name;
+      current[name] = (...args) => {
+        this.prev = this.self;
+        this.self = child;
+        let results = allClauses[child].action(entity, this, ...args);
+        if (allClauses[child].children.length) {
+          return this.init(entity, allClauses, allClauses[child]);
+        } else {
+          return results;
+        }
+      };
+    }
+    return current;
+  }
 
-	getMethod() {
-		return this.query.method;
-	}
+  getMethod() {
+    return this.query.method;
+  }
 
-	getOptions() {
-		return this.query.options;
-	}
+  getOptions() {
+    return this.query.options;
+  }
 
-	addOption(key, value) {
-		this.query.options[key] = value;
-		return this;
-	}
+  addOption(key, value) {
+    this.query.options[key] = value;
+    return this;
+  }
 
-	_appendProvided(type, attributes) {
-		const newAttributes = Object.keys(attributes).map(attribute => {
-			return {
-				type,
-				attribute
-			}
-		});
-		return u.getUnique(this.query.keys.provided, newAttributes);
-	}
+  _appendProvided(type, attributes) {
+    const newAttributes = Object.keys(attributes).map((attribute) => {
+      return {
+        type,
+        attribute,
+      };
+    });
+    return u.getUnique(this.query.keys.provided, newAttributes);
+  }
 
-	setPK(attributes) {
-		this.query.keys.pk = attributes;
-		this.query.keys.provided = this._appendProvided(KeyTypes.pk, attributes);
+  setPK(attributes) {
+    this.query.keys.pk = attributes;
+    this.query.keys.provided = this._appendProvided(KeyTypes.pk, attributes);
 
-		return this;
-	}
+    return this;
+  }
 
-	ifSK(cb) {
-		if (this.hasSortKey) {
-			cb(this);
-		}
-		return this;
-	}
+  ifSK(cb) {
+    if (this.hasSortKey) {
+      cb(this);
+    }
+    return this;
+  }
 
-	getCompositeAttributes() {
-		return this.query.facets;
-	}
+  getCompositeAttributes() {
+    return this.query.facets;
+  }
 
-	buildQueryComposites(provided, definition) {
-		return definition
-			.map(name => [name, provided[name]])
-				.reduce(
-				(result, [name, value]) => {
-					if (value !== undefined) {
-						result[name] = value;
-					}
-					return result;
-				},
-				{},
-			);
-	}
+  buildQueryComposites(provided, definition) {
+    return definition
+      .map((name) => [name, provided[name]])
+      .reduce((result, [name, value]) => {
+        if (value !== undefined) {
+          result[name] = value;
+        }
+        return result;
+      }, {});
+  }
 
-	identifyCompositeAttributes(provided, defined, skip) {
-		// todo: make sure attributes are valid
-		const composites = {};
-		const unused = {};
-		const definedSet = new Set(defined || []);
-		const skipSet = new Set(skip || []);
-		for (const key of Object.keys(provided)) {
-			const value = provided[key];
-			if (definedSet.has(key)) {
-				composites[key] = value;
-			} else if (skipSet.has(key)) {
-				continue;
-			} else {
-				unused[key] = value;
-			}
-		}
+  identifyCompositeAttributes(provided, defined, skip) {
+    // todo: make sure attributes are valid
+    const composites = {};
+    const unused = {};
+    const definedSet = new Set(defined || []);
+    const skipSet = new Set(skip || []);
+    for (const key of Object.keys(provided)) {
+      const value = provided[key];
+      if (definedSet.has(key)) {
+        composites[key] = value;
+      } else if (skipSet.has(key)) {
+        continue;
+      } else {
+        unused[key] = value;
+      }
+    }
 
-		return {
-			composites,
-			unused,
-		}
-	}
+    return {
+      composites,
+      unused,
+    };
+  }
 
-	applyFilter(operation, name, ...values) {
-		if (FilterOperationNames[operation] !== undefined & name !== undefined && values.length > 0) {
-			const attribute = this.attributes[name];
-			if (attribute !== undefined) {
-				this.unsafeApplyFilter(operation, attribute.field, ...values);
-			}
-		}
-		return this;
-	}
+  applyFilter(operation, name, ...values) {
+    if (
+      (FilterOperationNames[operation] !== undefined) & (name !== undefined) &&
+      values.length > 0
+    ) {
+      const attribute = this.attributes[name];
+      if (attribute !== undefined) {
+        this.unsafeApplyFilter(operation, attribute.field, ...values);
+      }
+    }
+    return this;
+  }
 
-	applyCondition(operation, name, ...values) {
-		if (FilterOperationNames[operation] !== undefined && name !== undefined && values.length > 0) {
-			const attribute = this.attributes[name];
-			if (attribute !== undefined) {
-				const filter = this.query.filter[ExpressionTypes.ConditionExpression];
-				filter.unsafeSet(operation, attribute.field, ...values);
-			}
-		}
-		return this;
-	}
+  applyCondition(operation, name, ...values) {
+    if (
+      FilterOperationNames[operation] !== undefined &&
+      name !== undefined &&
+      values.length > 0
+    ) {
+      const attribute = this.attributes[name];
+      if (attribute !== undefined) {
+        const filter = this.query.filter[ExpressionTypes.ConditionExpression];
+        filter.unsafeSet(operation, attribute.field, ...values);
+      }
+    }
+    return this;
+  }
 
-	unsafeApplyFilter(operation, name, ...values) {
-		if (FilterOperationNames[operation] !== undefined & name !== undefined && values.length > 0) {
-			const filter = this.query.filter[ExpressionTypes.FilterExpression];
-			filter.unsafeSet(operation, name, ...values);
-		}
-		return this;
-	}
+  unsafeApplyFilter(operation, name, ...values) {
+    if (
+      (FilterOperationNames[operation] !== undefined) & (name !== undefined) &&
+      values.length > 0
+    ) {
+      const filter = this.query.filter[ExpressionTypes.FilterExpression];
+      filter.unsafeSet(operation, name, ...values);
+    }
+    return this;
+  }
 
-	filterProperties(operation, obj = {}) {
-		for (const property in obj) {
-			const value = obj[property];
-			if (value !== undefined) {
-				this.applyFilter(operation, property, value);
-			}
-		}
-		return this;
-	}
+  filterProperties(operation, obj = {}) {
+    for (const property in obj) {
+      const value = obj[property];
+      if (value !== undefined) {
+        this.applyFilter(operation, property, value);
+      }
+    }
+    return this;
+  }
 
-	setSK(attributes, type = this.query.type) {
-		if (this.hasSortKey) {
-			this.query.keys.sk.push({
-				type: type,
-				facets: attributes
-			});
-			this.query.keys.provided = this._appendProvided(KeyTypes.sk, attributes);
-		}
-		return this;
-	}
+  setSK(attributes, type = this.query.type) {
+    if (this.hasSortKey) {
+      this.query.keys.sk.push({
+        type: type,
+        facets: attributes,
+      });
+      this.query.keys.provided = this._appendProvided(KeyTypes.sk, attributes);
+    }
+    return this;
+  }
 
-	setType(type) {
-		if (!QueryTypes[type]) {
-			throw new Error(`Invalid query type: "${type}"`);
-		}
-		this.query.type = QueryTypes[type];
-		return this;
-	}
+  setType(type) {
+    if (!QueryTypes[type]) {
+      throw new Error(`Invalid query type: "${type}"`);
+    }
+    this.query.type = QueryTypes[type];
+    return this;
+  }
 
-	setMethod(method) {
-		if (!MethodTypes[method]) {
-			throw new Error(`Invalid method type: "${method}"`);
-		}
-		this.query.method = MethodTypes[method];
-		return this;
-	}
+  setMethod(method) {
+    if (!MethodTypes[method]) {
+      throw new Error(`Invalid method type: "${method}"`);
+    }
+    this.query.method = MethodTypes[method];
+    return this;
+  }
 
-	setCollection(collection) {
-		this.query.collection = collection;
-		return this;
-	}
+  setCollection(collection) {
+    this.query.collection = collection;
+    return this;
+  }
 
-	createSubState() {
-		let subState = new ChainState({
-			parentState: this,
-			index: this.query.index,
-			attributes: this.attributes,
-			hasSortKey: this.hasSortKey,
-			options: this.query.options,
-			compositeAttributes: this.query.facets
-		});
-		this.subStates.push(subState);
-		return subState;
-	}
+  createSubState() {
+    let subState = new ChainState({
+      parentState: this,
+      index: this.query.index,
+      attributes: this.attributes,
+      hasSortKey: this.hasSortKey,
+      options: this.query.options,
+      compositeAttributes: this.query.facets,
+    });
+    this.subStates.push(subState);
+    return subState;
+  }
 
-	getError() {
-		return this.error;
-	}
+  getError() {
+    return this.error;
+  }
 
-	setError(err) {
-		this.error = err;
-		if (this.parentState) {
-			this.parentState.setError(err);
-		}
-	}
+  setError(err) {
+    this.error = err;
+    if (this.parentState) {
+      this.parentState.setError(err);
+    }
+  }
 
-	applyUpsert(operation = UpsertOperations.set, data = {}) {
-		this.query.upsert.addData(operation, data);
-		return this;
-	}
+  applyUpsert(operation = UpsertOperations.set, data = {}) {
+    this.query.upsert.addData(operation, data);
+    return this;
+  }
 
-	applyPut(data = {}) {
-		this.query.put.data = {...this.query.put.data, ...data};
-		return this;
-	}
+  applyPut(data = {}) {
+    this.query.put.data = { ...this.query.put.data, ...data };
+    return this;
+  }
 
-	whenOptions(fn) {
-		if (v.isFunction(fn)) {
-			this.applyAfterOptions.push((options) => {
-				fn({ options, state: this });
-			});
-		}
-	}
+  whenOptions(fn) {
+    if (v.isFunction(fn)) {
+      this.applyAfterOptions.push((options) => {
+        fn({ options, state: this });
+      });
+    }
+  }
 
-	applyWithOptions(options = {}) {
-		this.applyAfterOptions.forEach((fn) => fn(options));
-	}
+  applyWithOptions(options = {}) {
+    this.applyAfterOptions.forEach((fn) => fn(options));
+  }
 
-	beforeBuildParams(fn) {
-		if (v.isFunction(fn)) {
-			this.beforeBuildParamsOperations.push((options) => {
-				fn({ options, state: this });
-			});
-		}
-	}
+  beforeBuildParams(fn) {
+    if (v.isFunction(fn)) {
+      this.beforeBuildParamsOperations.push((options) => {
+        fn({ options, state: this });
+      });
+    }
+  }
 
-	applyBeforeBuildParams(options = {}) {
-		if (!this.beforeBuildParamsHasRan) {
-			this.beforeBuildParamsHasRan = true;
-			this.beforeBuildParamsOperations.forEach((fn) => fn(options));
-		}
-	}
+  applyBeforeBuildParams(options = {}) {
+    if (!this.beforeBuildParamsHasRan) {
+      this.beforeBuildParamsHasRan = true;
+      this.beforeBuildParamsOperations.forEach((fn) => fn(options));
+    }
+  }
 }
 
 module.exports = {
-	clauses,
-	ChainState,
+  clauses,
+  ChainState,
 };
 
 },{"./errors":20,"./operations":24,"./types":29,"./update":30,"./util":32,"./validations":33,"./where":34}],18:[function(require,module,exports){
 const lib = {}
 const util = {}
-const { isFunction } = require('./validations');
-const { ElectroError, ErrorCodes } = require('./errors');
+const { isFunction } = require("./validations");
+const { ElectroError, ErrorCodes } = require("./errors");
 const DocumentClientVersions = {
-    v2: 'v2',
-    v3: 'v3',
-    electro: 'electro',
+  v2: "v2",
+  v3: "v3",
+  electro: "electro",
 };
 const unmarshallOutput = util.unmarshallOutput || ((val) => val);
 
-const v3Methods = ['send'];
-const v2Methods = ['get', 'put', 'update', 'delete', 'batchWrite', 'batchGet', 'scan', 'query', 'createSet', 'transactWrite', 'transactGet'];
+const v3Methods = ["send"];
+const v2Methods = [
+  "get",
+  "put",
+  "update",
+  "delete",
+  "batchWrite",
+  "batchGet",
+  "scan",
+  "query",
+  "createSet",
+  "transactWrite",
+  "transactGet",
+];
 const supportedClientVersions = {
-    [DocumentClientVersions.v2]: v2Methods,
-    [DocumentClientVersions.v3]: v3Methods,
-}
+  [DocumentClientVersions.v2]: v2Methods,
+  [DocumentClientVersions.v3]: v3Methods,
+};
 
 class DocumentClientV2Wrapper {
-    static init(client) {
-        return new DocumentClientV2Wrapper(client, lib);
-    }
+  static init(client) {
+    return new DocumentClientV2Wrapper(client, lib);
+  }
 
-    constructor(client, lib) {
-        this.client = client;
-        this.lib = lib;
-        this.__v = 'v2';
-    }
+  constructor(client, lib) {
+    this.client = client;
+    this.lib = lib;
+    this.__v = "v2";
+  }
 
-    get(params) {
-        return this.client.get(params);
-    }
+  get(params) {
+    return this.client.get(params);
+  }
 
-    put(params) {
-        return this.client.put(params);
-    }
+  put(params) {
+    return this.client.put(params);
+  }
 
-    update(params) {
-        return this.client.update(params);
-    }
+  update(params) {
+    return this.client.update(params);
+  }
 
-    delete(params) {
-        return this.client.delete(params);
-    }
+  delete(params) {
+    return this.client.delete(params);
+  }
 
-    batchWrite(params) {
-        return this.client.batchWrite(params);
-    }
+  batchWrite(params) {
+    return this.client.batchWrite(params);
+  }
 
-    batchGet(params) {
-        return this.client.batchGet(params);
-    }
+  batchGet(params) {
+    return this.client.batchGet(params);
+  }
 
-    scan(params) {
-        return this.client.scan(params);
-    }
+  scan(params) {
+    return this.client.scan(params);
+  }
 
-    query(params) {
-        return this.client.query(params);
-    }
+  query(params) {
+    return this.client.query(params);
+  }
 
-    _transact(transactionRequest) {
-        let cancellationReasons;
-        transactionRequest.on('extractError', (response) => {
-            try {
-                cancellationReasons = JSON.parse(response.httpResponse.body.toString()).CancellationReasons;
-            } catch (err) {}
-        });
+  _transact(transactionRequest) {
+    let cancellationReasons;
+    transactionRequest.on("extractError", (response) => {
+      try {
+        cancellationReasons = JSON.parse(
+          response.httpResponse.body.toString(),
+        ).CancellationReasons;
+      } catch (err) {}
+    });
 
-        return {
-            async promise() {
-                return transactionRequest.promise()
-                    .catch((err) => {
-                        if (err) {
-                            if (Array.isArray(cancellationReasons)) {
-                                return {
-                                    canceled: cancellationReasons
-                                        .map(reason => {
-                                            if (reason.Item) {
-                                                return unmarshallOutput(reason, [{ key: "Item" }]);
-                                            }
-                                            return reason;
-                                        })
-                                };
-                            }
-                            throw err;
-                        }
-                    });
+    return {
+      async promise() {
+        return transactionRequest.promise().catch((err) => {
+          if (err) {
+            if (Array.isArray(cancellationReasons)) {
+              return {
+                canceled: cancellationReasons.map((reason) => {
+                  if (reason.Item) {
+                    return unmarshallOutput(reason, [{ key: "Item" }]);
+                  }
+                  return reason;
+                }),
+              };
             }
-        }
-    }
+            throw err;
+          }
+        });
+      },
+    };
+  }
 
-    transactWrite(params) {
-        const transactionRequest = this.client.transactWrite(params);
-        return this._transact(transactionRequest);
-    }
+  transactWrite(params) {
+    const transactionRequest = this.client.transactWrite(params);
+    return this._transact(transactionRequest);
+  }
 
-    transactGet(params) {
-        const transactionRequest = this.client.transactGet(params);
-        return this._transact(transactionRequest);
-    }
+  transactGet(params) {
+    const transactionRequest = this.client.transactGet(params);
+    return this._transact(transactionRequest);
+  }
 
-    createSet(value, ...rest) {
-        if (Array.isArray(value)) {
-            return this.client.createSet(value, ...rest);
-        } else {
-            return this.client.createSet([value], ...rest);
-        }
+  createSet(value, ...rest) {
+    if (Array.isArray(value)) {
+      return this.client.createSet(value, ...rest);
+    } else {
+      return this.client.createSet([value], ...rest);
     }
+  }
 }
 
 class DocumentClientV3Wrapper {
-    static init(client) {
-        return new DocumentClientV3Wrapper(client, lib);
-    }
+  static init(client) {
+    return new DocumentClientV3Wrapper(client, lib);
+  }
 
-    constructor(client, lib) {
-        this.client = client;
-        this.lib = lib;
-        this.__v = 'v3';
-    }
+  constructor(client, lib) {
+    this.client = client;
+    this.lib = lib;
+    this.__v = "v3";
+  }
 
-    promiseWrap(fn) {
-        return {
-            promise: async () => {
-                return fn();
-            }
-        }
-    }
+  promiseWrap(fn) {
+    return {
+      promise: async () => {
+        return fn();
+      },
+    };
+  }
 
-    get(params) {
-        return this.promiseWrap(() => {
-            const command = new this.lib.GetCommand(params);
-            return this.client.send(command);
-        });
-    }
-    put(params) {
-        return this.promiseWrap(() => {
-            const command = new this.lib.PutCommand(params);
-            return this.client.send(command);
-        });
-    }
-    update(params) {
-        return this.promiseWrap(() => {
-            const command = new this.lib.UpdateCommand(params);
-            return this.client.send(command);
-        });
-    }
-    delete(params) {
-        return this.promiseWrap(async () => {
-            const command = new this.lib.DeleteCommand(params);
-            return this.client.send(command);
-        });
-    }
-    batchWrite(params) {
-        return this.promiseWrap(async () => {
-            const command = new this.lib.BatchWriteCommand(params);
-            return this.client.send(command);
-        });
-    }
-    batchGet(params) {
-        return this.promiseWrap(async () => {
-            const command = new this.lib.BatchGetCommand(params);
-            return this.client.send(command);
-        });
-    }
-    scan(params) {
-        return this.promiseWrap(async () => {
-            const command = new this.lib.ScanCommand(params);
-            return this.client.send(command);
-        });
-    }
-    query(params) {
-        return this.promiseWrap(async () => {
-            const command = new this.lib.QueryCommand(params);
-            return this.client.send(command);
-        });
-    }
+  get(params) {
+    return this.promiseWrap(() => {
+      const command = new this.lib.GetCommand(params);
+      return this.client.send(command);
+    });
+  }
+  put(params) {
+    return this.promiseWrap(() => {
+      const command = new this.lib.PutCommand(params);
+      return this.client.send(command);
+    });
+  }
+  update(params) {
+    return this.promiseWrap(() => {
+      const command = new this.lib.UpdateCommand(params);
+      return this.client.send(command);
+    });
+  }
+  delete(params) {
+    return this.promiseWrap(async () => {
+      const command = new this.lib.DeleteCommand(params);
+      return this.client.send(command);
+    });
+  }
+  batchWrite(params) {
+    return this.promiseWrap(async () => {
+      const command = new this.lib.BatchWriteCommand(params);
+      return this.client.send(command);
+    });
+  }
+  batchGet(params) {
+    return this.promiseWrap(async () => {
+      const command = new this.lib.BatchGetCommand(params);
+      return this.client.send(command);
+    });
+  }
+  scan(params) {
+    return this.promiseWrap(async () => {
+      const command = new this.lib.ScanCommand(params);
+      return this.client.send(command);
+    });
+  }
+  query(params) {
+    return this.promiseWrap(async () => {
+      const command = new this.lib.QueryCommand(params);
+      return this.client.send(command);
+    });
+  }
 
-    transactWrite(params) {
-        return this.promiseWrap(async () => {
-            const command = new this.lib.TransactWriteCommand(params);
-            return this.client.send(command)
-                .then((result) => {
-                    return result;
-                })
-                .catch(err => {
-                    if (err.CancellationReasons) {
-                        return {
-                            canceled: err.CancellationReasons.map(reason => {
-                                if (reason.Item) {
-                                    return unmarshallOutput(reason, [{ key: "Item" }]);
-                                }
-                                return reason;
-                            })
-                        }
-                    }
-                    throw err;
-                });
+  transactWrite(params) {
+    return this.promiseWrap(async () => {
+      const command = new this.lib.TransactWriteCommand(params);
+      return this.client
+        .send(command)
+        .then((result) => {
+          return result;
+        })
+        .catch((err) => {
+          if (err.CancellationReasons) {
+            return {
+              canceled: err.CancellationReasons.map((reason) => {
+                if (reason.Item) {
+                  return unmarshallOutput(reason, [{ key: "Item" }]);
+                }
+                return reason;
+              }),
+            };
+          }
+          throw err;
         });
-    }
-    transactGet(params) {
-        return this.promiseWrap(async () => {
-            const command = new this.lib.TransactGetCommand(params);
-            return this.client.send(command)
-                .then((result) => {
-                    return result;
-                })
-                .catch(err => {
-                    if (err.CancellationReasons) {
-                        return {
-                            canceled: err.CancellationReasons.map(reason => {
-                                if (reason.Item) {
-                                    return unmarshallOutput(reason, [{ key: "Item" }]);
-                                }
-                                return reason;
-                            })
-                        }
-                    }
-                    throw err;
-                });
+    });
+  }
+  transactGet(params) {
+    return this.promiseWrap(async () => {
+      const command = new this.lib.TransactGetCommand(params);
+      return this.client
+        .send(command)
+        .then((result) => {
+          return result;
+        })
+        .catch((err) => {
+          if (err.CancellationReasons) {
+            return {
+              canceled: err.CancellationReasons.map((reason) => {
+                if (reason.Item) {
+                  return unmarshallOutput(reason, [{ key: "Item" }]);
+                }
+                return reason;
+              }),
+            };
+          }
+          throw err;
         });
+    });
+  }
+  createSet(value) {
+    if (Array.isArray(value)) {
+      return new Set(value);
+    } else {
+      return new Set([value]);
     }
-    createSet(value) {
-        if (Array.isArray(value)) {
-            return new Set(value);
-        } else {
-            return new Set([value]);
-        }
-    }
+  }
 }
 
 function identifyClientVersion(client = {}) {
-    if (client instanceof DocumentClientV3Wrapper || client instanceof DocumentClientV2Wrapper) {
-        return DocumentClientVersions.electro;
+  if (
+    client instanceof DocumentClientV3Wrapper ||
+    client instanceof DocumentClientV2Wrapper
+  ) {
+    return DocumentClientVersions.electro;
+  }
+  for (const [version, methods] of Object.entries(supportedClientVersions)) {
+    const hasMethods = methods.every((method) => {
+      return method in client && isFunction(client[method]);
+    });
+    if (hasMethods) {
+      return version;
     }
-    for (const [version, methods] of Object.entries(supportedClientVersions)) {
-        const hasMethods = methods.every(method => {
-            return method in client && isFunction(client[method]);
-        });
-        if (hasMethods) {
-            return version;
-        }
-    }
+  }
 }
 
 function normalizeClient(client) {
-    if (client === undefined) return client;
-    const version = identifyClientVersion(client);
-    switch(version) {
-        case DocumentClientVersions.v3:
-            return DocumentClientV3Wrapper.init(client);
-        case DocumentClientVersions.v2:
-            return DocumentClientV2Wrapper.init(client);
-        case DocumentClientVersions.electro:
-            return client;
-        default:
-            throw new ElectroError(ErrorCodes.InvalidClientProvided, 'Invalid DynamoDB Document Client provided. ElectroDB supports the v2 and v3 DynamoDB Document Clients from the aws-sdk');
-    }
+  if (client === undefined) return client;
+  const version = identifyClientVersion(client);
+  switch (version) {
+    case DocumentClientVersions.v3:
+      return DocumentClientV3Wrapper.init(client);
+    case DocumentClientVersions.v2:
+      return DocumentClientV2Wrapper.init(client);
+    case DocumentClientVersions.electro:
+      return client;
+    default:
+      throw new ElectroError(
+        ErrorCodes.InvalidClientProvided,
+        "Invalid DynamoDB Document Client provided. ElectroDB supports the v2 and v3 DynamoDB Document Clients from the aws-sdk",
+      );
+  }
 }
 
 function normalizeConfig(config = {}) {
-    return {
-        ...config,
-        client: normalizeClient(config.client)
-    }
+  return {
+    ...config,
+    client: normalizeClient(config.client),
+  };
 }
 
 module.exports = {
-    util,
-    v2Methods,
-    v3Methods,
-    normalizeClient,
-    normalizeConfig,
-    identifyClientVersion,
-    DocumentClientVersions,
-    supportedClientVersions,
-    DocumentClientV3Wrapper,
-    DocumentClientV2Wrapper,
+  util,
+  v2Methods,
+  v3Methods,
+  normalizeClient,
+  normalizeConfig,
+  identifyClientVersion,
+  DocumentClientVersions,
+  supportedClientVersions,
+  DocumentClientV3Wrapper,
+  DocumentClientV2Wrapper,
 };
 
 },{"./errors":20,"./validations":33}],19:[function(require,module,exports){
 "use strict";
 const { Schema } = require("./schema");
 const {
-	AllPages,
-	KeyCasing, 
-	TableIndex, 
-	FormatToReturnValues, 
-	ReturnValues, 
-	EntityVersions, 
-	ItemOperations, 
-	UnprocessedTypes, 
-	Pager, 
-	ElectroInstance, 
-	KeyTypes, 
-	QueryTypes, 
-	MethodTypes, 
-	Comparisons, 
-	ExpressionTypes, 
-	ModelVersions, 
-	ElectroInstanceTypes, 
-	MaxBatchItems, 
-	TerminalOperation, 
-	ResultOrderOption,
-	ResultOrderParam,
-	IndexTypes,
-	PartialComparisons,
-	MethodTypeTranslation,
-	TransactionCommitSymbol,
-	CastKeyOptions,
-	UpsertOperations,
+  AllPages,
+  KeyCasing,
+  TableIndex,
+  FormatToReturnValues,
+  ReturnValues,
+  EntityVersions,
+  ItemOperations,
+  UnprocessedTypes,
+  Pager,
+  ElectroInstance,
+  KeyTypes,
+  QueryTypes,
+  MethodTypes,
+  Comparisons,
+  ExpressionTypes,
+  ModelVersions,
+  ElectroInstanceTypes,
+  MaxBatchItems,
+  TerminalOperation,
+  ResultOrderOption,
+  ResultOrderParam,
+  IndexTypes,
+  PartialComparisons,
+  MethodTypeTranslation,
+  TransactionCommitSymbol,
+  CastKeyOptions,
 } = require("./types");
 const { FilterFactory } = require("./filters");
 const { FilterOperations } = require("./operations");
 const { WhereFactory } = require("./where");
 const { clauses, ChainState } = require("./clauses");
-const {EventManager} = require('./events');
+const { EventManager } = require("./events");
 const validations = require("./validations");
-const c = require('./client');
+const c = require("./client");
 const u = require("./util");
 const e = require("./errors");
-const v = require('./validations');
+const v = require("./validations");
 
 class Entity {
-	constructor(model, config = {}) {
-		config = c.normalizeConfig(config);
-		this.eventManager = new EventManager({
-			listeners: config.listeners
-		});
-		this.eventManager.add(config.logger);
-		this._validateModel(model);
-		this.version = EntityVersions.v1;
-		this.config = config;
-		this.client = config.client;
-		this.model = this._parseModel(model, config);
-		/** start beta/v1 condition **/
-		this.config.table = config.table || model.table;
-		/** end beta/v1 condition **/
-		this._filterBuilder = new FilterFactory(this.model.schema.attributes, FilterOperations);
-		this._whereBuilder = new WhereFactory(this.model.schema.attributes, FilterOperations);
-		this._clausesWithFilters = this._filterBuilder.injectFilterClauses(clauses, this.model.filters);
-		this._clausesWithFilters = this._whereBuilder.injectWhereClauses(this._clausesWithFilters);
-
-		this.query = {};
-		this.conversions = {
-			fromComposite: {
-				toKeys: (composite, options = {}) => this._fromCompositeToKeys({ provided: composite }, options),
-				toCursor: (composite) => this._fromCompositeToCursor({ provided: composite }, { strict: 'all' }),
-			},
-			fromKeys: {
-				toCursor: (keys) => this._fromKeysToCursor({provided: keys}, {}),
-				toComposite: (keys) => this._fromKeysToComposite({ provided: keys }),
-			},
-			fromCursor: {
-				toKeys: (cursor) => this._fromCursorToKeys({provided: cursor}),
-				toComposite: (cursor) => this._fromCursorToComposite({provided: cursor}),
-			},
-			byAccessPattern: {}
-		};
-		for (let accessPattern in this.model.indexes) {
-			let index = this.model.indexes[accessPattern].index;
-			this.query[accessPattern] = (...values) => {
-				const options = {
-					indexType: this.model.indexes[accessPattern].type || IndexTypes.isolated,
-				}
-				return this._makeChain(index, this._clausesWithFilters, clauses.index, options).query(...values);
-			};
-
-			this.conversions.byAccessPattern[accessPattern] = {
-				fromKeys: {
-					toCursor: (keys) => this._fromKeysToCursorByIndex({indexName: index, provided: keys}),
-					toComposite: (keys) => this._fromKeysToCompositeByIndex({indexName: index, provided: keys}),
-				},
-				fromCursor: {
-					toKeys: (cursor) => this._fromCursorToKeysByIndex({indexName: index, provided: cursor}),
-					toComposite: (cursor) => this._fromCursorToCompositeByIndex({indexName: index, provided: cursor}),
-				},
-				fromComposite: {
-					toCursor: (composite) => this._fromCompositeToCursorByIndex({indexName: index, provided: composite}, { strict: 'all' }),
-					toKeys: (composite, options = {}) => this._fromCompositeToKeysByIndex({indexName: index, provided: composite}, options),
-				},
-			};
-
-		}
-
-		this.config.identifiers = config.identifiers || {};
-		this.identifiers = {
-			entity: this.config.identifiers.entity || "__edb_e__",
-			version: this.config.identifiers.version || "__edb_v__",
-		};
-		this._instance = ElectroInstance.entity;
-		this._instanceType = ElectroInstanceTypes.entity;
-		this.schema = model;
-	}
-
-	get scan() {
-		return this._makeChain(TableIndex, this._clausesWithFilters, clauses.index, {_isPagination: true}).scan();
-	}
-
-	setIdentifier(type = "", identifier = "") {
-		if (!this.identifiers[type]) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidIdentifier, `Invalid identifier type: "${type}". Valid identifiers include: ${u.commaSeparatedString(Object.keys(this.identifiers))}`);
-		} else {
-			this.identifiers[type] = identifier;
-		}
-	}
-
-	getName() {
-		return this.model.entity;
-	}
-
-	getVersion() {
-		return this.model.version;
-	}
-
-	// ownsItem(item) {
-	// 	return (
-	// 		item &&
-	// 		this.getName() === item[this.identifiers.entity] &&
-	// 		this.getVersion() === item[this.identifiers.version] &&
-	// 		validations.isStringHasLength(item[this.identifiers.entity]) &&
-	// 		validations.isStringHasLength(item[this.identifiers.version])
-	// 	) || !!this.ownsKeys(item)
-	// }
-
-	// ownsKeys({keys = {}}) {
-	// 	let {pk, sk} = this.model.prefixes[TableIndex];
-	// 	let hasSK = this.model.lookup.indexHasSortKeys[TableIndex];
-	// 	let pkMatch = typeof keys[pk.field] === "string" && keys[pk.field].startsWith(pk.prefix);
-	// 	let skMatch = pkMatch && !hasSK;
-	// 	if (pkMatch && hasSK) {
-	// 		skMatch = typeof keys[sk.field] === "string" && keys[sk.field].startsWith(sk.prefix);
-	// 	}
-	//
-	// 	return (pkMatch && skMatch &&
-	// 		this._formatKeysToItem(TableIndex, key) !== null);
-	// }
-
-	// ownsCursor({ cursor }) {
-	// 	if (typeof cursor === 'string') {
-	// 		cursor = u.cursorFormatter.deserialize(cursor);
-	// 	}
-	// 	return this.ownsKeys({ keys: cursor });
-	// }
-
-	ownsItem(item) {
-		return (
-			item &&
-			this.getName() === item[this.identifiers.entity] &&
-			this.getVersion() === item[this.identifiers.version] &&
-			validations.isStringHasLength(item[this.identifiers.entity]) &&
-			validations.isStringHasLength(item[this.identifiers.version])
-		)
-	}
-
-	_attributesIncludeKeys(attributes = []) {
-		let {pk, sk} = this.model.prefixes[TableIndex];
-		let pkFound = false;
-		let skFound = false;
-		for (let i = 0; i < attributes.length; i++) {
-			const attribute = attributes[i];
-			if (attribute === sk.field) {
-				skFound = true;
-			}
-			if (attribute === pk.field) {
-				skFound = true;
-			}
-			if (pkFound && skFound) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	ownsKeys(key = {}) {
-		let {pk, sk} = this.model.prefixes[TableIndex];
-		let hasSK = this.model.lookup.indexHasSortKeys[TableIndex];
-		let pkMatch = typeof key[pk.field] === "string" && key[pk.field].startsWith(pk.prefix);
-		let skMatch = pkMatch && !hasSK;
-		if (pkMatch && hasSK) {
-			skMatch = typeof key[sk.field] === "string" && key[sk.field].startsWith(sk.prefix);
-		}
-
-		return (pkMatch && skMatch &&
-			this._formatKeysToItem(TableIndex, key) !== null);
-	}
-
-	ownsCursor(cursor) {
-		if (typeof cursor === 'string') {
-			cursor = u.cursorFormatter.deserialize(cursor);
-		}
-		return this.ownsKeys(cursor);
-	}
-
-	serializeCursor(key) {
-		return u.cursorFormatter.serialize(key);
-	}
-
-	deserializeCursor(cursor) {
-		return u.cursorFormatter.deserialize(cursor);
-	}
-
-	/** @depricated pagers no longer exist, use the new cursor api */
-	ownsPager(pager, index = TableIndex) {
-		if (pager === null) {
-			return false;
-		}
-		let tableIndexFacets = this.model.facets.byIndex[index];
-		// todo: is the fact it doesn't use the provided index a bug?
-		// feels like collections may have played a roll into why this is this way
-		let indexFacets = this.model.facets.byIndex[index];
-
-		// Unknown index
-		if (tableIndexFacets === undefined || indexFacets === undefined) {
-			return false;
-		}
-
-		// Should match all primary index facets
-		let matchesTableIndex = tableIndexFacets.all.every((facet) => {
-			return pager[facet.name] !== undefined;
-		});
-
-		// If the pager doesnt match the table index, exit early
-		if (!matchesTableIndex) {
-			return false;
-		}
-
-		return indexFacets.all.every((facet) => {
-			return pager[facet.name] !== undefined;
-		});
-	}
-
-	match(facets = {}) {
-		const options = { _isPagination: true };
-		const match = this._findBestIndexKeyMatch(facets);
-		if (match.shouldScan) {
-			return this._makeChain(TableIndex, this._clausesWithFilters, clauses.index, options)
-				.scan()
-				.filter(attr => {
-					let eqFilters = [];
-					for (let facet of Object.keys(facets)) {
-						if (attr[facet] !== undefined && facets[facet] !== undefined) {
-							eqFilters.push(attr[facet].eq(facets[facet]));
-						}
-					}
-				return eqFilters.join(" AND ");
-			});
-		} else {
-			return this._makeChain(match.index, this._clausesWithFilters, clauses.index, options)
-				.query(facets)
-				.filter(attr => {
-					let eqFilters = [];
-					for (let facet of Object.keys(facets)) {
-						if (attr[facet] !== undefined && facets[facet] !== undefined) {
-							eqFilters.push(attr[facet].eq(facets[facet]));
-						}
-					}
-					return eqFilters.join(" AND ");
-				});
-		}
-	}
-
-	find(facets = {}) {
-		const options = { _isPagination: true };
-		const match = this._findBestIndexKeyMatch(facets);
-		if (match.shouldScan) {
-			return this._makeChain(TableIndex, this._clausesWithFilters, clauses.index, options).scan();
-		} else {
-			return this._makeChain(match.index, this._clausesWithFilters, clauses.index, options).query(facets);
-		}
-	}
-
-	collection(collection = "", clauses = {}, facets = {}, options = {}) {
-		const chainOptions = {
-			...options,
-			_isCollectionQuery: true,
-		};
-
-		let index = this.model.translations.collections.fromCollectionToIndex[collection];
-		if (index === undefined) {
-			throw new Error(`Invalid collection: ${collection}`);
-		}
-		const chain = this._makeChain(index, clauses, clauses.index, chainOptions);
-		if (options.indexType === IndexTypes.clustered) {
-			return chain.clusteredCollection(
-				collection,
-				facets,
-			);
-		} else {
-			return chain.collection(
-				collection,
-				facets,
-			);
-		}
-	}
-
-	_validateModel(model) {
-		return validations.model(model);
-	}
-
-	check(compositeAttributes = {}) {
-		return this._makeChain(TableIndex, this._clausesWithFilters, clauses.index).check(compositeAttributes);
-	}
-
-	get(facets = {}) {
-		let index = TableIndex;
-		if (Array.isArray(facets)) {
-			return this._makeChain(index, this._clausesWithFilters, clauses.index).batchGet(facets);
-		} else {
-			return this._makeChain(index, this._clausesWithFilters, clauses.index).get(facets);
-		}
-	}
-
-
-	delete(facets = {}) {
-		let index = TableIndex;
-		if (Array.isArray(facets)) {
-			return this._makeChain(index, this._clausesWithFilters, clauses.index).batchDelete(facets);
-		} else {
-			return this._makeChain(index, this._clausesWithFilters, clauses.index).delete(facets);
-		}
-	}
-
-	put(attributes = {}) {
-		let index = TableIndex;
-		if (Array.isArray(attributes)) {
-			return this._makeChain(index, this._clausesWithFilters, clauses.index).batchPut(attributes);
-		} else {
-			return this._makeChain(index, this._clausesWithFilters, clauses.index).put(attributes);
-		}
-	}
-
-	upsert(attributes = {}) {
-		let index = TableIndex;
-		return this._makeChain(index, this._clausesWithFilters, clauses.index).upsert(attributes);
-	}
-
-	create(attributes = {}) {
-		let index = TableIndex;
-		let options = {};
-		return this._makeChain(index, this._clausesWithFilters, clauses.index, options).create(attributes);
-	}
-
-	update(facets = {}) {
-		let index = TableIndex;
-		return this._makeChain(index, this._clausesWithFilters, clauses.index).update(facets);
-	}
-
-	patch(facets = {}) {
-		let index = TableIndex;
-		let options = {};
-		return this._makeChain(index, this._clausesWithFilters, clauses.index, options).patch(facets);
-	}
-
-	remove(facets = {}) {
-		let index = TableIndex;
-		let options = {};
-		return this._makeChain(index, this._clausesWithFilters, clauses.index, options).remove(facets);
-	}
-
-	async transactWrite(parameters, config) {
-		let response = await this._exec(MethodTypes.transactWrite, parameters, config);
-		return response;
-	}
-
-	async transactGet(parameters, config) {
-		let response = await this._exec(MethodTypes.transactGet, parameters, config);
-		return response;
-	}
-
-	async go(method, parameters = {}, config = {}) {
-		let stackTrace;
-		if (!config.originalErr) {
-			stackTrace = new e.ElectroError(e.ErrorCodes.AWSError);
-		}
-		try {
-			switch (method) {
-				case MethodTypes.batchWrite:
-					return await this.executeBulkWrite(parameters, config);
-				case MethodTypes.batchGet:
-					return await this.executeBulkGet(parameters, config);
-				case MethodTypes.query:
-				case MethodTypes.scan:
-					return await this.executeQuery(method, parameters, config);
-				default:
-					return await this.executeOperation(method, parameters, config);
-			}
-		} catch (err) {
-			if (config.originalErr || stackTrace === undefined) {
-				return Promise.reject(err);
-			} else {
-				if (err.__isAWSError) {
-					stackTrace.message = new e.ElectroError(e.ErrorCodes.AWSError, `Error thrown by DynamoDB client: "${err.message}"`).message;
-					return Promise.reject(stackTrace);
-				} else if (err.isElectroError) {
-					return Promise.reject(err);
-				} else {
-					stackTrace.message = new e.ElectroError(e.ErrorCodes.UnknownError, err.message).message;
-					return Promise.reject(stackTrace);
-				}
-			}
-		}
-	}
-
-	async _exec(method, params, config = {}) {
-		const notifyQuery = () => {
-			this.eventManager.trigger({
-				type: "query",
-				method,
-				params,
-				config,
-			}, config.listeners);
-		};
-		const notifyResults = (results, success) => {
-			this.eventManager.trigger({
-				type: "results",
-				method,
-				config,
-				success,
-				results,
-			}, config.listeners);
-		}
-		const dynamoDBMethod = MethodTypeTranslation[method];
-		return this.client[dynamoDBMethod](params).promise()
-			.then((results) => {
-				notifyQuery();
-				notifyResults(results, true);
-				return results;
-			})
-			.catch(err => {
-				notifyQuery();
-				notifyResults(err, false);
-				err.__isAWSError = true;
-				throw err;
-			});
-	}
-
-	async executeBulkWrite(parameters, config) {
-		if (!Array.isArray(parameters)) {
-			parameters = [parameters];
-		}
-		let results = [];
-		let concurrent = this._normalizeConcurrencyValue(config.concurrent)
-		let concurrentOperations = u.batchItems(parameters, concurrent);
-		for (let operation of concurrentOperations) {
-			await Promise.all(operation.map(async params => {
-				let response = await this._exec(MethodTypes.batchWrite, params, config);
-				if (validations.isFunction(config.parse)) {
-					let parsed = config.parse(config, response);
-					if (parsed) {
-						results.push(parsed);
-					}
-				} else {
-					let {unprocessed} = this.formatBulkWriteResponse(response, config);
-					for (let u of unprocessed) {
-						results.push(u);
-					}
-				}
-			}));
-		}
-
-		return { unprocessed: results };
-	}
-
-	_createNewBatchGetOrderMaintainer(config = {}) {
-		const pkName = this.model.translations.keys[TableIndex].pk;
-		const skName = this.model.translations.keys[TableIndex].sk;
-		const enabled = !!config.preserveBatchOrder;
-		const table = this.config.table;
-		const keyFormatter = ((record = {}) => {
-			const pk = record[pkName];
-			const sk = record[skName];
-			return `${pk}${sk}`;
-		});
-
-		return new u.BatchGetOrderMaintainer({
-			table,
-			enabled,
-			keyFormatter,
-		});
-	}
-
-	async executeBulkGet(parameters, config) {
-		if (!Array.isArray(parameters)) {
-			parameters = [parameters];
-		}
-
-		const orderMaintainer = this._createNewBatchGetOrderMaintainer(config);
-		orderMaintainer.defineOrder(parameters);
-		let concurrent = this._normalizeConcurrencyValue(config.concurrent);
-		let concurrentOperations = u.batchItems(parameters, concurrent);
-		let resultsAll = config.preserveBatchOrder
-			? new Array(orderMaintainer.getSize()).fill(null)
-			: [];
-		let unprocessedAll = [];
-		for (let operation of concurrentOperations) {
-			await Promise.all(operation.map(async params => {
-				let response = await this._exec(MethodTypes.batchGet, params, config);
-				if (validations.isFunction(config.parse)) {
-					resultsAll.push(config.parse(config, response));
-				} else {
-					this.applyBulkGetResponseFormatting({
-						orderMaintainer,
-						resultsAll,
-						unprocessedAll,
-						response,
-						config
-					});
-				}
-			}));
-		}
-		return { data: resultsAll, unprocessed: unprocessedAll };
-	}
-
-	async hydrate(index, keys = [], config) {
-		const items = [];
-		const validKeys = [];
-		for (let i = 0; i < keys.length; i++) {
-			const key = keys[i];
-			const item = this._formatKeysToItem(index, key);
-			if (item !== null) {
-				items.push(item);
-				validKeys.push(key);
-			}
-		}
-
-		const results = await this.get(items).go({
-			...config,
-			hydrate: false,
-			parse: undefined,
-			hydrator: undefined,
-			_isCollectionQuery: false,
-			preserveBatchOrder: true,
-			ignoreOwnership: config._providedIgnoreOwnership
-		});
-
-		const unprocessed = [];
-		const data = [];
-
-		for (let i = 0; i < results.data.length; i++) {
-			const key = validKeys[i];
-			const item = results.data[i];
-			if (!item) {
-				if (key) {
-					unprocessed.push(key);
-				}
-			} else {
-				data.push(item);
-			}
-		}
-
-		return {
-			unprocessed,
-			data,
-		};
-	}
-
-	async executeQuery(method, parameters, config = {}) {
-		let results = config._isCollectionQuery
-			? {}
-			: [];
-		let ExclusiveStartKey = this._formatExclusiveStartKey({config, indexName: parameters.IndexName });
-		if (ExclusiveStartKey === null) {
-			ExclusiveStartKey = undefined;
-		}
-		let pages = this._normalizePagesValue(config.pages);
-		let max = this._normalizeLimitValue(config.limit);
-		let iterations = 0;
-		let count = 0;
-		let hydratedUnprocessed = [];
-		const shouldHydrate = config.hydrate && method === MethodTypes.query;
-		do {
-			let limit = max === undefined
-				? parameters.Limit
-				: max - count;
-			let response = await this._exec(method, { ExclusiveStartKey, ...parameters, Limit: limit }, config);
-			ExclusiveStartKey = response.LastEvaluatedKey;
-			response = this.formatResponse(response, parameters.IndexName, {
-				...config,
-				includeKeys: shouldHydrate || config.includeKeys,
-				ignoreOwnership: shouldHydrate || config.ignoreOwnership,
-			});
-
-			if (config.raw) {
-				return response;
-			} else if (config._isCollectionQuery) {
-				for (const entity in response.data) {
-					if (max) {
-						count += response.data[entity].length;
-					}
-					let items = response.data[entity];
-					if (shouldHydrate && items.length) {
-						const hydrated = await config.hydrator(entity, parameters.IndexName, items, config);
-						items = hydrated.data;
-						hydratedUnprocessed = hydratedUnprocessed.concat(hydrated.unprocessed);
-					}
-					results[entity] = results[entity] || [];
-					results[entity] = [...results[entity], ...items];
-				}
-			} else if (Array.isArray(response.data)) {
-				if (max) {
-					count += response.data.length;
-				}
-				let items = response.data;
-				if (shouldHydrate) {
-					const hydrated = await this.hydrate(parameters.IndexName, items, config);
-					items = hydrated.data;
-					hydratedUnprocessed = hydratedUnprocessed.concat(hydrated.unprocessed);
-				}
-				results = [...results, ...items];
-			} else {
-				return response;
-			}
-			iterations++;
-		} while(
-			ExclusiveStartKey &&
-			(pages === AllPages || iterations < pages) &&
-			(max === undefined || count < max)
-		);
-
-		const cursor = this._formatReturnPager(config, ExclusiveStartKey);
-
-		if (shouldHydrate) {
-			return {
-				cursor,
-				data: results,
-				unprocessed: hydratedUnprocessed,
-			};
-		}
-		return { data: results, cursor };
-	}
-
-	async executeOperation(method, parameters, config) {
-		let response = await this._exec(method, parameters, config);
-		switch (parameters.ReturnValues) {
-			case FormatToReturnValues.none:
-				return { data: null };
-			case FormatToReturnValues.all_new:
-			case FormatToReturnValues.all_old:
-			case FormatToReturnValues.updated_new:
-			case FormatToReturnValues.updated_old:
-				return this.formatResponse(response, TableIndex, config);
-			case FormatToReturnValues.default:
-			default:
-				return this._formatDefaultResponse(method, parameters.IndexName, parameters, config, response);
-		}
-	}
-
-	_formatDefaultResponse(method, index, parameters, config = {}, response) {
-		switch (method) {
-			case MethodTypes.put:
-			case MethodTypes.create:
-				return this.formatResponse(parameters, index, config);
-			case MethodTypes.update:
-			case MethodTypes.patch:
-			case MethodTypes.delete:
-			case MethodTypes.remove:
-			case MethodTypes.upsert:
-				return this.formatResponse(response, index, { ...config, _objectOnEmpty: true });
-			default:
-				return this.formatResponse(response, index, config);
-		}
-	}
-
-	cleanseRetrievedData(item = {}, options = {}) {
-		let { includeKeys } = options;
-		let data = {};
-		let names = this.model.schema.translationForRetrieval;
-		for (let [attr, value] of Object.entries(item)) {
-			let name = names[attr];
-			if (name) {
-				data[name] = value;
-			} else if (includeKeys) {
-				data[attr] = value;
-			}
-		}
-		return data;
-	}
-
-	formatBulkWriteResponse(response = {}, config = {}) {
-		if (!response || !response.UnprocessedItems) {
-			return response;
-		}
-		const table = config.table || this.getTableName();
-		const index = TableIndex;
-		let unprocessed = response.UnprocessedItems[table];
-		if (Array.isArray(unprocessed) && unprocessed.length) {
-			unprocessed = unprocessed.map(request => {
-				if (request.PutRequest) {
-					return this.formatResponse(request.PutRequest, index, config).data;
-				} else if (request.DeleteRequest) {
-					if (config.unprocessed === UnprocessedTypes.raw) {
-						return request.DeleteRequest.Key;
-					} else {
-						return this._formatKeysToItem(index, request.DeleteRequest.Key);
-					}
-				} else {
-					throw new Error("Unknown response format");
-				}
-			});
-		} else {
-			unprocessed = [];
-		}
-		
-		return { unprocessed };
-	}
-
-	applyBulkGetResponseFormatting({
-		resultsAll,
-		unprocessedAll,
-		orderMaintainer,
-		response = {},
-		config = {},
-	}) {
-		const table = config.table || this.getTableName();
-		const index = TableIndex;
-
-		if (!response.UnprocessedKeys || !response.Responses) {
-			throw new Error("Unknown response format");
-		}
-
-		if (response.UnprocessedKeys[table] && response.UnprocessedKeys[table].Keys && Array.isArray(response.UnprocessedKeys[table].Keys)) {
-			for (let value of response.UnprocessedKeys[table].Keys) {
-				if (config && config.unprocessed === UnprocessedTypes.raw) {
-					unprocessedAll.push(value);
-				} else {
-					unprocessedAll.push(
-						this._formatKeysToItem(index, value)
-					);
-				}
-			}
-		}
-
-		if (response.Responses[table] && Array.isArray(response.Responses[table])) {
-			const responses = response.Responses[table];
-			for (let i = 0; i < responses.length; i++) {
-				const item = responses[i];
-				const slot = orderMaintainer.getOrder(item);
-				const formatted = this.formatResponse({ Item: item }, index, config);
-				if (slot !== -1) {
-					resultsAll[slot] = formatted.data;
-				} else {
-					resultsAll.push(formatted.data);
-				}
-			}
-		}
-	}
-
-	formatResponse(response, index, config = {}) {
-		let stackTrace;
-		if (!config.originalErr) {
-			stackTrace = new e.ElectroError(e.ErrorCodes.AWSError);
-		}
-		try {
-			let results = {};
-			if (validations.isFunction(config.parse)) {
-				results = config.parse(config, response);
-			} else if (config.raw && !config._isPagination) {
-				if (response.TableName) {
-					results = {};
-				} else {
-					results = response;
-				}
-			} else if (config.raw && (config._isPagination || config.lastEvaluatedKeyRaw)) {
-				results = response;
-			} else {
-				if (response.Item) {
-					if (
-						(config.ignoreOwnership && config.attributes && config.attributes.length > 0 && !this._attributesIncludeKeys(config.attributes)) ||
-						((config.ignoreOwnership || config.hydrate) && this.ownsKeys(response.Item)) ||
-						this.ownsItem(response.Item)
-					) {
-						results = this.model.schema.formatItemForRetrieval(response.Item, config);
-						if (Object.keys(results).length === 0) {
-							results = null;
-						}
-					} else if (!config._objectOnEmpty) {
-						results = null;
-					}
-				} else if (response.Items) {
-					results = [];
-					for (let item of response.Items) {
-						if (
-							(config.ignoreOwnership && config.attributes && config.attributes.length > 0 && !this._attributesIncludeKeys(config.attributes)) ||
-							((config.ignoreOwnership || config.hydrate) && this.ownsKeys(item)) ||
-							this.ownsItem(item)
-						) {
-							let record = this.model.schema.formatItemForRetrieval(item, config);
-							if (Object.keys(record).length > 0) {
-								results.push(record);
-							}
-						}
-					}
-				} else if (response.Attributes) {
-					results = this.model.schema.formatItemForRetrieval(response.Attributes, config);
-					if (Object.keys(results).length === 0) {
-						results = null;
-					}
-				} else if (config._objectOnEmpty) {
-					return {
-						data: {
-							...config._includeOnResponseItem,
-						}
-					};
-				} else {
-					results = null;
-				}
-			}
-
-			if (config._isPagination || response.LastEvaluatedKey) {
-				const nextPage = this._formatReturnPager(config, response.LastEvaluatedKey);
-				return { cursor: nextPage || null, data: results };
-			}
-
-			return { data: results };
-
-		} catch (err) {
-			if (config.originalErr || stackTrace === undefined) {
-				throw err;
-			} else {
-				stackTrace.message = err.message;
-				throw stackTrace;
-			}
-		}
-	}
-
-	parse(item, options = {}) {
-		if (item === undefined || item === null) {
-			return null;
-		}
-		const config = {
-			...(options || {}),
-			ignoreOwnership: true
-		}
-		return this.formatResponse(item, TableIndex, config);
-	}
-
-	_fromCompositeToKeys({provided}, options = {}) {
-		if (!provided || Object.keys(provided).length === 0) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionCompositeProvided, 'Invalid conversion composite provided');
-		}
-
-		let keys = {};
-		const secondaryIndexStrictMode = options.strict === 'all' || options.strict === 'pk' ? 'pk' : 'none';
-		for (const { index } of Object.values(this.model.indexes)) {
-			const indexKeys = this._fromCompositeToKeysByIndex({ indexName: index, provided }, {
-				strict: index === TableIndex ? options.strict : secondaryIndexStrictMode,
-			});
-			if (indexKeys) {
-				keys = {
-					...keys,
-					...indexKeys,
-				}
-			}
-		}
-
-
-		if (Object.keys(keys).length === 0) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionCompositeProvided, 'Invalid conversion composite provided');
-		}
-
-		return keys;
-	}
-
-	_fromCompositeToCursor({provided}, options = {}) {
-		const keys = this._fromCompositeToKeys({provided}, options);
-		if (!keys || Object.keys(keys).length === 0) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionCompositeProvided, 'Invalid conversion composite provided');
-		}
-		return u.cursorFormatter.serialize(keys);
-	}
-
-	_fromKeysToCursor({provided}, options = {}) {
-		if (!provided || Object.keys(provided).length === 0) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionKeysProvided, 'Invalid keys provided');
-		}
-		return u.cursorFormatter.serialize(provided);
-	}
-
-	_fromKeysToComposite({provided}, options = {}) {
-		if (!provided || Object.keys(provided).length === 0) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionKeysProvided, 'Provided keys could not be used to form composite attributes');
-		}
-
-		let keys = {};
-		for (const { index } of Object.values(this.model.indexes)) {
-			const composite = this._fromKeysToCompositeByIndex({indexName: index, provided}, options);
-			if (composite) {
-				for (const attribute in composite) {
-					if (keys[attribute] === undefined) {
-						keys[attribute] = composite[attribute];
-					}
-				}
-			}
-		}
-
-		if (Object.keys(keys).length === 0) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionKeysProvided, 'Provided keys could not be used to form composite attributes');
-		}
-
-		return keys;
-	}
-
-	_fromCursorToKeys({provided}, options = {}) {
-		if (typeof provided !== 'string') {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionCursorProvided, 'Invalid conversion cursor provided');
-		}
-
-		return u.cursorFormatter.deserialize(provided);
-	}
-
-	_fromCursorToComposite({provided}, options = {}) {
-		if (typeof provided !== 'string') {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionCursorProvided, 'Invalid conversion cursor provided');
-		}
-
-		const keys = this._fromCursorToKeys({provided}, options);
-		if (!keys){
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionCursorProvided, 'Invalid conversion cursor provided');
-		}
-
-		return this._fromKeysToComposite({provided: keys}, options);
-	}
-
-	_fromCompositeToCursorByIndex({indexName = TableIndex, provided}, options = {}) {
-		if (!provided || Object.keys(provided).length === 0) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionCompositeProvided, 'Invalid conversion composite provided');
-		}
-
-		const keys = this._formatSuppliedPager(indexName, provided, {
-			relaxedPk: false,
-			relaxedSk: false,
-		});
-
-		return this._fromKeysToCursorByIndex({indexName, provided: keys}, options);
-	}
-
-	_fromCompositeToKeysByIndex({indexName = TableIndex, provided}, options = {}) {
-		return this._formatSuppliedPager(indexName, provided, {
-			relaxedPk: options.strict !== 'pk' && options.strict !== 'all',
-			relaxedSk: options.strict !== 'all',
-		});
-	}
-
-	_fromCursorToKeysByIndex({ provided }, options = {}) {
-		if (typeof provided !== 'string' || provided.length < 1) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionCursorProvided, 'Invalid conversion cursor provided');
-		}
-
-		return u.cursorFormatter.deserialize(provided);
-	}
-
-	_fromKeysToCursorByIndex({indexName = TableIndex, provided}, options = {}) {
-		const isValidTableIndex = this._verifyKeys({indexName: TableIndex, provided});
-		const isValidIndex = this._verifyKeys({indexName, provided});
-		if (!isValidTableIndex) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionKeysProvided, 'Provided keys did not include valid properties for the primary index');
-		} else if (!isValidIndex) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionKeysProvided, `Provided keys did not include valid properties for the index "${indexName}"`);
-		}
-
-		const keys = this._trimKeysToIndex({ indexName, provided });
-
-		if (!keys || Object.keys(keys).length === 0) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionKeysProvided, `Provided keys not defined`);
-		}
-
-		return u.cursorFormatter.serialize(provided);
-	}
-
-	_fromKeysToCompositeByIndex({indexName = TableIndex, provided}, options = {}) {
-		let allKeys = {};
-
-		const indexKeys = this._deconstructIndex({ index: indexName, keys: provided });
-		if (!indexKeys) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionKeysProvided, `Provided keys did not include valid properties for the index "${indexName}"`);
-		}
-
-		allKeys = {
-			...indexKeys,
-		}
-
-		let tableKeys;
-		if (indexName !== TableIndex) {
-			tableKeys = this._deconstructIndex({index: TableIndex, keys: provided});
-		}
-
-		if (tableKeys === null) {
-			return allKeys;
-		}
-
-		allKeys = {
-			...allKeys,
-			...tableKeys,
-		};
-
-		if (Object.keys(allKeys).length === 0) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionKeysProvided, 'Provided keys could not be used to form composite attributes');
-		}
-
-		return allKeys;
-	}
-
-	_fromCursorToCompositeByIndex({indexName = TableIndex, provided}, options = {}) {
-		const keys = this._fromCursorToKeysByIndex({indexName, provided}, options);
-		if (!keys || Object.keys(keys).length === 0) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionCursorProvided, 'Invalid conversion cursor provided');
-		}
-		return this._fromKeysToCompositeByIndex({indexName, provided: keys}, options);
-	}
-
-	_trimKeysToIndex({indexName = TableIndex, provided}) {
-		if (!provided) {
-			return null;
-		}
-
-		const pkName = this.model.translations.keys[indexName].pk;
-		const skName = this.model.translations.keys[indexName].sk;
-		const tablePKName = this.model.translations.keys[TableIndex].pk;
-		const tableSKName = this.model.translations.keys[TableIndex].sk;
-
-		const keys = {
-			[pkName]: provided[pkName],
-			[skName]: provided[skName],
-			[tablePKName]: provided[tablePKName],
-			[tableSKName]: provided[tableSKName],
-		};
-
-		if (!keys || Object.keys(keys).length === 0) {
-			return null;
-		}
-
-		return keys;
-	}
-
-	_verifyKeys({indexName, provided}) {
-		if (!provided) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConversionKeysProvided, `Provided keys not defined`);
-		}
-
-		const pkName = this.model.translations.keys[indexName].pk;
-		const skName = this.model.translations.keys[indexName].sk;
-
-		return provided[pkName] !== undefined &&
-			(!skName || provided[skName] !== undefined);
-	}
-
-	_formatReturnPager(config, lastEvaluatedKey) {
-		let page = lastEvaluatedKey || null;
-		if (config.raw || config.pager === Pager.raw) {
-			return page;
-		}
-		return config.formatCursor.serialize(page) || null;
-	}
-
-	_formatExclusiveStartKey({config, indexName = TableIndex}) {
-		let exclusiveStartKey = config.cursor;
-		if (config.raw || config.pager === Pager.raw) {
-			return this._trimKeysToIndex({ provided: exclusiveStartKey, indexName }) || null;
-		}
-		let keys;
-		if (config.pager === Pager.item) {
-			keys = this._fromCompositeToKeysByIndex({indexName, provided: exclusiveStartKey});
-		} else {
-			keys = config.formatCursor.deserialize(exclusiveStartKey);
-		}
-		if (!keys) {
-			return null;
-		}
-
-		return this._trimKeysToIndex({provided: keys, indexName}) || null;
-	}
-
-	setClient(client) {
-		if (client) {
-			this.client = c.normalizeClient(client);
-		}
-	}
-
-	setTableName(tableName) {
-		this.config.table = tableName;
-	}
-
-	getTableName() {
-		return this.config.table;
-	}
-
-	getTableName() {
-		return this.config.table;
-	}
-
-	_chain(state, clauses, clause) {
-		let current = {};
-		for (let child of clause.children) {
-			current[child] = (...args) => {
-				state.prev = state.self;
-				state.self = child;
-				let results = clauses[child].action(this, state, ...args);
-				if (clauses[child].children.length) {
-					return this._chain(results, clauses, clauses[child]);
-				} else {
-					return results;
-				}
-			};
-		}
-		return current;
-	}
-	/* istanbul ignore next */
-	_makeChain(index = TableIndex, clauses, rootClause, options = {}) {
-		let state = new ChainState({
-			index,
-			options,
-			attributes: options.attributes || this.model.schema.attributes,
-			hasSortKey: options.hasSortKey || this.model.lookup.indexHasSortKeys[index],
-			compositeAttributes: options.compositeAttributes || this.model.facets.byIndex[index],
-		});
-		return state.init(this, clauses, rootClause);
-	}
-
-	_regexpEscape(string) {
-		return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-	}
-
-	_normalizeConcurrencyValue(value = 1) {
-		value = parseInt(value);
-		if (isNaN(value) || value < 1) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidConcurrencyOption, "Query option 'concurrency' must be of type 'number' and greater than zero.");
-		}
-		return value;
-	}
-
-	_normalizePagesValue(value) {
-		if (value === AllPages) {
-			return value;
-		}
-		value = parseInt(value);
-		if (isNaN(value) || value < 1) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidPagesOption, `Query option 'pages' must be of type 'number' and greater than zero or the string value '${AllPages}'`);
-		}
-		return value;
-	}
-
-	_normalizeLimitValue(value) {
-		if (value !== undefined) {
-			value = parseInt(value);
-			if (isNaN(value) || value < 1) {
-				throw new e.ElectroError(e.ErrorCodes.InvalidLimitOption, "Query option 'limit' must be of type 'number' and greater than zero.");
-			}
-		}
-		return value;
-	}
-
-	_createKeyDeconstructor(prefixes = {}, labels = [], attributes = {}) {
-		let {prefix, isCustom, postfix} = prefixes;
-		let names = [];
-		let types = [];
-		let pattern = `^${this._regexpEscape(prefix || '')}`;
-		for (let {name, label} of labels) {
-			let attr = attributes[name];
-			if (isCustom && !name && label) {
-				// this case is for when someone uses a direct attribute reference but with a postfix (zoinks ;P)
-				pattern += `${this._regexpEscape(label)}`;
-			} else if (isCustom) {
-				pattern += `${this._regexpEscape(label === undefined ? "" : label)}(.+)`;
-			} else {
-				pattern += `#${this._regexpEscape(label === undefined ? name : label)}_(.+)`;
-			}
-			names.push(name);
-			if (attr) {
-				types.push(attr.type);
-			}
-		}
-		if (typeof postfix === 'string') {
-			pattern += this._regexpEscape(postfix);
-		}
-		pattern += "$";
-
-		let regex = new RegExp(pattern, "i");
-
-		return ({ key } = {}) => {
-			if (!['string', 'number'].includes(typeof key)) {
-				return null;
-			}
-			key = `${key}`;
-			let match = key.match(regex);
-			let results = {};
-			if (match) {
-				for (let i = 0; i < names.length; i++) {
-					let key = names[i];
-					let value = match[i + 1];
-					let type = types[i];
-					switch (type) {
-						case "number": {
-							value = parseFloat(value);
-							break;
-						}
-						case "boolean": {
-							value = value === "true";
-							break;
-						}
-					}
-					if (key && value !== undefined) {
-						results[key] = value;
-					}
-				}
-			} else {
-				results = null;
-			}
-
-			return results;
-		}
-	}
-
-	_deconstructIndex({index = TableIndex, keys = {}} = {}) {
-		const hasIndex = !!this.model.translations.keys[index];
-		if (!hasIndex) {
-			return null;
-		}
-		let pkName = this.model.translations.keys[index].pk;
-		let skName = this.model.translations.keys[index].sk;
-		const indexHasSortKey = this.model.lookup.indexHasSortKeys[index];
-		const deconstructors = this.model.keys.deconstructors[index];
-		const pk = keys[pkName];
-		if (pk === undefined) {
-			return null;
-		}
-		const pkComposites = deconstructors.pk({key: pk});
-		if (pkComposites === null) {
-			return null;
-		}
-		let skComposites = {};
-		if (indexHasSortKey) {
-			const sk = keys[skName];
-			if (!sk) {
-				return null;
-			}
-			skComposites = deconstructors.sk({key: sk});
-			if (skComposites === null) {
-				return null;
-			}
-		}
-		return {
-			...pkComposites,
-			...skComposites,
-		}
-	}
-
-	_formatKeysToItem(index = TableIndex, keys) {
-		if (keys === null || typeof keys !== "object" || Object.keys(keys).length === 0) {
-			return keys;
-		}
-		let tableIndex = TableIndex;
-		let indexParts = this._deconstructIndex({index, keys});
-		if (indexParts === null) {
-			return null;
-		}
-		// lastEvaluatedKeys from query calls include the index pk/sk as well as the table index's pk/sk
-		if (index !== tableIndex) {
-			const tableIndexParts = this._deconstructIndex({index: tableIndex, keys});
-			if (tableIndexParts === null) {
-				return null;
-			}
-			indexParts = { ...indexParts, ...tableIndexParts };
-		}
-		let noPartsFound = Object.keys(indexParts).length === 0 && this.model.facets.byIndex[tableIndex].all.length > 0;
-		let partsAreIncomplete = this.model.facets.byIndex[tableIndex].all.find(facet => indexParts[facet.name] === undefined);
-		if (noPartsFound || partsAreIncomplete) {
-			// In this case no suitable record could be found be the deconstructed pager.
-			// This can be valid in cases where a scan is performed but returns no results.
-			return null;
-		}
-
-		return indexParts;
-	}
-
-	_constructPagerIndex(index = TableIndex, item, options = {}) {
-		let pkAttributes = options.relaxedPk ? item : this._expectFacets(item, this.model.facets.byIndex[index].pk);
-		let skAttributes = options.relaxedSk ? item : this._expectFacets(item, this.model.facets.byIndex[index].sk);
-
-		let keys = this._makeIndexKeys({
-			index,
-			pkAttributes,
-			skAttributes: [skAttributes],
-		});
-
-		return this._makeParameterKey(index, keys.pk, ...keys.sk);
-	}
-
-	_formatSuppliedPager(index = TableIndex, item, options = {}) {
-		if (typeof item !== "object" || Object.keys(item).length === 0) {
-			return item;
-		}
-
-		let tableIndex = TableIndex;
-		let pager = this._constructPagerIndex(index, item, options);
-		if (index !== tableIndex) {
-			pager = {...pager, ...this._constructPagerIndex(tableIndex, item, options)};
-		}
-
-		return pager;
-	}
-
-	_normalizeExecutionOptions({ provided = [], context = {} } = {}) {
-		let config = {
-			includeKeys: false,
-			originalErr: false,
-			raw: false,
-			params: {},
-			page: {},
-			lastEvaluatedKeyRaw: false,
-			table: undefined,
-			concurrent: undefined,
-			parse: undefined,
-			pager: Pager.named,
-			unprocessed: UnprocessedTypes.item,
-			response: 'default',
-			cursor: null,
-			data: 'attributes',
-			ignoreOwnership: false,
-			_providedIgnoreOwnership: false,
-			_isPagination: false,
-			_isCollectionQuery: false,
-			pages: 1,
-			listeners: [],
-			preserveBatchOrder: false,
-			attributes: [],
-			terminalOperation: undefined,
-			formatCursor: u.cursorFormatter,
-			order: undefined,
-			hydrate: false,
-			hydrator: (_entity, _indexName, items) => items,
-			_includeOnResponseItem: {},
-		};
-
-		return provided.filter(Boolean).reduce((config, option) => {
-			if (typeof option.order === 'string') {
-				switch (option.order.toLowerCase()) {
-					case 'asc':
-						config.params[ResultOrderParam] = ResultOrderOption.asc;
-						break;
-					case 'desc':
-						config.params[ResultOrderParam] = ResultOrderOption.desc;
-						break;
-					default:
-						throw new e.ElectroError(e.ErrorCodes.InvalidOptions, `Invalid value for query option "order" provided. Valid options include 'asc' and 'desc, received: "${option.order}"`);
-				}
-			}
-
-			if (typeof option.response === 'string' && option.response.length) {
-				const format = 	ReturnValues[option.response];
-				if (format === undefined) {
-					throw new e.ElectroError(e.ErrorCodes.InvalidOptions, `Invalid value for query option "format" provided: "${option.format}". Allowed values include ${u.commaSeparatedString(Object.keys(ReturnValues))}.`);
-				}
-				config.response = format;
-				if (context.operation === MethodTypes.transactWrite) {
-					config.params.ReturnValuesOnConditionCheckFailure = FormatToReturnValues[format];
-				} else {
-					config.params.ReturnValues = FormatToReturnValues[format];
-				}
-			}
-
-			if (option.formatCursor) {
-				const isValid = ['serialize', 'deserialize'].every(method =>
-					method in option.formatCursor &&
-					validations.isFunction(option.formatCursor[method])
-				);
-				if (isValid) {
-					config.formatCursor = option.formatCursor;
-				} else {
-					throw new e.ElectroError(e.ErrorCodes.InvalidOptions, `Invalid value for query option "formatCursor" provided. Formatter interface must have serialize and deserialize functions`);
-				}
-			}
-
-			if (option.terminalOperation in TerminalOperation) {
-				config.terminalOperation = TerminalOperation[option.terminalOperation];
-			}
-
-			if (Array.isArray(option.attributes)) {
-				config.attributes = config.attributes.concat(option.attributes);
-			}
-
-			if (option.preserveBatchOrder === true) {
-				config.preserveBatchOrder = true;
-			}
-
-			if (option.pages !== undefined) {
-				config.pages = option.pages;
-			}
-
-			if (option._isCollectionQuery === true) {
-				config._isCollectionQuery = true;
-			}
-
-			if (option.includeKeys === true) {
-				config.includeKeys = true;
-			}
-
-			if (option.originalErr === true) {
-				config.originalErr = true;
-			}
-
-			if (option.raw === true) {
-				config.raw = true;
-			}
-
-			if (option._isPagination) {
-				config._isPagination = true;
-			}
-
-			if (option.lastEvaluatedKeyRaw === true) {
-				config.lastEvaluatedKeyRaw = true;
-				config.pager = Pager.raw;
-				config.unprocessed = UnprocessedTypes.raw;
-			}
-
-			if (option.cursor) {
-				config.cursor = option.cursor;
-			}
-
-			if (option.data) {
-				config.data = option.data;
-				switch(option.data) {
-					case 'raw':
-						config.raw = true;
-						break;
-					case 'includeKeys':
-						config.includeKeys = true;
-						break;
-				}
-			}
-
-			if (option.limit !== undefined) {
-				config.limit = option.limit;
-				config.params.Limit = option.limit;
-			}
-
-			if (validations.isStringHasLength(option.table)) {
-				config.params.TableName = option.table;
-				config.table = option.table;
-			}
-
-			if (option.concurrent !== undefined) {
-				config.concurrent = option.concurrent;
-			}
-
-			if (validations.isFunction(option.parse)) {
-				config.parse = option.parse;
-			}
-
-			if (typeof option.pager === "string") {
-				if (typeof Pager[option.pager] === "string") {
-					config.pager = option.pager;
-				} else {
-					throw new e.ElectroError(e.ErrorCodes.InvalidOptions, `Invalid value for option "pager" provided: "${option.pager}". Allowed values include ${u.commaSeparatedString(Object.keys(Pager))}.`);
-				}
-			}
-
-			if (typeof option.unprocessed === "string") {
-				if (typeof UnprocessedTypes[option.unprocessed] === "string") {
-					config.unproessed = UnprocessedTypes[option.unprocessed];
-				} else {
-					throw new e.ElectroError(e.ErrorCodes.InvalidOptions, `Invalid value for option "unprocessed" provided: "${option.unprocessed}". Allowed values include ${u.commaSeparatedString(Object.keys(UnprocessedTypes))}.`);
-				}
-			}
-
-			if (option.ignoreOwnership) {
-				config.ignoreOwnership = option.ignoreOwnership;
-				config._providedIgnoreOwnership = option.ignoreOwnership;
-			}
-
-			if (option.listeners) {
-				if (Array.isArray(option.listeners)) {
-					config.listeners = config.listeners.concat(option.listeners);
-				}
-			}
-
-			if (option.logger) {
-				if (validations.isFunction(option.logger)) {
-					config.listeners.push(option.logger);
-				} else {
-					throw new e.ElectroError(e.ErrorCodes.InvalidLoggerProvided, `Loggers must be of type function`);
-				}
-			}
-
-			if (option.hydrate) {
-				config.hydrate = true;
-				config.ignoreOwnership = true;
-			}
-
-			if (validations.isFunction(option.hydrator)) {
-				config.hydrator = option.hydrator;
-			}
-
-			if (option._includeOnResponseItem) {
-				config._includeOnResponseItem = {
-					...config._includeOnResponseItem,
-					...option._includeOnResponseItem,
-				}
-			}
-
-			config.page = Object.assign({}, config.page, option.page);
-			config.params = Object.assign({}, config.params, option.params);
-			return config;
-		}, config);
-	}
-
-	_applyParameterOptions({ params = {}, options = {} } = {}) {
-		let parameters = Object.assign({}, params);
-
-		for (let customParameter of Object.keys(options.params || {})) {
-			if (options.params[customParameter] !== undefined) {
-				parameters[customParameter] = options.params[customParameter];
-			}
-		}
-
-		return parameters;
-	}
-
-	addListeners(logger) {
-		this.eventManager.add(logger);
-	}
-
-	_addLogger(logger) {
-		if (validations.isFunction(logger)) {
-			this.addListeners(logger);
-		} else {
-			throw new e.ElectroError(e.ErrorCodes.InvalidLoggerProvided, `Logger must be of type function`);
-		}
-	}
-
-	_getPrimaryIndexFieldNames() {
-		let hasSortKey = this.model.lookup.indexHasSortKeys[TableIndex];
-		let accessPattern = this.model.translations.indexes.fromIndexToAccessPattern[TableIndex];
-		let pkField = this.model.indexes[accessPattern].pk.field;
-		let skField;
-		if (hasSortKey) {
-			skField = this.model.indexes[accessPattern].sk.field;
-		}
-		return {
-			pk: pkField,
-			sk: skField
-		}
-	}
-
-	_applyParameterExpressionTypes(params, filter) {
-		const conditions = filter[ExpressionTypes.ConditionExpression];
-		if (conditions.build().length > 0) {
-			if (typeof params[ExpressionTypes.ConditionExpression] === "string" && params[ExpressionTypes.ConditionExpression].length > 0) {
-				params[ExpressionTypes.ConditionExpression] = `${params[ExpressionTypes.ConditionExpression]} AND ${conditions.build()}`
-			} else {
-				params[ExpressionTypes.ConditionExpression] = conditions.build();
-			}
-			if (Object.keys(conditions.getNames()).length > 0) {
-				params.ExpressionAttributeNames = params.ExpressionAttributeNames || {};
-				params.ExpressionAttributeNames = Object.assign({}, conditions.getNames(), params.ExpressionAttributeNames);
-			}
-			if (Object.keys(conditions.getValues()).length > 0) {
-				params.ExpressionAttributeValues = params.ExpressionAttributeValues || {};
-				params.ExpressionAttributeValues = Object.assign({}, conditions.getValues(), params.ExpressionAttributeValues);
-			}
-		}
-		return params;
-	}
-	/* istanbul ignore next */
-	_params(state, config = {}) {
-		const { keys = {}, method = "", put = {}, update = {}, filter = {}, upsert, updateProxy } = state.query;
-		let consolidatedQueryFacets = this._consolidateQueryFacets(keys.sk);
-		let params = {};
-		switch (method) {
-			case MethodTypes.check:
-			case MethodTypes.get:
-			case MethodTypes.delete:
-			case MethodTypes.remove:
-				params = this._makeSimpleIndexParams(keys.pk, ...consolidatedQueryFacets);
-				break;
-			case MethodTypes.upsert:
-				params = this._makeUpsertParams({update, upsert, updateProxy}, keys.pk, ...keys.sk)
-				break;
-			case MethodTypes.put:
-			case MethodTypes.create:
-				params = this._makePutParams(put, keys.pk, ...keys.sk);
-				break;
-			case MethodTypes.update:
-			case MethodTypes.patch:
-				params = this._makeUpdateParams(
-					update,
-					keys.pk,
-					...consolidatedQueryFacets,
-				);
-				break;
-			case MethodTypes.scan:
-				params = this._makeScanParam(filter[ExpressionTypes.FilterExpression]);
-				break;
-			/* istanbul ignore next */
-			default:
-				throw new Error(`Invalid method: ${method}`);
-		}
-
-		let appliedParameters = this._applyParameterOptions({
-			params,
-			options: config,
-		});
-
-		return this._applyParameterExpressions(method, appliedParameters, config, filter);
-	}
-
-	_applyParameterExpressions(method, parameters, config, filter) {
-		if (method !== MethodTypes.get) {
-			return this._applyParameterExpressionTypes(parameters, filter);
-		} else {
-			parameters = this._applyProjectionExpressions({parameters, config});
-			return this._applyParameterExpressionTypes(parameters, filter);
-		}
-
-	}
-
-	_applyProjectionExpressions({parameters = {}, config = {}} = {}) {
-		const attributes = config.attributes || [];
-		if (attributes.length === 0) {
-			return parameters;
-		}
-
-		const requiresRawResponse = !!config.raw;
-		const enforcesOwnership = !config.ignoreOwnership;
-		const requiresUserInvolvedPagination = TerminalOperation[config.terminalOperation] === TerminalOperation.page;
-		const isServerBound = TerminalOperation[config.terminalOperation] === TerminalOperation.go ||
-			TerminalOperation[config.terminalOperation] === TerminalOperation.page;
-
-		// 1. Take stock of invalid attributes, if there are any this should be considered
-		//    unintentional and should throw to prevent unintended results
-		// 2. Convert all attribute names to their respective "field" names
-		const unknownAttributes = [];
-		let attributeFields = new Set();
-		for (const attributeName of attributes) {
-			const fieldName = this.model.schema.getFieldName(attributeName);
-			if (typeof fieldName !== "string") {
-				unknownAttributes.push(attributeName);
-			} else {
-				attributeFields.add(fieldName);
-			}
-		}
-
-		// Stop doing work, prepare error message and throw
-		if (attributeFields.size === 0 || unknownAttributes.length > 0) {
-			let message = 'Unknown attributes provided in query options';
-			if (unknownAttributes.length) {
-				message += `: ${u.commaSeparatedString(unknownAttributes)}`;
-			}
-			throw new e.ElectroError(e.ErrorCodes.InvalidOptions, message);
-		}
-
-		// add ExpressionAttributeNames if it doesn't exist already
-		parameters.ExpressionAttributeNames = parameters.ExpressionAttributeNames || {};
-
-		if (
-			// The response you're returning:
-			// 1. is not expected to be raw
-			!requiresRawResponse
-			// 2. is making a request to the server
-			&& isServerBound
-			// 3. will expect entity identifiers down stream
-			&& enforcesOwnership
-
-		) {
-			// add entity identifiers to so items can be identified
-			attributeFields.add(this.identifiers.entity);
-			attributeFields.add(this.identifiers.version);
-
-			// if pagination is required you may enter into a scenario where
-			// the LastEvaluatedKey doesn't belong to entity and one must be formed.
-			// We must add the attributes necessary to make that key to not break
-			// pagination. This stinks.
-			if (
-				requiresUserInvolvedPagination
-				&& config.pager !== Pager.raw
-			) {
-				// LastEvaluatedKeys return the TableIndex keys and the keys for the SecondaryIndex
-				let tableIndexFacets = this.model.facets.byIndex[TableIndex];
-				let indexFacets = this.model.facets.byIndex[parameters.IndexName] || { all: [] };
-
-				for (const attribute of [...tableIndexFacets.all, ...indexFacets.all]) {
-					const fieldName = this.model.schema.getFieldName(attribute.name);
-					attributeFields.add(fieldName);
-				}
-			}
-		}
-
-		for (const attributeField of attributeFields) {
-			// prefix the ExpressionAttributeNames because some prefixes are not allowed
-			parameters.ExpressionAttributeNames['#' + attributeField] = attributeField;
-		}
-
-		// if there is already a ProjectionExpression (e.g. config "params"), merge it
-		if (typeof parameters.ProjectionExpression === 'string') {
-			parameters.ProjectionExpression = [parameters.ProjectionExpression, ...Object.keys([parameters.ExpressionAttributeNames])].join(', ');
-		} else {
-			parameters.ProjectionExpression = Object.keys(parameters.ExpressionAttributeNames).join(', ');
-		}
-
-		return parameters;
-	}
-
-	_batchGetParams(state, config = {}) {
-		let table = config.table || this.getTableName();
-		let userDefinedParams = config.params || {};
-
-		// TableName is added when the config provided includes "table"
-		// this is evaluated upstream so we remove it to avoid forming
-		// bad syntax. Code should reconsider how this is applied to
-		// make this cleaner :(
-		delete userDefinedParams.TableName;
-
-		let records = [];
-		for (let itemState of state.subStates) {
-			let method = itemState.query.method;
-			let params = this._params(itemState, config);
-			if (method === MethodTypes.get) {
-				let { Key } = params;
-				records.push(Key);
-			}
-		}
-		let batches = u.batchItems(records, MaxBatchItems.batchGet);
-		return batches.map(batch => {
-			return {
-				RequestItems: {
-					[table]: {
-						...userDefinedParams,
-						Keys: batch
-					}
-				}
-			}
-		});
-	}
-
-	_batchWriteParams(state, config = {}) {
-		let table = config.table || this.getTableName();
-		let records = [];
-		for (let itemState of state.subStates) {
-			let method = itemState.query.method;
-			let params = this._params(itemState, config);
-			switch (method) {
-				case MethodTypes.put:
-					let {Item} = params;
-					records.push({PutRequest: {Item}});
-					break;
-				case MethodTypes.delete:
-					let {Key} = params;
-					records.push({DeleteRequest: {Key}});
-					break;
-				/* istanbul ignore next */
-				default:
-					throw new Error("Invalid method type");
-			}
-		}
-		let batches = u.batchItems(records, MaxBatchItems.batchWrite);
-		return batches.map(batch => {
-			return {
-				RequestItems: {
-					[table]: batch
-				}
-			}
-		});
-	}
-
-	_makeParameterKey(index, pk, sk) {
-		let hasSortKey = this.model.lookup.indexHasSortKeys[index];
-		let accessPattern = this.model.translations.indexes.fromIndexToAccessPattern[index];
-		let pkField = this.model.indexes[accessPattern].pk.field;
-		let key = {
-			[pkField]: pk,
-		};
-		if (hasSortKey && sk !== undefined) {
-			let skField = this.model.indexes[accessPattern].sk.field;
-			key[skField] = sk;
-		}
-		return key;
-	}
-
-	getIdentifierExpressions(alias = this.getName()) {
-		let name = this.getName();
-		let version = this.getVersion();
-		return {
-			names: {
-				[`#${this.identifiers.entity}`]: this.identifiers.entity,
-				[`#${this.identifiers.version}`]: this.identifiers.version,
-			},
-			values: {
-				[`:${this.identifiers.entity}_${alias}`]: name,
-				[`:${this.identifiers.version}_${alias}`]: version,
-			},
-			expression: `(#${this.identifiers.entity} = :${this.identifiers.entity}_${alias} AND #${this.identifiers.version} = :${this.identifiers.version}_${alias})`
-		}
-	}
-
-	/* istanbul ignore next */
-	_makeScanParam(filter = {}) {
-		let indexBase = TableIndex;
-		let hasSortKey = this.model.lookup.indexHasSortKeys[indexBase];
-		let accessPattern = this.model.translations.indexes.fromIndexToAccessPattern[indexBase];
-		let pkField = this.model.indexes[accessPattern].pk.field;
-		let {pk, sk} = this._makeIndexKeys({
-			index: indexBase,
-		});
-		let keys = this._makeParameterKey(indexBase, pk, ...sk);
-		let keyExpressions = this._expressionAttributeBuilder(keys);
-		let params = {
-			TableName: this.getTableName(),
-			ExpressionAttributeNames: this._mergeExpressionsAttributes(
-				filter.getNames(),
-				keyExpressions.ExpressionAttributeNames
-			),
-			ExpressionAttributeValues: this._mergeExpressionsAttributes(
-				filter.getValues(),
-				keyExpressions.ExpressionAttributeValues,
-			),
-			FilterExpression: `begins_with(#${pkField}, :${pkField})`,
-		};
-
-		if (hasSortKey) {
-			let skField = this.model.indexes[accessPattern].sk.field;
-			params.FilterExpression = `${params.FilterExpression} AND begins_with(#${skField}, :${skField})`;
-		}
-		if (filter.build()) {
-			params.FilterExpression = `${params.FilterExpression} AND ${filter.build()}`;
-		}
-		return params;
-	}
-
-	_makeSimpleIndexParams(partition, sort) {
-		let index = TableIndex;
-		let keys = this._makeIndexKeys({
-			index,
-			pkAttributes: partition,
-			skAttributes: [sort],
-		});
-		let Key = this._makeParameterKey(index, keys.pk, ...keys.sk);
-		let TableName = this.getTableName();
-		return { Key, TableName };
-	}
-
-	_removeAttributes(item, keys) {
-		let copy = {...item};
-		for (let key of (Object.keys(keys))) {
-			delete copy[key];
-		}
-		return copy;
-	}
-
-	_makeUpdateParams(update = {}, pk = {}, sk = {}) {
-		let primaryIndexAttributes = {...pk, ...sk};
-		let modifiedAttributeValues = {};
-		let modifiedAttributeNames = {};
-		for (const path of Object.keys(update.paths)) {
-			const {value, name} = update.paths[path];
-			modifiedAttributeValues[path] = value;
-			modifiedAttributeNames[path] = name;
-		}
-		const removed = {};
-		for (const name in update.impacted) {
-			if (update.impacted[name] === ItemOperations.remove) {
-				removed[name] = name;
-			}
-		}
-		modifiedAttributeValues = this._removeAttributes(modifiedAttributeValues, {...pk, ...sk, ...this.model.schema.getReadOnly()});
-		const preparedUpdateValues = this.model.schema.applyAttributeSetters(modifiedAttributeValues);
-		// We need to remove the pk/sk facets from before applying the Attribute setters because these values didnt
-		// change, and we also don't want to trigger the setters of any attributes watching these facets because that
-		// should only happen when an attribute is changed.
-		const attributesAndComposites = {
-			...update.composites,
-			...preparedUpdateValues,
-		};
-		const { indexKey, updatedKeys, deletedKeys = [] } = this._getUpdatedKeys(pk, sk, attributesAndComposites, removed);
-		const accessPattern = this.model.translations.indexes.fromIndexToAccessPattern[TableIndex];
-		for (const path of Object.keys(preparedUpdateValues)) {
-			if (modifiedAttributeNames[path] !== undefined && preparedUpdateValues[path] !== undefined) {
-				update.updateValue(modifiedAttributeNames[path], preparedUpdateValues[path]);
-			} else if (preparedUpdateValues[path] !== undefined) {
-				const attr = this.model.schema.getAttribute(path);
-				if (attr) {
-					// attributes might enter into this flow because they were triggered via a `watch` event and were
-					// not supplied directly by the user. In this case we should set the field name.
-					// TODO: This will only work with root attributes and should be refactored for nested attributes.
-					update.set(attr.field, preparedUpdateValues[path]);
-				} else {
-					// this could be fields added by electro that don't apeear in the schema
-					update.set(path, preparedUpdateValues[path]);
-				}
-			}
-		}
-
-		for (const indexKey of Object.keys(updatedKeys)) {
-			const isNotTablePK = indexKey !== this.model.indexes[accessPattern].pk.field;
-			const isNotTableSK = indexKey !== this.model.indexes[accessPattern].sk.field;
-			const wasNotAlreadyModified = modifiedAttributeNames[indexKey] === undefined;
-			if (isNotTablePK && isNotTableSK && wasNotAlreadyModified) {
-				update.set(indexKey, updatedKeys[indexKey]);
-			}
-		}
-
-		for (const indexKey of deletedKeys) {
-			const isNotTablePK = indexKey !== this.model.indexes[accessPattern].pk.field;
-			const isNotTableSK = indexKey !== this.model.indexes[accessPattern].sk.field;
-			const wasNotAlreadyModified = modifiedAttributeNames[indexKey] === undefined;
-			if (isNotTablePK && isNotTableSK && wasNotAlreadyModified) {
-				update.remove(indexKey);
-			}
-		}
-
-		// This loop adds the composite attributes to the Primary Index. This is important
-		// in the case an update results in an "upsert". We want to add the Primary Index
-		// composite attributes to the update so they will be included on the item when it
-		// is created. It is done after all of the above because it is not a true "update"
-		// so it should not be subject to the above "rules".
-		for (const primaryIndexAttribute of Object.keys(primaryIndexAttributes)) {
-			// isNotTablePK and isNotTableSK is important to check in case these properties
-			// are not also the name of the index (you cannot modify the PK or SK of an item
-			// after its creation)
-			const attribute = this.model.schema.attributes[primaryIndexAttribute];
-			const isNotTablePK = !!(attribute && attribute.field !== this.model.indexes[accessPattern].pk.field);
-			const isNotTableSK = !!(attribute && attribute.field !== this.model.indexes[accessPattern].sk.field);
-			const wasNotAlreadyModified = modifiedAttributeNames[primaryIndexAttribute] === undefined;
-			if (isNotTablePK && isNotTableSK && wasNotAlreadyModified) {
-				update.set(primaryIndexAttribute, primaryIndexAttributes[primaryIndexAttribute]);
-			}
-		}
-
-		update.set(this.identifiers.entity, this.getName());
-		update.set(this.identifiers.version, this.getVersion());
-
-		return {
-			UpdateExpression: update.build(),
-			ExpressionAttributeNames: update.getNames(),
-			ExpressionAttributeValues: update.getValues(),
-			TableName: this.getTableName(),
-			Key: indexKey,
-		};
-	}
-
-	/* istanbul ignore next */
-	_makePutParams({ data } = {}, pk, sk) {
-		let appliedData = this.model.schema.applyAttributeSetters(data);
-		let { updatedKeys, setAttributes } = this._getPutKeys(pk, sk && sk.facets, appliedData);
-		let translatedFields = this.model.schema.translateToFields(setAttributes);
-		return {
-			Item: {
-				...translatedFields,
-				...updatedKeys,
-				[this.identifiers.entity]: this.getName(),
-				[this.identifiers.version]: this.getVersion(),
-			},
-			TableName: this.getTableName(),
-		};
-	}
-
-	_maybeApplyUpsertUpdate({fields = [], operation, updateProxy, update}) {
-		for (let [field, value] of fields) {
-			const name = this.model.schema.translationForRetrieval[field];
-			if (name) {
-				const attribute = this.model.schema.attributes[name];
-				if (this.model.schema.readOnlyAttributes.has(name) && (!attribute || !attribute.indexes || attribute.indexes.length === 0)) {
-					/*
+  constructor(model, config = {}) {
+    config = c.normalizeConfig(config);
+    this.eventManager = new EventManager({
+      listeners: config.listeners,
+    });
+    this.eventManager.add(config.logger);
+    this._validateModel(model);
+    this.version = EntityVersions.v1;
+    this.config = config;
+    this.client = config.client;
+    this.model = this._parseModel(model, config);
+    /** start beta/v1 condition **/
+    this.config.table = config.table || model.table;
+    /** end beta/v1 condition **/
+    this._filterBuilder = new FilterFactory(
+      this.model.schema.attributes,
+      FilterOperations,
+    );
+    this._whereBuilder = new WhereFactory(
+      this.model.schema.attributes,
+      FilterOperations,
+    );
+    this._clausesWithFilters = this._filterBuilder.injectFilterClauses(
+      clauses,
+      this.model.filters,
+    );
+    this._clausesWithFilters = this._whereBuilder.injectWhereClauses(
+      this._clausesWithFilters,
+    );
+
+    this.query = {};
+    this.conversions = {
+      fromComposite: {
+        toKeys: (composite, options = {}) =>
+          this._fromCompositeToKeys({ provided: composite }, options),
+        toCursor: (composite) =>
+          this._fromCompositeToCursor(
+            { provided: composite },
+            { strict: "all" },
+          ),
+      },
+      fromKeys: {
+        toCursor: (keys) => this._fromKeysToCursor({ provided: keys }, {}),
+        toComposite: (keys) => this._fromKeysToComposite({ provided: keys }),
+      },
+      fromCursor: {
+        toKeys: (cursor) => this._fromCursorToKeys({ provided: cursor }),
+        toComposite: (cursor) =>
+          this._fromCursorToComposite({ provided: cursor }),
+      },
+      byAccessPattern: {},
+    };
+    for (let accessPattern in this.model.indexes) {
+      let index = this.model.indexes[accessPattern].index;
+      this.query[accessPattern] = (...values) => {
+        const options = {
+          indexType:
+            this.model.indexes[accessPattern].type || IndexTypes.isolated,
+        };
+        return this._makeChain(
+          index,
+          this._clausesWithFilters,
+          clauses.index,
+          options,
+        ).query(...values);
+      };
+
+      this.conversions.byAccessPattern[accessPattern] = {
+        fromKeys: {
+          toCursor: (keys) =>
+            this._fromKeysToCursorByIndex({ indexName: index, provided: keys }),
+          toComposite: (keys) =>
+            this._fromKeysToCompositeByIndex({
+              indexName: index,
+              provided: keys,
+            }),
+        },
+        fromCursor: {
+          toKeys: (cursor) =>
+            this._fromCursorToKeysByIndex({
+              indexName: index,
+              provided: cursor,
+            }),
+          toComposite: (cursor) =>
+            this._fromCursorToCompositeByIndex({
+              indexName: index,
+              provided: cursor,
+            }),
+        },
+        fromComposite: {
+          toCursor: (composite) =>
+            this._fromCompositeToCursorByIndex(
+              { indexName: index, provided: composite },
+              { strict: "all" },
+            ),
+          toKeys: (composite, options = {}) =>
+            this._fromCompositeToKeysByIndex(
+              { indexName: index, provided: composite },
+              options,
+            ),
+        },
+      };
+    }
+
+    this.config.identifiers = config.identifiers || {};
+    this.identifiers = {
+      entity: this.config.identifiers.entity || "__edb_e__",
+      version: this.config.identifiers.version || "__edb_v__",
+    };
+    this._instance = ElectroInstance.entity;
+    this._instanceType = ElectroInstanceTypes.entity;
+    this.schema = model;
+  }
+
+  get scan() {
+    return this._makeChain(
+      TableIndex,
+      this._clausesWithFilters,
+      clauses.index,
+      { _isPagination: true },
+    ).scan();
+  }
+
+  setIdentifier(type = "", identifier = "") {
+    if (!this.identifiers[type]) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidIdentifier,
+        `Invalid identifier type: "${type}". Valid identifiers include: ${u.commaSeparatedString(
+          Object.keys(this.identifiers),
+        )}`,
+      );
+    } else {
+      this.identifiers[type] = identifier;
+    }
+  }
+
+  getName() {
+    return this.model.entity;
+  }
+
+  getVersion() {
+    return this.model.version;
+  }
+
+  // ownsItem(item) {
+  // 	return (
+  // 		item &&
+  // 		this.getName() === item[this.identifiers.entity] &&
+  // 		this.getVersion() === item[this.identifiers.version] &&
+  // 		validations.isStringHasLength(item[this.identifiers.entity]) &&
+  // 		validations.isStringHasLength(item[this.identifiers.version])
+  // 	) || !!this.ownsKeys(item)
+  // }
+
+  // ownsKeys({keys = {}}) {
+  // 	let {pk, sk} = this.model.prefixes[TableIndex];
+  // 	let hasSK = this.model.lookup.indexHasSortKeys[TableIndex];
+  // 	let pkMatch = typeof keys[pk.field] === "string" && keys[pk.field].startsWith(pk.prefix);
+  // 	let skMatch = pkMatch && !hasSK;
+  // 	if (pkMatch && hasSK) {
+  // 		skMatch = typeof keys[sk.field] === "string" && keys[sk.field].startsWith(sk.prefix);
+  // 	}
+  //
+  // 	return (pkMatch && skMatch &&
+  // 		this._formatKeysToItem(TableIndex, key) !== null);
+  // }
+
+  // ownsCursor({ cursor }) {
+  // 	if (typeof cursor === 'string') {
+  // 		cursor = u.cursorFormatter.deserialize(cursor);
+  // 	}
+  // 	return this.ownsKeys({ keys: cursor });
+  // }
+
+  ownsItem(item) {
+    return (
+      item &&
+      this.getName() === item[this.identifiers.entity] &&
+      this.getVersion() === item[this.identifiers.version] &&
+      validations.isStringHasLength(item[this.identifiers.entity]) &&
+      validations.isStringHasLength(item[this.identifiers.version])
+    );
+  }
+
+  _attributesIncludeKeys(attributes = []) {
+    let { pk, sk } = this.model.prefixes[TableIndex];
+    let pkFound = false;
+    let skFound = false;
+    for (let i = 0; i < attributes.length; i++) {
+      const attribute = attributes[i];
+      if (attribute === sk.field) {
+        skFound = true;
+      }
+      if (attribute === pk.field) {
+        skFound = true;
+      }
+      if (pkFound && skFound) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  ownsKeys(key = {}) {
+    let { pk, sk } = this.model.prefixes[TableIndex];
+    let hasSK = this.model.lookup.indexHasSortKeys[TableIndex];
+    let pkMatch =
+      typeof key[pk.field] === "string" && key[pk.field].startsWith(pk.prefix);
+    let skMatch = pkMatch && !hasSK;
+    if (pkMatch && hasSK) {
+      skMatch =
+        typeof key[sk.field] === "string" &&
+        key[sk.field].startsWith(sk.prefix);
+    }
+
+    return (
+      pkMatch && skMatch && this._formatKeysToItem(TableIndex, key) !== null
+    );
+  }
+
+  ownsCursor(cursor) {
+    if (typeof cursor === "string") {
+      cursor = u.cursorFormatter.deserialize(cursor);
+    }
+    return this.ownsKeys(cursor);
+  }
+
+  serializeCursor(key) {
+    return u.cursorFormatter.serialize(key);
+  }
+
+  deserializeCursor(cursor) {
+    return u.cursorFormatter.deserialize(cursor);
+  }
+
+  /** @depricated pagers no longer exist, use the new cursor api */
+  ownsPager(pager, index = TableIndex) {
+    if (pager === null) {
+      return false;
+    }
+    let tableIndexFacets = this.model.facets.byIndex[index];
+    // todo: is the fact it doesn't use the provided index a bug?
+    // feels like collections may have played a roll into why this is this way
+    let indexFacets = this.model.facets.byIndex[index];
+
+    // Unknown index
+    if (tableIndexFacets === undefined || indexFacets === undefined) {
+      return false;
+    }
+
+    // Should match all primary index facets
+    let matchesTableIndex = tableIndexFacets.all.every((facet) => {
+      return pager[facet.name] !== undefined;
+    });
+
+    // If the pager doesnt match the table index, exit early
+    if (!matchesTableIndex) {
+      return false;
+    }
+
+    return indexFacets.all.every((facet) => {
+      return pager[facet.name] !== undefined;
+    });
+  }
+
+  match(facets = {}) {
+    const options = { _isPagination: true };
+    const match = this._findBestIndexKeyMatch(facets);
+    if (match.shouldScan) {
+      return this._makeChain(
+        TableIndex,
+        this._clausesWithFilters,
+        clauses.index,
+        options,
+      )
+        .scan()
+        .filter((attr) => {
+          let eqFilters = [];
+          for (let facet of Object.keys(facets)) {
+            if (attr[facet] !== undefined && facets[facet] !== undefined) {
+              eqFilters.push(attr[facet].eq(facets[facet]));
+            }
+          }
+          return eqFilters.join(" AND ");
+        });
+    } else {
+      return this._makeChain(
+        match.index,
+        this._clausesWithFilters,
+        clauses.index,
+        options,
+      )
+        .query(facets)
+        .filter((attr) => {
+          let eqFilters = [];
+          for (let facet of Object.keys(facets)) {
+            if (attr[facet] !== undefined && facets[facet] !== undefined) {
+              eqFilters.push(attr[facet].eq(facets[facet]));
+            }
+          }
+          return eqFilters.join(" AND ");
+        });
+    }
+  }
+
+  find(facets = {}) {
+    const options = { _isPagination: true };
+    const match = this._findBestIndexKeyMatch(facets);
+    if (match.shouldScan) {
+      return this._makeChain(
+        TableIndex,
+        this._clausesWithFilters,
+        clauses.index,
+        options,
+      ).scan();
+    } else {
+      return this._makeChain(
+        match.index,
+        this._clausesWithFilters,
+        clauses.index,
+        options,
+      ).query(facets);
+    }
+  }
+
+  collection(collection = "", clauses = {}, facets = {}, options = {}) {
+    const chainOptions = {
+      ...options,
+      _isCollectionQuery: true,
+    };
+
+    let index =
+      this.model.translations.collections.fromCollectionToIndex[collection];
+    if (index === undefined) {
+      throw new Error(`Invalid collection: ${collection}`);
+    }
+    const chain = this._makeChain(index, clauses, clauses.index, chainOptions);
+    if (options.indexType === IndexTypes.clustered) {
+      return chain.clusteredCollection(collection, facets);
+    } else {
+      return chain.collection(collection, facets);
+    }
+  }
+
+  _validateModel(model) {
+    return validations.model(model);
+  }
+
+  check(compositeAttributes = {}) {
+    return this._makeChain(
+      TableIndex,
+      this._clausesWithFilters,
+      clauses.index,
+    ).check(compositeAttributes);
+  }
+
+  get(facets = {}) {
+    let index = TableIndex;
+    if (Array.isArray(facets)) {
+      return this._makeChain(
+        index,
+        this._clausesWithFilters,
+        clauses.index,
+      ).batchGet(facets);
+    } else {
+      return this._makeChain(
+        index,
+        this._clausesWithFilters,
+        clauses.index,
+      ).get(facets);
+    }
+  }
+
+  delete(facets = {}) {
+    let index = TableIndex;
+    if (Array.isArray(facets)) {
+      return this._makeChain(
+        index,
+        this._clausesWithFilters,
+        clauses.index,
+      ).batchDelete(facets);
+    } else {
+      return this._makeChain(
+        index,
+        this._clausesWithFilters,
+        clauses.index,
+      ).delete(facets);
+    }
+  }
+
+  put(attributes = {}) {
+    let index = TableIndex;
+    if (Array.isArray(attributes)) {
+      return this._makeChain(
+        index,
+        this._clausesWithFilters,
+        clauses.index,
+      ).batchPut(attributes);
+    } else {
+      return this._makeChain(
+        index,
+        this._clausesWithFilters,
+        clauses.index,
+      ).put(attributes);
+    }
+  }
+
+  upsert(attributes = {}) {
+    let index = TableIndex;
+    return this._makeChain(
+      index,
+      this._clausesWithFilters,
+      clauses.index,
+    ).upsert(attributes);
+  }
+
+  create(attributes = {}) {
+    let index = TableIndex;
+    let options = {};
+    return this._makeChain(
+      index,
+      this._clausesWithFilters,
+      clauses.index,
+      options,
+    ).create(attributes);
+  }
+
+  update(facets = {}) {
+    let index = TableIndex;
+    return this._makeChain(
+      index,
+      this._clausesWithFilters,
+      clauses.index,
+    ).update(facets);
+  }
+
+  patch(facets = {}) {
+    let index = TableIndex;
+    let options = {};
+    return this._makeChain(
+      index,
+      this._clausesWithFilters,
+      clauses.index,
+      options,
+    ).patch(facets);
+  }
+
+  remove(facets = {}) {
+    let index = TableIndex;
+    let options = {};
+    return this._makeChain(
+      index,
+      this._clausesWithFilters,
+      clauses.index,
+      options,
+    ).remove(facets);
+  }
+
+  async transactWrite(parameters, config) {
+    let response = await this._exec(
+      MethodTypes.transactWrite,
+      parameters,
+      config,
+    );
+    return response;
+  }
+
+  async transactGet(parameters, config) {
+    let response = await this._exec(
+      MethodTypes.transactGet,
+      parameters,
+      config,
+    );
+    return response;
+  }
+
+  async go(method, parameters = {}, config = {}) {
+    let stackTrace;
+    if (!config.originalErr) {
+      stackTrace = new e.ElectroError(e.ErrorCodes.AWSError);
+    }
+    try {
+      switch (method) {
+        case MethodTypes.batchWrite:
+          return await this.executeBulkWrite(parameters, config);
+        case MethodTypes.batchGet:
+          return await this.executeBulkGet(parameters, config);
+        case MethodTypes.query:
+        case MethodTypes.scan:
+          return await this.executeQuery(method, parameters, config);
+        default:
+          return await this.executeOperation(method, parameters, config);
+      }
+    } catch (err) {
+      if (config.originalErr || stackTrace === undefined) {
+        return Promise.reject(err);
+      } else {
+        if (err.__isAWSError) {
+          stackTrace.message = new e.ElectroError(
+            e.ErrorCodes.AWSError,
+            `Error thrown by DynamoDB client: "${err.message}"`,
+            err,
+          ).message;
+          return Promise.reject(stackTrace);
+        } else if (err.isElectroError) {
+          return Promise.reject(err);
+        } else {
+          stackTrace.message = new e.ElectroError(
+            e.ErrorCodes.UnknownError,
+            err.message,
+            err,
+          ).message;
+          return Promise.reject(stackTrace);
+        }
+      }
+    }
+  }
+
+  async _exec(method, params, config = {}) {
+    const notifyQuery = () => {
+      this.eventManager.trigger(
+        {
+          type: "query",
+          method,
+          params,
+          config,
+        },
+        config.listeners,
+      );
+    };
+    const notifyResults = (results, success) => {
+      this.eventManager.trigger(
+        {
+          type: "results",
+          method,
+          config,
+          success,
+          results,
+        },
+        config.listeners,
+      );
+    };
+    const dynamoDBMethod = MethodTypeTranslation[method];
+    return this.client[dynamoDBMethod](params)
+      .promise()
+      .then((results) => {
+        notifyQuery();
+        notifyResults(results, true);
+        return results;
+      })
+      .catch((err) => {
+        notifyQuery();
+        notifyResults(err, false);
+        err.__isAWSError = true;
+        throw err;
+      });
+  }
+
+  async executeBulkWrite(parameters, config) {
+    if (!Array.isArray(parameters)) {
+      parameters = [parameters];
+    }
+    let results = [];
+    let concurrent = this._normalizeConcurrencyValue(config.concurrent);
+    let concurrentOperations = u.batchItems(parameters, concurrent);
+    for (let operation of concurrentOperations) {
+      await Promise.all(
+        operation.map(async (params) => {
+          let response = await this._exec(
+            MethodTypes.batchWrite,
+            params,
+            config,
+          );
+          if (validations.isFunction(config.parse)) {
+            let parsed = config.parse(config, response);
+            if (parsed) {
+              results.push(parsed);
+            }
+          } else {
+            let { unprocessed } = this.formatBulkWriteResponse(
+              response,
+              config,
+            );
+            for (let u of unprocessed) {
+              results.push(u);
+            }
+          }
+        }),
+      );
+    }
+
+    return { unprocessed: results };
+  }
+
+  _createNewBatchGetOrderMaintainer(config = {}) {
+    const pkName = this.model.translations.keys[TableIndex].pk;
+    const skName = this.model.translations.keys[TableIndex].sk;
+    const enabled = !!config.preserveBatchOrder;
+    const table = this.config.table;
+    const keyFormatter = (record = {}) => {
+      const pk = record[pkName];
+      const sk = record[skName];
+      return `${pk}${sk}`;
+    };
+
+    return new u.BatchGetOrderMaintainer({
+      table,
+      enabled,
+      keyFormatter,
+    });
+  }
+
+  async executeBulkGet(parameters, config) {
+    if (!Array.isArray(parameters)) {
+      parameters = [parameters];
+    }
+
+    const orderMaintainer = this._createNewBatchGetOrderMaintainer(config);
+    orderMaintainer.defineOrder(parameters);
+    let concurrent = this._normalizeConcurrencyValue(config.concurrent);
+    let concurrentOperations = u.batchItems(parameters, concurrent);
+    let resultsAll = config.preserveBatchOrder
+      ? new Array(orderMaintainer.getSize()).fill(null)
+      : [];
+    let unprocessedAll = [];
+    for (let operation of concurrentOperations) {
+      await Promise.all(
+        operation.map(async (params) => {
+          let response = await this._exec(MethodTypes.batchGet, params, config);
+          if (validations.isFunction(config.parse)) {
+            resultsAll.push(config.parse(config, response));
+          } else {
+            this.applyBulkGetResponseFormatting({
+              orderMaintainer,
+              resultsAll,
+              unprocessedAll,
+              response,
+              config,
+            });
+          }
+        }),
+      );
+    }
+    return { data: resultsAll, unprocessed: unprocessedAll };
+  }
+
+  async hydrate(index, keys = [], config) {
+    const items = [];
+    const validKeys = [];
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      const item = this._formatKeysToItem(index, key);
+      if (item !== null) {
+        items.push(item);
+        validKeys.push(key);
+      }
+    }
+
+    const results = await this.get(items).go({
+      ...config,
+      hydrate: false,
+      parse: undefined,
+      hydrator: undefined,
+      _isCollectionQuery: false,
+      preserveBatchOrder: true,
+      ignoreOwnership: config._providedIgnoreOwnership,
+    });
+
+    const unprocessed = [];
+    const data = [];
+
+    for (let i = 0; i < results.data.length; i++) {
+      const key = validKeys[i];
+      const item = results.data[i];
+      if (!item) {
+        if (key) {
+          unprocessed.push(key);
+        }
+      } else {
+        data.push(item);
+      }
+    }
+
+    return {
+      unprocessed,
+      data,
+    };
+  }
+
+  async executeQuery(method, parameters, config = {}) {
+    let results = config._isCollectionQuery ? {} : [];
+    let ExclusiveStartKey = this._formatExclusiveStartKey({
+      config,
+      indexName: parameters.IndexName,
+    });
+    if (ExclusiveStartKey === null) {
+      ExclusiveStartKey = undefined;
+    }
+    let pages = this._normalizePagesValue(config.pages);
+    let max = this._normalizeLimitValue(config.limit);
+    let iterations = 0;
+    let count = 0;
+    let hydratedUnprocessed = [];
+    const shouldHydrate = config.hydrate && method === MethodTypes.query;
+    do {
+      let limit = max === undefined ? parameters.Limit : max - count;
+      let response = await this._exec(
+        method,
+        { ExclusiveStartKey, ...parameters, Limit: limit },
+        config,
+      );
+      ExclusiveStartKey = response.LastEvaluatedKey;
+      response = this.formatResponse(response, parameters.IndexName, {
+        ...config,
+        includeKeys: shouldHydrate || config.includeKeys,
+        ignoreOwnership: shouldHydrate || config.ignoreOwnership,
+      });
+
+      if (config.raw) {
+        return response;
+      } else if (config._isCollectionQuery) {
+        for (const entity in response.data) {
+          if (max) {
+            count += response.data[entity].length;
+          }
+          let items = response.data[entity];
+          if (shouldHydrate && items.length) {
+            const hydrated = await config.hydrator(
+              entity,
+              parameters.IndexName,
+              items,
+              config,
+            );
+            items = hydrated.data;
+            hydratedUnprocessed = hydratedUnprocessed.concat(
+              hydrated.unprocessed,
+            );
+          }
+          results[entity] = results[entity] || [];
+          results[entity] = [...results[entity], ...items];
+        }
+      } else if (Array.isArray(response.data)) {
+        if (max) {
+          count += response.data.length;
+        }
+        let items = response.data;
+        if (shouldHydrate) {
+          const hydrated = await this.hydrate(
+            parameters.IndexName,
+            items,
+            config,
+          );
+          items = hydrated.data;
+          hydratedUnprocessed = hydratedUnprocessed.concat(
+            hydrated.unprocessed,
+          );
+        }
+        results = [...results, ...items];
+      } else {
+        return response;
+      }
+      iterations++;
+    } while (
+      ExclusiveStartKey &&
+      (pages === AllPages || iterations < pages) &&
+      (max === undefined || count < max)
+    );
+
+    const cursor = this._formatReturnPager(config, ExclusiveStartKey);
+
+    if (shouldHydrate) {
+      return {
+        cursor,
+        data: results,
+        unprocessed: hydratedUnprocessed,
+      };
+    }
+    return { data: results, cursor };
+  }
+
+  async executeOperation(method, parameters, config) {
+    let response = await this._exec(method, parameters, config);
+    switch (parameters.ReturnValues) {
+      case FormatToReturnValues.none:
+        return { data: null };
+      case FormatToReturnValues.all_new:
+      case FormatToReturnValues.all_old:
+      case FormatToReturnValues.updated_new:
+      case FormatToReturnValues.updated_old:
+        return this.formatResponse(response, TableIndex, config);
+      case FormatToReturnValues.default:
+      default:
+        return this._formatDefaultResponse(
+          method,
+          parameters.IndexName,
+          parameters,
+          config,
+          response,
+        );
+    }
+  }
+
+  _formatDefaultResponse(method, index, parameters, config = {}, response) {
+    switch (method) {
+      case MethodTypes.put:
+      case MethodTypes.create:
+        return this.formatResponse(parameters, index, config);
+      case MethodTypes.update:
+      case MethodTypes.patch:
+      case MethodTypes.delete:
+      case MethodTypes.remove:
+      case MethodTypes.upsert:
+        return this.formatResponse(response, index, {
+          ...config,
+          _objectOnEmpty: true,
+        });
+      default:
+        return this.formatResponse(response, index, config);
+    }
+  }
+
+  cleanseRetrievedData(item = {}, options = {}) {
+    let { includeKeys } = options;
+    let data = {};
+    let names = this.model.schema.translationForRetrieval;
+    for (let [attr, value] of Object.entries(item)) {
+      let name = names[attr];
+      if (name) {
+        data[name] = value;
+      } else if (includeKeys) {
+        data[attr] = value;
+      }
+    }
+    return data;
+  }
+
+  formatBulkWriteResponse(response = {}, config = {}) {
+    if (!response || !response.UnprocessedItems) {
+      return response;
+    }
+    const table = config.table || this.getTableName();
+    const index = TableIndex;
+    let unprocessed = response.UnprocessedItems[table];
+    if (Array.isArray(unprocessed) && unprocessed.length) {
+      unprocessed = unprocessed.map((request) => {
+        if (request.PutRequest) {
+          return this.formatResponse(request.PutRequest, index, config).data;
+        } else if (request.DeleteRequest) {
+          if (config.unprocessed === UnprocessedTypes.raw) {
+            return request.DeleteRequest.Key;
+          } else {
+            return this._formatKeysToItem(index, request.DeleteRequest.Key);
+          }
+        } else {
+          throw new Error("Unknown response format");
+        }
+      });
+    } else {
+      unprocessed = [];
+    }
+
+    return { unprocessed };
+  }
+
+  applyBulkGetResponseFormatting({
+    resultsAll,
+    unprocessedAll,
+    orderMaintainer,
+    response = {},
+    config = {},
+  }) {
+    const table = config.table || this.getTableName();
+    const index = TableIndex;
+
+    if (!response.UnprocessedKeys || !response.Responses) {
+      throw new Error("Unknown response format");
+    }
+
+    if (
+      response.UnprocessedKeys[table] &&
+      response.UnprocessedKeys[table].Keys &&
+      Array.isArray(response.UnprocessedKeys[table].Keys)
+    ) {
+      for (let value of response.UnprocessedKeys[table].Keys) {
+        if (config && config.unprocessed === UnprocessedTypes.raw) {
+          unprocessedAll.push(value);
+        } else {
+          unprocessedAll.push(this._formatKeysToItem(index, value));
+        }
+      }
+    }
+
+    if (response.Responses[table] && Array.isArray(response.Responses[table])) {
+      const responses = response.Responses[table];
+      for (let i = 0; i < responses.length; i++) {
+        const item = responses[i];
+        const slot = orderMaintainer.getOrder(item);
+        const formatted = this.formatResponse({ Item: item }, index, config);
+        if (slot !== -1) {
+          resultsAll[slot] = formatted.data;
+        } else {
+          resultsAll.push(formatted.data);
+        }
+      }
+    }
+  }
+
+  formatResponse(response, index, config = {}) {
+    let stackTrace;
+    if (!config.originalErr) {
+      stackTrace = new e.ElectroError(e.ErrorCodes.AWSError);
+    }
+    try {
+      let results = {};
+      if (validations.isFunction(config.parse)) {
+        results = config.parse(config, response);
+      } else if (config.raw && !config._isPagination) {
+        if (response.TableName) {
+          results = {};
+        } else {
+          results = response;
+        }
+      } else if (
+        config.raw &&
+        (config._isPagination || config.lastEvaluatedKeyRaw)
+      ) {
+        results = response;
+      } else {
+        if (response.Item) {
+          if (
+            (config.ignoreOwnership &&
+              config.attributes &&
+              config.attributes.length > 0 &&
+              !this._attributesIncludeKeys(config.attributes)) ||
+            ((config.ignoreOwnership || config.hydrate) &&
+              this.ownsKeys(response.Item)) ||
+            this.ownsItem(response.Item)
+          ) {
+            results = this.model.schema.formatItemForRetrieval(
+              response.Item,
+              config,
+            );
+            if (Object.keys(results).length === 0) {
+              results = null;
+            }
+          } else if (!config._objectOnEmpty) {
+            results = null;
+          }
+        } else if (response.Items) {
+          results = [];
+          for (let item of response.Items) {
+            if (
+              (config.ignoreOwnership &&
+                config.attributes &&
+                config.attributes.length > 0 &&
+                !this._attributesIncludeKeys(config.attributes)) ||
+              ((config.ignoreOwnership || config.hydrate) &&
+                this.ownsKeys(item)) ||
+              this.ownsItem(item)
+            ) {
+              let record = this.model.schema.formatItemForRetrieval(
+                item,
+                config,
+              );
+              if (Object.keys(record).length > 0) {
+                results.push(record);
+              }
+            }
+          }
+        } else if (response.Attributes) {
+          results = this.model.schema.formatItemForRetrieval(
+            response.Attributes,
+            config,
+          );
+          if (Object.keys(results).length === 0) {
+            results = null;
+          }
+        } else if (config._objectOnEmpty) {
+          return {
+            data: {
+              ...config._includeOnResponseItem,
+            },
+          };
+        } else {
+          results = null;
+        }
+      }
+
+      if (config._isPagination || response.LastEvaluatedKey) {
+        const nextPage = this._formatReturnPager(
+          config,
+          response.LastEvaluatedKey,
+        );
+        return { cursor: nextPage || null, data: results };
+      }
+
+      return { data: results };
+    } catch (err) {
+      if (config.originalErr || stackTrace === undefined) {
+        throw err;
+      } else {
+        stackTrace.message = err.message;
+        throw stackTrace;
+      }
+    }
+  }
+
+  parse(item, options = {}) {
+    if (item === undefined || item === null) {
+      return null;
+    }
+    const config = {
+      ...(options || {}),
+      ignoreOwnership: true,
+    };
+    return this.formatResponse(item, TableIndex, config);
+  }
+
+  _fromCompositeToKeys({ provided }, options = {}) {
+    if (!provided || Object.keys(provided).length === 0) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionCompositeProvided,
+        "Invalid conversion composite provided",
+      );
+    }
+
+    let keys = {};
+    const secondaryIndexStrictMode =
+      options.strict === "all" || options.strict === "pk" ? "pk" : "none";
+    for (const { index } of Object.values(this.model.indexes)) {
+      const indexKeys = this._fromCompositeToKeysByIndex(
+        { indexName: index, provided },
+        {
+          strict:
+            index === TableIndex ? options.strict : secondaryIndexStrictMode,
+        },
+      );
+      if (indexKeys) {
+        keys = {
+          ...keys,
+          ...indexKeys,
+        };
+      }
+    }
+
+    if (Object.keys(keys).length === 0) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionCompositeProvided,
+        "Invalid conversion composite provided",
+      );
+    }
+
+    return keys;
+  }
+
+  _fromCompositeToCursor({ provided }, options = {}) {
+    const keys = this._fromCompositeToKeys({ provided }, options);
+    if (!keys || Object.keys(keys).length === 0) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionCompositeProvided,
+        "Invalid conversion composite provided",
+      );
+    }
+    return u.cursorFormatter.serialize(keys);
+  }
+
+  _fromKeysToCursor({ provided }, options = {}) {
+    if (!provided || Object.keys(provided).length === 0) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionKeysProvided,
+        "Invalid keys provided",
+      );
+    }
+    return u.cursorFormatter.serialize(provided);
+  }
+
+  _fromKeysToComposite({ provided }, options = {}) {
+    if (!provided || Object.keys(provided).length === 0) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionKeysProvided,
+        "Provided keys could not be used to form composite attributes",
+      );
+    }
+
+    let keys = {};
+    for (const { index } of Object.values(this.model.indexes)) {
+      const composite = this._fromKeysToCompositeByIndex(
+        { indexName: index, provided },
+        options,
+      );
+      if (composite) {
+        for (const attribute in composite) {
+          if (keys[attribute] === undefined) {
+            keys[attribute] = composite[attribute];
+          }
+        }
+      }
+    }
+
+    if (Object.keys(keys).length === 0) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionKeysProvided,
+        "Provided keys could not be used to form composite attributes",
+      );
+    }
+
+    return keys;
+  }
+
+  _fromCursorToKeys({ provided }, options = {}) {
+    if (typeof provided !== "string") {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionCursorProvided,
+        "Invalid conversion cursor provided",
+      );
+    }
+
+    return u.cursorFormatter.deserialize(provided);
+  }
+
+  _fromCursorToComposite({ provided }, options = {}) {
+    if (typeof provided !== "string") {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionCursorProvided,
+        "Invalid conversion cursor provided",
+      );
+    }
+
+    const keys = this._fromCursorToKeys({ provided }, options);
+    if (!keys) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionCursorProvided,
+        "Invalid conversion cursor provided",
+      );
+    }
+
+    return this._fromKeysToComposite({ provided: keys }, options);
+  }
+
+  _fromCompositeToCursorByIndex(
+    { indexName = TableIndex, provided },
+    options = {},
+  ) {
+    if (!provided || Object.keys(provided).length === 0) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionCompositeProvided,
+        "Invalid conversion composite provided",
+      );
+    }
+
+    const keys = this._formatSuppliedPager(indexName, provided, {
+      relaxedPk: false,
+      relaxedSk: false,
+    });
+
+    return this._fromKeysToCursorByIndex(
+      { indexName, provided: keys },
+      options,
+    );
+  }
+
+  _fromCompositeToKeysByIndex(
+    { indexName = TableIndex, provided },
+    options = {},
+  ) {
+    return this._formatSuppliedPager(indexName, provided, {
+      relaxedPk: options.strict !== "pk" && options.strict !== "all",
+      relaxedSk: options.strict !== "all",
+    });
+  }
+
+  _fromCursorToKeysByIndex({ provided }, options = {}) {
+    if (typeof provided !== "string" || provided.length < 1) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionCursorProvided,
+        "Invalid conversion cursor provided",
+      );
+    }
+
+    return u.cursorFormatter.deserialize(provided);
+  }
+
+  _fromKeysToCursorByIndex({ indexName = TableIndex, provided }, options = {}) {
+    const isValidTableIndex = this._verifyKeys({
+      indexName: TableIndex,
+      provided,
+    });
+    const isValidIndex = this._verifyKeys({ indexName, provided });
+    if (!isValidTableIndex) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionKeysProvided,
+        "Provided keys did not include valid properties for the primary index",
+      );
+    } else if (!isValidIndex) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionKeysProvided,
+        `Provided keys did not include valid properties for the index "${indexName}"`,
+      );
+    }
+
+    const keys = this._trimKeysToIndex({ indexName, provided });
+
+    if (!keys || Object.keys(keys).length === 0) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionKeysProvided,
+        `Provided keys not defined`,
+      );
+    }
+
+    return u.cursorFormatter.serialize(provided);
+  }
+
+  _fromKeysToCompositeByIndex(
+    { indexName = TableIndex, provided },
+    options = {},
+  ) {
+    let allKeys = {};
+
+    const indexKeys = this._deconstructIndex({
+      index: indexName,
+      keys: provided,
+    });
+    if (!indexKeys) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionKeysProvided,
+        `Provided keys did not include valid properties for the index "${indexName}"`,
+      );
+    }
+
+    allKeys = {
+      ...indexKeys,
+    };
+
+    let tableKeys;
+    if (indexName !== TableIndex) {
+      tableKeys = this._deconstructIndex({ index: TableIndex, keys: provided });
+    }
+
+    if (tableKeys === null) {
+      return allKeys;
+    }
+
+    allKeys = {
+      ...allKeys,
+      ...tableKeys,
+    };
+
+    if (Object.keys(allKeys).length === 0) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionKeysProvided,
+        "Provided keys could not be used to form composite attributes",
+      );
+    }
+
+    return allKeys;
+  }
+
+  _fromCursorToCompositeByIndex(
+    { indexName = TableIndex, provided },
+    options = {},
+  ) {
+    const keys = this._fromCursorToKeysByIndex(
+      { indexName, provided },
+      options,
+    );
+    if (!keys || Object.keys(keys).length === 0) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionCursorProvided,
+        "Invalid conversion cursor provided",
+      );
+    }
+    return this._fromKeysToCompositeByIndex(
+      { indexName, provided: keys },
+      options,
+    );
+  }
+
+  _trimKeysToIndex({ indexName = TableIndex, provided }) {
+    if (!provided) {
+      return null;
+    }
+
+    const pkName = this.model.translations.keys[indexName].pk;
+    const skName = this.model.translations.keys[indexName].sk;
+    const tablePKName = this.model.translations.keys[TableIndex].pk;
+    const tableSKName = this.model.translations.keys[TableIndex].sk;
+
+    const keys = {
+      [pkName]: provided[pkName],
+      [skName]: provided[skName],
+      [tablePKName]: provided[tablePKName],
+      [tableSKName]: provided[tableSKName],
+    };
+
+    if (!keys || Object.keys(keys).length === 0) {
+      return null;
+    }
+
+    return keys;
+  }
+
+  _verifyKeys({ indexName, provided }) {
+    if (!provided) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConversionKeysProvided,
+        `Provided keys not defined`,
+      );
+    }
+
+    const pkName = this.model.translations.keys[indexName].pk;
+    const skName = this.model.translations.keys[indexName].sk;
+
+    return (
+      provided[pkName] !== undefined &&
+      (!skName || provided[skName] !== undefined)
+    );
+  }
+
+  _formatReturnPager(config, lastEvaluatedKey) {
+    let page = lastEvaluatedKey || null;
+    if (config.raw || config.pager === Pager.raw) {
+      return page;
+    }
+    return config.formatCursor.serialize(page) || null;
+  }
+
+  _formatExclusiveStartKey({ config, indexName = TableIndex }) {
+    let exclusiveStartKey = config.cursor;
+    if (config.raw || config.pager === Pager.raw) {
+      return (
+        this._trimKeysToIndex({ provided: exclusiveStartKey, indexName }) ||
+        null
+      );
+    }
+    let keys;
+    if (config.pager === Pager.item) {
+      keys = this._fromCompositeToKeysByIndex({
+        indexName,
+        provided: exclusiveStartKey,
+      });
+    } else {
+      keys = config.formatCursor.deserialize(exclusiveStartKey);
+    }
+    if (!keys) {
+      return null;
+    }
+
+    return this._trimKeysToIndex({ provided: keys, indexName }) || null;
+  }
+
+  setClient(client) {
+    if (client) {
+      this.client = c.normalizeClient(client);
+    }
+  }
+
+  setTableName(tableName) {
+    this.config.table = tableName;
+  }
+
+  getTableName() {
+    return this.config.table;
+  }
+
+  getTableName() {
+    return this.config.table;
+  }
+
+  _chain(state, clauses, clause) {
+    let current = {};
+    for (let child of clause.children) {
+      current[child] = (...args) => {
+        state.prev = state.self;
+        state.self = child;
+        let results = clauses[child].action(this, state, ...args);
+        if (clauses[child].children.length) {
+          return this._chain(results, clauses, clauses[child]);
+        } else {
+          return results;
+        }
+      };
+    }
+    return current;
+  }
+  /* istanbul ignore next */
+  _makeChain(index = TableIndex, clauses, rootClause, options = {}) {
+    let state = new ChainState({
+      index,
+      options,
+      attributes: options.attributes || this.model.schema.attributes,
+      hasSortKey:
+        options.hasSortKey || this.model.lookup.indexHasSortKeys[index],
+      compositeAttributes:
+        options.compositeAttributes || this.model.facets.byIndex[index],
+    });
+    return state.init(this, clauses, rootClause);
+  }
+
+  _regexpEscape(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  _normalizeConcurrencyValue(value = 1) {
+    value = parseInt(value);
+    if (isNaN(value) || value < 1) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidConcurrencyOption,
+        "Query option 'concurrency' must be of type 'number' and greater than zero.",
+      );
+    }
+    return value;
+  }
+
+  _normalizePagesValue(value) {
+    if (value === AllPages) {
+      return value;
+    }
+    value = parseInt(value);
+    if (isNaN(value) || value < 1) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidPagesOption,
+        `Query option 'pages' must be of type 'number' and greater than zero or the string value '${AllPages}'`,
+      );
+    }
+    return value;
+  }
+
+  _normalizeLimitValue(value) {
+    if (value !== undefined) {
+      value = parseInt(value);
+      if (isNaN(value) || value < 1) {
+        throw new e.ElectroError(
+          e.ErrorCodes.InvalidLimitOption,
+          "Query option 'limit' must be of type 'number' and greater than zero.",
+        );
+      }
+    }
+    return value;
+  }
+
+  _createKeyDeconstructor(prefixes = {}, labels = [], attributes = {}) {
+    let { prefix, isCustom, postfix } = prefixes;
+    let names = [];
+    let types = [];
+    let pattern = `^${this._regexpEscape(prefix || "")}`;
+    for (let { name, label } of labels) {
+      let attr = attributes[name];
+      if (isCustom && !name && label) {
+        // this case is for when someone uses a direct attribute reference but with a postfix (zoinks ;P)
+        pattern += `${this._regexpEscape(label)}`;
+      } else if (isCustom) {
+        pattern += `${this._regexpEscape(
+          label === undefined ? "" : label,
+        )}(.+)`;
+      } else {
+        pattern += `#${this._regexpEscape(
+          label === undefined ? name : label,
+        )}_(.+)`;
+      }
+      names.push(name);
+      if (attr) {
+        types.push(attr.type);
+      }
+    }
+    if (typeof postfix === "string") {
+      pattern += this._regexpEscape(postfix);
+    }
+    pattern += "$";
+
+    let regex = new RegExp(pattern, "i");
+
+    return ({ key } = {}) => {
+      if (!["string", "number"].includes(typeof key)) {
+        return null;
+      }
+      key = `${key}`;
+      let match = key.match(regex);
+      let results = {};
+      if (match) {
+        for (let i = 0; i < names.length; i++) {
+          let key = names[i];
+          let value = match[i + 1];
+          let type = types[i];
+          switch (type) {
+            case "number": {
+              value = parseFloat(value);
+              break;
+            }
+            case "boolean": {
+              value = value === "true";
+              break;
+            }
+          }
+          if (key && value !== undefined) {
+            results[key] = value;
+          }
+        }
+      } else {
+        results = null;
+      }
+
+      return results;
+    };
+  }
+
+  _deconstructIndex({ index = TableIndex, keys = {} } = {}) {
+    const hasIndex = !!this.model.translations.keys[index];
+    if (!hasIndex) {
+      return null;
+    }
+    let pkName = this.model.translations.keys[index].pk;
+    let skName = this.model.translations.keys[index].sk;
+    const indexHasSortKey = this.model.lookup.indexHasSortKeys[index];
+    const deconstructors = this.model.keys.deconstructors[index];
+    const pk = keys[pkName];
+    if (pk === undefined) {
+      return null;
+    }
+    const pkComposites = deconstructors.pk({ key: pk });
+    if (pkComposites === null) {
+      return null;
+    }
+    let skComposites = {};
+    if (indexHasSortKey) {
+      const sk = keys[skName];
+      if (!sk) {
+        return null;
+      }
+      skComposites = deconstructors.sk({ key: sk });
+      if (skComposites === null) {
+        return null;
+      }
+    }
+    return {
+      ...pkComposites,
+      ...skComposites,
+    };
+  }
+
+  _formatKeysToItem(index = TableIndex, keys) {
+    if (
+      keys === null ||
+      typeof keys !== "object" ||
+      Object.keys(keys).length === 0
+    ) {
+      return keys;
+    }
+    let tableIndex = TableIndex;
+    let indexParts = this._deconstructIndex({ index, keys });
+    if (indexParts === null) {
+      return null;
+    }
+    // lastEvaluatedKeys from query calls include the index pk/sk as well as the table index's pk/sk
+    if (index !== tableIndex) {
+      const tableIndexParts = this._deconstructIndex({
+        index: tableIndex,
+        keys,
+      });
+      if (tableIndexParts === null) {
+        return null;
+      }
+      indexParts = { ...indexParts, ...tableIndexParts };
+    }
+    let noPartsFound =
+      Object.keys(indexParts).length === 0 &&
+      this.model.facets.byIndex[tableIndex].all.length > 0;
+    let partsAreIncomplete = this.model.facets.byIndex[tableIndex].all.find(
+      (facet) => indexParts[facet.name] === undefined,
+    );
+    if (noPartsFound || partsAreIncomplete) {
+      // In this case no suitable record could be found be the deconstructed pager.
+      // This can be valid in cases where a scan is performed but returns no results.
+      return null;
+    }
+
+    return indexParts;
+  }
+
+  _constructPagerIndex(index = TableIndex, item, options = {}) {
+    let pkAttributes = options.relaxedPk
+      ? item
+      : this._expectFacets(item, this.model.facets.byIndex[index].pk);
+    let skAttributes = options.relaxedSk
+      ? item
+      : this._expectFacets(item, this.model.facets.byIndex[index].sk);
+
+    let keys = this._makeIndexKeys({
+      index,
+      pkAttributes,
+      skAttributes: [skAttributes],
+    });
+
+    return this._makeParameterKey(index, keys.pk, ...keys.sk);
+  }
+
+  _formatSuppliedPager(index = TableIndex, item, options = {}) {
+    if (typeof item !== "object" || Object.keys(item).length === 0) {
+      return item;
+    }
+
+    let tableIndex = TableIndex;
+    let pager = this._constructPagerIndex(index, item, options);
+    if (index !== tableIndex) {
+      pager = {
+        ...pager,
+        ...this._constructPagerIndex(tableIndex, item, options),
+      };
+    }
+
+    return pager;
+  }
+
+  _normalizeExecutionOptions({ provided = [], context = {} } = {}) {
+    let config = {
+      includeKeys: false,
+      originalErr: false,
+      raw: false,
+      params: {},
+      page: {},
+      lastEvaluatedKeyRaw: false,
+      table: undefined,
+      concurrent: undefined,
+      parse: undefined,
+      pager: Pager.named,
+      unprocessed: UnprocessedTypes.item,
+      response: "default",
+      cursor: null,
+      data: "attributes",
+      ignoreOwnership: false,
+      _providedIgnoreOwnership: false,
+      _isPagination: false,
+      _isCollectionQuery: false,
+      pages: 1,
+      listeners: [],
+      preserveBatchOrder: false,
+      attributes: [],
+      terminalOperation: undefined,
+      formatCursor: u.cursorFormatter,
+      order: undefined,
+      hydrate: false,
+      hydrator: (_entity, _indexName, items) => items,
+      _includeOnResponseItem: {},
+    };
+
+    return provided.filter(Boolean).reduce((config, option) => {
+      if (typeof option.order === "string") {
+        switch (option.order.toLowerCase()) {
+          case "asc":
+            config.params[ResultOrderParam] = ResultOrderOption.asc;
+            break;
+          case "desc":
+            config.params[ResultOrderParam] = ResultOrderOption.desc;
+            break;
+          default:
+            throw new e.ElectroError(
+              e.ErrorCodes.InvalidOptions,
+              `Invalid value for query option "order" provided. Valid options include 'asc' and 'desc, received: "${option.order}"`,
+            );
+        }
+      }
+
+      if (typeof option.response === "string" && option.response.length) {
+        const format = ReturnValues[option.response];
+        if (format === undefined) {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidOptions,
+            `Invalid value for query option "format" provided: "${
+              option.format
+            }". Allowed values include ${u.commaSeparatedString(
+              Object.keys(ReturnValues),
+            )}.`,
+          );
+        }
+        config.response = format;
+        if (context.operation === MethodTypes.transactWrite) {
+          config.params.ReturnValuesOnConditionCheckFailure =
+            FormatToReturnValues[format];
+        } else {
+          config.params.ReturnValues = FormatToReturnValues[format];
+        }
+      }
+
+      if (option.formatCursor) {
+        const isValid = ["serialize", "deserialize"].every(
+          (method) =>
+            method in option.formatCursor &&
+            validations.isFunction(option.formatCursor[method]),
+        );
+        if (isValid) {
+          config.formatCursor = option.formatCursor;
+        } else {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidOptions,
+            `Invalid value for query option "formatCursor" provided. Formatter interface must have serialize and deserialize functions`,
+          );
+        }
+      }
+
+      if (option.terminalOperation in TerminalOperation) {
+        config.terminalOperation = TerminalOperation[option.terminalOperation];
+      }
+
+      if (Array.isArray(option.attributes)) {
+        config.attributes = config.attributes.concat(option.attributes);
+      }
+
+      if (option.preserveBatchOrder === true) {
+        config.preserveBatchOrder = true;
+      }
+
+      if (option.pages !== undefined) {
+        config.pages = option.pages;
+      }
+
+      if (option._isCollectionQuery === true) {
+        config._isCollectionQuery = true;
+      }
+
+      if (option.includeKeys === true) {
+        config.includeKeys = true;
+      }
+
+      if (option.originalErr === true) {
+        config.originalErr = true;
+      }
+
+      if (option.raw === true) {
+        config.raw = true;
+      }
+
+      if (option._isPagination) {
+        config._isPagination = true;
+      }
+
+      if (option.lastEvaluatedKeyRaw === true) {
+        config.lastEvaluatedKeyRaw = true;
+        config.pager = Pager.raw;
+        config.unprocessed = UnprocessedTypes.raw;
+      }
+
+      if (option.cursor) {
+        config.cursor = option.cursor;
+      }
+
+      if (option.data) {
+        config.data = option.data;
+        switch (option.data) {
+          case "raw":
+            config.raw = true;
+            break;
+          case "includeKeys":
+            config.includeKeys = true;
+            break;
+        }
+      }
+
+      if (option.limit !== undefined) {
+        config.limit = option.limit;
+        config.params.Limit = option.limit;
+      }
+
+      if (validations.isStringHasLength(option.table)) {
+        config.params.TableName = option.table;
+        config.table = option.table;
+      }
+
+      if (option.concurrent !== undefined) {
+        config.concurrent = option.concurrent;
+      }
+
+      if (validations.isFunction(option.parse)) {
+        config.parse = option.parse;
+      }
+
+      if (typeof option.pager === "string") {
+        if (typeof Pager[option.pager] === "string") {
+          config.pager = option.pager;
+        } else {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidOptions,
+            `Invalid value for option "pager" provided: "${
+              option.pager
+            }". Allowed values include ${u.commaSeparatedString(
+              Object.keys(Pager),
+            )}.`,
+          );
+        }
+      }
+
+      if (typeof option.unprocessed === "string") {
+        if (typeof UnprocessedTypes[option.unprocessed] === "string") {
+          config.unproessed = UnprocessedTypes[option.unprocessed];
+        } else {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidOptions,
+            `Invalid value for option "unprocessed" provided: "${
+              option.unprocessed
+            }". Allowed values include ${u.commaSeparatedString(
+              Object.keys(UnprocessedTypes),
+            )}.`,
+          );
+        }
+      }
+
+      if (option.ignoreOwnership) {
+        config.ignoreOwnership = option.ignoreOwnership;
+        config._providedIgnoreOwnership = option.ignoreOwnership;
+      }
+
+      if (option.listeners) {
+        if (Array.isArray(option.listeners)) {
+          config.listeners = config.listeners.concat(option.listeners);
+        }
+      }
+
+      if (option.logger) {
+        if (validations.isFunction(option.logger)) {
+          config.listeners.push(option.logger);
+        } else {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidLoggerProvided,
+            `Loggers must be of type function`,
+          );
+        }
+      }
+
+      if (option.hydrate) {
+        config.hydrate = true;
+        config.ignoreOwnership = true;
+      }
+
+      if (validations.isFunction(option.hydrator)) {
+        config.hydrator = option.hydrator;
+      }
+
+      if (option._includeOnResponseItem) {
+        config._includeOnResponseItem = {
+          ...config._includeOnResponseItem,
+          ...option._includeOnResponseItem,
+        };
+      }
+
+      config.page = Object.assign({}, config.page, option.page);
+      config.params = Object.assign({}, config.params, option.params);
+      return config;
+    }, config);
+  }
+
+  _applyParameterOptions({ params = {}, options = {} } = {}) {
+    let parameters = Object.assign({}, params);
+
+    for (let customParameter of Object.keys(options.params || {})) {
+      if (options.params[customParameter] !== undefined) {
+        parameters[customParameter] = options.params[customParameter];
+      }
+    }
+
+    return parameters;
+  }
+
+  addListeners(logger) {
+    this.eventManager.add(logger);
+  }
+
+  _addLogger(logger) {
+    if (validations.isFunction(logger)) {
+      this.addListeners(logger);
+    } else {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidLoggerProvided,
+        `Logger must be of type function`,
+      );
+    }
+  }
+
+  _getPrimaryIndexFieldNames() {
+    let hasSortKey = this.model.lookup.indexHasSortKeys[TableIndex];
+    let accessPattern =
+      this.model.translations.indexes.fromIndexToAccessPattern[TableIndex];
+    let pkField = this.model.indexes[accessPattern].pk.field;
+    let skField;
+    if (hasSortKey) {
+      skField = this.model.indexes[accessPattern].sk.field;
+    }
+    return {
+      pk: pkField,
+      sk: skField,
+    };
+  }
+
+  _applyParameterExpressionTypes(params, filter) {
+    const conditions = filter[ExpressionTypes.ConditionExpression];
+    if (conditions.build().length > 0) {
+      if (
+        typeof params[ExpressionTypes.ConditionExpression] === "string" &&
+        params[ExpressionTypes.ConditionExpression].length > 0
+      ) {
+        params[ExpressionTypes.ConditionExpression] = `${
+          params[ExpressionTypes.ConditionExpression]
+        } AND ${conditions.build()}`;
+      } else {
+        params[ExpressionTypes.ConditionExpression] = conditions.build();
+      }
+      if (Object.keys(conditions.getNames()).length > 0) {
+        params.ExpressionAttributeNames = params.ExpressionAttributeNames || {};
+        params.ExpressionAttributeNames = Object.assign(
+          {},
+          conditions.getNames(),
+          params.ExpressionAttributeNames,
+        );
+      }
+      if (Object.keys(conditions.getValues()).length > 0) {
+        params.ExpressionAttributeValues =
+          params.ExpressionAttributeValues || {};
+        params.ExpressionAttributeValues = Object.assign(
+          {},
+          conditions.getValues(),
+          params.ExpressionAttributeValues,
+        );
+      }
+    }
+    return params;
+  }
+  /* istanbul ignore next */
+  _params(state, config = {}) {
+    const {
+      keys = {},
+      method = "",
+      put = {},
+      update = {},
+      filter = {},
+      upsert,
+      updateProxy,
+    } = state.query;
+    let consolidatedQueryFacets = this._consolidateQueryFacets(keys.sk);
+    let params = {};
+    switch (method) {
+      case MethodTypes.check:
+      case MethodTypes.get:
+      case MethodTypes.delete:
+      case MethodTypes.remove:
+        params = this._makeSimpleIndexParams(
+          keys.pk,
+          ...consolidatedQueryFacets,
+        );
+        break;
+      case MethodTypes.upsert:
+        params = this._makeUpsertParams(
+          { update, upsert, updateProxy },
+          keys.pk,
+          ...keys.sk,
+        );
+        break;
+      case MethodTypes.put:
+      case MethodTypes.create:
+        params = this._makePutParams(put, keys.pk, ...keys.sk);
+        break;
+      case MethodTypes.update:
+      case MethodTypes.patch:
+        params = this._makeUpdateParams(
+          update,
+          keys.pk,
+          ...consolidatedQueryFacets,
+        );
+        break;
+      case MethodTypes.scan:
+        params = this._makeScanParam(filter[ExpressionTypes.FilterExpression]);
+        break;
+      /* istanbul ignore next */
+      default:
+        throw new Error(`Invalid method: ${method}`);
+    }
+
+    let appliedParameters = this._applyParameterOptions({
+      params,
+      options: config,
+    });
+
+    return this._applyParameterExpressions(
+      method,
+      appliedParameters,
+      config,
+      filter,
+    );
+  }
+
+  _applyParameterExpressions(method, parameters, config, filter) {
+    if (method !== MethodTypes.get) {
+      return this._applyParameterExpressionTypes(parameters, filter);
+    } else {
+      parameters = this._applyProjectionExpressions({ parameters, config });
+      return this._applyParameterExpressionTypes(parameters, filter);
+    }
+  }
+
+  _applyProjectionExpressions({ parameters = {}, config = {} } = {}) {
+    const attributes = config.attributes || [];
+    if (attributes.length === 0) {
+      return parameters;
+    }
+
+    const requiresRawResponse = !!config.raw;
+    const enforcesOwnership = !config.ignoreOwnership;
+    const requiresUserInvolvedPagination =
+      TerminalOperation[config.terminalOperation] === TerminalOperation.page;
+    const isServerBound =
+      TerminalOperation[config.terminalOperation] === TerminalOperation.go ||
+      TerminalOperation[config.terminalOperation] === TerminalOperation.page;
+
+    // 1. Take stock of invalid attributes, if there are any this should be considered
+    //    unintentional and should throw to prevent unintended results
+    // 2. Convert all attribute names to their respective "field" names
+    const unknownAttributes = [];
+    let attributeFields = new Set();
+    for (const attributeName of attributes) {
+      const fieldName = this.model.schema.getFieldName(attributeName);
+      if (typeof fieldName !== "string") {
+        unknownAttributes.push(attributeName);
+      } else {
+        attributeFields.add(fieldName);
+      }
+    }
+
+    // Stop doing work, prepare error message and throw
+    if (attributeFields.size === 0 || unknownAttributes.length > 0) {
+      let message = "Unknown attributes provided in query options";
+      if (unknownAttributes.length) {
+        message += `: ${u.commaSeparatedString(unknownAttributes)}`;
+      }
+      throw new e.ElectroError(e.ErrorCodes.InvalidOptions, message);
+    }
+
+    // add ExpressionAttributeNames if it doesn't exist already
+    parameters.ExpressionAttributeNames =
+      parameters.ExpressionAttributeNames || {};
+
+    if (
+      // The response you're returning:
+      // 1. is not expected to be raw
+      !requiresRawResponse &&
+      // 2. is making a request to the server
+      isServerBound &&
+      // 3. will expect entity identifiers down stream
+      enforcesOwnership
+    ) {
+      // add entity identifiers to so items can be identified
+      attributeFields.add(this.identifiers.entity);
+      attributeFields.add(this.identifiers.version);
+
+      // if pagination is required you may enter into a scenario where
+      // the LastEvaluatedKey doesn't belong to entity and one must be formed.
+      // We must add the attributes necessary to make that key to not break
+      // pagination. This stinks.
+      if (requiresUserInvolvedPagination && config.pager !== Pager.raw) {
+        // LastEvaluatedKeys return the TableIndex keys and the keys for the SecondaryIndex
+        let tableIndexFacets = this.model.facets.byIndex[TableIndex];
+        let indexFacets = this.model.facets.byIndex[parameters.IndexName] || {
+          all: [],
+        };
+
+        for (const attribute of [...tableIndexFacets.all, ...indexFacets.all]) {
+          const fieldName = this.model.schema.getFieldName(attribute.name);
+          attributeFields.add(fieldName);
+        }
+      }
+    }
+
+    for (const attributeField of attributeFields) {
+      // prefix the ExpressionAttributeNames because some prefixes are not allowed
+      parameters.ExpressionAttributeNames["#" + attributeField] =
+        attributeField;
+    }
+
+    // if there is already a ProjectionExpression (e.g. config "params"), merge it
+    if (typeof parameters.ProjectionExpression === "string") {
+      parameters.ProjectionExpression = [
+        parameters.ProjectionExpression,
+        ...Object.keys([parameters.ExpressionAttributeNames]),
+      ].join(", ");
+    } else {
+      parameters.ProjectionExpression = Object.keys(
+        parameters.ExpressionAttributeNames,
+      ).join(", ");
+    }
+
+    return parameters;
+  }
+
+  _batchGetParams(state, config = {}) {
+    let table = config.table || this.getTableName();
+    let userDefinedParams = config.params || {};
+
+    // TableName is added when the config provided includes "table"
+    // this is evaluated upstream so we remove it to avoid forming
+    // bad syntax. Code should reconsider how this is applied to
+    // make this cleaner :(
+    delete userDefinedParams.TableName;
+
+    let records = [];
+    for (let itemState of state.subStates) {
+      let method = itemState.query.method;
+      let params = this._params(itemState, config);
+      if (method === MethodTypes.get) {
+        let { Key } = params;
+        records.push(Key);
+      }
+    }
+    let batches = u.batchItems(records, MaxBatchItems.batchGet);
+    return batches.map((batch) => {
+      return {
+        RequestItems: {
+          [table]: {
+            ...userDefinedParams,
+            Keys: batch,
+          },
+        },
+      };
+    });
+  }
+
+  _batchWriteParams(state, config = {}) {
+    let table = config.table || this.getTableName();
+    let records = [];
+    for (let itemState of state.subStates) {
+      let method = itemState.query.method;
+      let params = this._params(itemState, config);
+      switch (method) {
+        case MethodTypes.put:
+          let { Item } = params;
+          records.push({ PutRequest: { Item } });
+          break;
+        case MethodTypes.delete:
+          let { Key } = params;
+          records.push({ DeleteRequest: { Key } });
+          break;
+        /* istanbul ignore next */
+        default:
+          throw new Error("Invalid method type");
+      }
+    }
+    let batches = u.batchItems(records, MaxBatchItems.batchWrite);
+    return batches.map((batch) => {
+      return {
+        RequestItems: {
+          [table]: batch,
+        },
+      };
+    });
+  }
+
+  _makeParameterKey(index, pk, sk) {
+    let hasSortKey = this.model.lookup.indexHasSortKeys[index];
+    let accessPattern =
+      this.model.translations.indexes.fromIndexToAccessPattern[index];
+    let pkField = this.model.indexes[accessPattern].pk.field;
+    let key = {
+      [pkField]: pk,
+    };
+    if (hasSortKey && sk !== undefined) {
+      let skField = this.model.indexes[accessPattern].sk.field;
+      key[skField] = sk;
+    }
+    return key;
+  }
+
+  getIdentifierExpressions(alias = this.getName()) {
+    let name = this.getName();
+    let version = this.getVersion();
+    return {
+      names: {
+        [`#${this.identifiers.entity}`]: this.identifiers.entity,
+        [`#${this.identifiers.version}`]: this.identifiers.version,
+      },
+      values: {
+        [`:${this.identifiers.entity}_${alias}`]: name,
+        [`:${this.identifiers.version}_${alias}`]: version,
+      },
+      expression: `(#${this.identifiers.entity} = :${this.identifiers.entity}_${alias} AND #${this.identifiers.version} = :${this.identifiers.version}_${alias})`,
+    };
+  }
+
+  /* istanbul ignore next */
+  _makeScanParam(filter = {}) {
+    let indexBase = TableIndex;
+    let hasSortKey = this.model.lookup.indexHasSortKeys[indexBase];
+    let accessPattern =
+      this.model.translations.indexes.fromIndexToAccessPattern[indexBase];
+    let pkField = this.model.indexes[accessPattern].pk.field;
+    let { pk, sk } = this._makeIndexKeys({
+      index: indexBase,
+    });
+    let keys = this._makeParameterKey(indexBase, pk, ...sk);
+    let keyExpressions = this._expressionAttributeBuilder(keys);
+    let params = {
+      TableName: this.getTableName(),
+      ExpressionAttributeNames: this._mergeExpressionsAttributes(
+        filter.getNames(),
+        keyExpressions.ExpressionAttributeNames,
+      ),
+      ExpressionAttributeValues: this._mergeExpressionsAttributes(
+        filter.getValues(),
+        keyExpressions.ExpressionAttributeValues,
+      ),
+      FilterExpression: `begins_with(#${pkField}, :${pkField})`,
+    };
+
+    if (hasSortKey) {
+      let skField = this.model.indexes[accessPattern].sk.field;
+      params.FilterExpression = `${params.FilterExpression} AND begins_with(#${skField}, :${skField})`;
+    }
+    if (filter.build()) {
+      params.FilterExpression = `${
+        params.FilterExpression
+      } AND ${filter.build()}`;
+    }
+    return params;
+  }
+
+  _makeSimpleIndexParams(partition, sort) {
+    let index = TableIndex;
+    let keys = this._makeIndexKeys({
+      index,
+      pkAttributes: partition,
+      skAttributes: [sort],
+    });
+    let Key = this._makeParameterKey(index, keys.pk, ...keys.sk);
+    let TableName = this.getTableName();
+    return { Key, TableName };
+  }
+
+  _removeAttributes(item, keys) {
+    let copy = { ...item };
+    for (let key of Object.keys(keys)) {
+      delete copy[key];
+    }
+    return copy;
+  }
+
+  _makeUpdateParams(update = {}, pk = {}, sk = {}) {
+    let primaryIndexAttributes = { ...pk, ...sk };
+    let modifiedAttributeValues = {};
+    let modifiedAttributeNames = {};
+    for (const path of Object.keys(update.paths)) {
+      const { value, name } = update.paths[path];
+      modifiedAttributeValues[path] = value;
+      modifiedAttributeNames[path] = name;
+    }
+    const removed = {};
+    for (const name in update.impacted) {
+      if (update.impacted[name] === ItemOperations.remove) {
+        removed[name] = name;
+      }
+    }
+    modifiedAttributeValues = this._removeAttributes(modifiedAttributeValues, {
+      ...pk,
+      ...sk,
+      ...this.model.schema.getReadOnly(),
+    });
+    const preparedUpdateValues = this.model.schema.applyAttributeSetters(
+      modifiedAttributeValues,
+    );
+    // We need to remove the pk/sk facets from before applying the Attribute setters because these values didnt
+    // change, and we also don't want to trigger the setters of any attributes watching these facets because that
+    // should only happen when an attribute is changed.
+    const attributesAndComposites = {
+      ...update.composites,
+      ...preparedUpdateValues,
+    };
+    const {
+      indexKey,
+      updatedKeys,
+      deletedKeys = [],
+    } = this._getUpdatedKeys(pk, sk, attributesAndComposites, removed);
+    const accessPattern =
+      this.model.translations.indexes.fromIndexToAccessPattern[TableIndex];
+    for (const path of Object.keys(preparedUpdateValues)) {
+      if (
+        modifiedAttributeNames[path] !== undefined &&
+        preparedUpdateValues[path] !== undefined
+      ) {
+        update.updateValue(
+          modifiedAttributeNames[path],
+          preparedUpdateValues[path],
+        );
+      } else if (preparedUpdateValues[path] !== undefined) {
+        const attr = this.model.schema.getAttribute(path);
+        if (attr) {
+          // attributes might enter into this flow because they were triggered via a `watch` event and were
+          // not supplied directly by the user. In this case we should set the field name.
+          // TODO: This will only work with root attributes and should be refactored for nested attributes.
+          update.set(attr.field, preparedUpdateValues[path]);
+        } else {
+          // this could be fields added by electro that don't apeear in the schema
+          update.set(path, preparedUpdateValues[path]);
+        }
+      }
+    }
+
+    for (const indexKey of Object.keys(updatedKeys)) {
+      const isNotTablePK =
+        indexKey !== this.model.indexes[accessPattern].pk.field;
+      const isNotTableSK =
+        indexKey !== this.model.indexes[accessPattern].sk.field;
+      const wasNotAlreadyModified =
+        modifiedAttributeNames[indexKey] === undefined;
+      if (isNotTablePK && isNotTableSK && wasNotAlreadyModified) {
+        update.set(indexKey, updatedKeys[indexKey]);
+      }
+    }
+
+    for (const indexKey of deletedKeys) {
+      const isNotTablePK =
+        indexKey !== this.model.indexes[accessPattern].pk.field;
+      const isNotTableSK =
+        indexKey !== this.model.indexes[accessPattern].sk.field;
+      const wasNotAlreadyModified =
+        modifiedAttributeNames[indexKey] === undefined;
+      if (isNotTablePK && isNotTableSK && wasNotAlreadyModified) {
+        update.remove(indexKey);
+      }
+    }
+
+    // This loop adds the composite attributes to the Primary Index. This is important
+    // in the case an update results in an "upsert". We want to add the Primary Index
+    // composite attributes to the update so they will be included on the item when it
+    // is created. It is done after all of the above because it is not a true "update"
+    // so it should not be subject to the above "rules".
+    for (const primaryIndexAttribute of Object.keys(primaryIndexAttributes)) {
+      // isNotTablePK and isNotTableSK is important to check in case these properties
+      // are not also the name of the index (you cannot modify the PK or SK of an item
+      // after its creation)
+      const attribute = this.model.schema.attributes[primaryIndexAttribute];
+      const isNotTablePK = !!(
+        attribute &&
+        attribute.field !== this.model.indexes[accessPattern].pk.field
+      );
+      const isNotTableSK = !!(
+        attribute &&
+        attribute.field !== this.model.indexes[accessPattern].sk.field
+      );
+      const wasNotAlreadyModified =
+        modifiedAttributeNames[primaryIndexAttribute] === undefined;
+      if (isNotTablePK && isNotTableSK && wasNotAlreadyModified) {
+        update.set(
+          primaryIndexAttribute,
+          primaryIndexAttributes[primaryIndexAttribute],
+        );
+      }
+    }
+
+    update.set(this.identifiers.entity, this.getName());
+    update.set(this.identifiers.version, this.getVersion());
+
+    return {
+      UpdateExpression: update.build(),
+      ExpressionAttributeNames: update.getNames(),
+      ExpressionAttributeValues: update.getValues(),
+      TableName: this.getTableName(),
+      Key: indexKey,
+    };
+  }
+
+  /* istanbul ignore next */
+  _makePutParams({ data } = {}, pk, sk) {
+    let appliedData = this.model.schema.applyAttributeSetters(data);
+    let { updatedKeys, setAttributes } = this._getPutKeys(
+      pk,
+      sk && sk.facets,
+      appliedData,
+    );
+    let translatedFields = this.model.schema.translateToFields(setAttributes);
+    return {
+      Item: {
+        ...translatedFields,
+        ...updatedKeys,
+        [this.identifiers.entity]: this.getName(),
+        [this.identifiers.version]: this.getVersion(),
+      },
+      TableName: this.getTableName(),
+    };
+  }
+
+  _maybeApplyUpsertUpdate({ fields = [], operation, updateProxy, update }) {
+    for (let [field, value] of fields) {
+      const name = this.model.schema.translationForRetrieval[field];
+      if (name) {
+        const attribute = this.model.schema.attributes[name];
+        if (
+          this.model.schema.readOnlyAttributes.has(name) &&
+          (!attribute || !attribute.indexes || attribute.indexes.length === 0)
+        ) {
+          /*
 						// this should be considered but is likely overkill at best and unexpected at worst. 
 						// It also is likely symbolic of a deeper issue. That said maybe it could be helpful
 						// in the future? It is unclear, if this were added, whether this should get the
@@ -8897,81 +9663,92 @@ class Entity {
 							value = resolvedDefaultValue + value;
 					// }
 					*/
-					update.set(field, value, ItemOperations.ifNotExists);
-				} else {
-					updateProxy.performOperation({
-						value,
-						operation,
-						path: name,
-						force: true
-					});
-				}
-			} else {
-				// I think this is for keys
-				update.set(field, value, operation);
-			}
-		}
-	}
+          update.set(field, value, ItemOperations.ifNotExists);
+        } else {
+          updateProxy.performOperation({
+            value,
+            operation,
+            path: name,
+            force: true,
+          });
+        }
+      } else {
+        // I think this is for keys
+        update.set(field, value, operation);
+      }
+    }
+  }
 
-	_makeUpsertParams({ update, upsert } = {}) {
-		return {
-			TableName: this.getTableName(),
-			UpdateExpression: update.build(),
-			ExpressionAttributeNames: update.getNames(),
-			ExpressionAttributeValues: update.getValues(),
-			Key: upsert.indexKey,
-		};
-	}
+  _makeUpsertParams({ update, upsert } = {}) {
+    return {
+      TableName: this.getTableName(),
+      UpdateExpression: update.build(),
+      ExpressionAttributeNames: update.getNames(),
+      ExpressionAttributeValues: update.getValues(),
+      Key: upsert.indexKey,
+    };
+  }
 
-	_updateExpressionBuilder(data) {
-		let accessPattern = this.model.translations.indexes.fromIndexToAccessPattern[TableIndex]
-		let skip = [
-			// Removing readOnly from here because this should have been validated earlier in the process. Not checking
-			// readOnly here also allows `watch` properties to circumnavigate the readOnly check for attributes that
-			// should be calculated but not updatable by the user.
-			// ...this.model.schema.getReadOnly(),
+  _updateExpressionBuilder(data) {
+    let accessPattern =
+      this.model.translations.indexes.fromIndexToAccessPattern[TableIndex];
+    let skip = [
+      // Removing readOnly from here because this should have been validated earlier in the process. Not checking
+      // readOnly here also allows `watch` properties to circumnavigate the readOnly check for attributes that
+      // should be calculated but not updatable by the user.
+      // ...this.model.schema.getReadOnly(),
 
-			// ...this.model.facets.fields,
-			this.model.indexes[accessPattern].pk.field,
-			this.model.indexes[accessPattern].sk.field
-		];
-		return this._expressionAttributeBuilder(data, ItemOperations.set, { skip });
-	}
+      // ...this.model.facets.fields,
+      this.model.indexes[accessPattern].pk.field,
+      this.model.indexes[accessPattern].sk.field,
+    ];
+    return this._expressionAttributeBuilder(data, ItemOperations.set, { skip });
+  }
 
-	_queryKeyExpressionAttributeBuilder(index, pk, ...sks) {
-		let translate = { ...this.model.translations.keys[index] };
-		let restrict = ["pk"];
-		let keys = { pk };
-		sks = sks.filter(sk => sk !== undefined);
+  _queryKeyExpressionAttributeBuilder(index, pk, ...sks) {
+    let translate = { ...this.model.translations.keys[index] };
+    let restrict = ["pk"];
+    let keys = { pk };
+    sks = sks.filter((sk) => sk !== undefined);
 
-		for (let i = 0; i < sks.length; i++) {
-			let id = `sk${i + 1}`;
-			keys[id] = sks[i];
-			restrict.push(id);
-			translate[id] = translate["sk"];
-		}
+    for (let i = 0; i < sks.length; i++) {
+      let id = `sk${i + 1}`;
+      keys[id] = sks[i];
+      restrict.push(id);
+      translate[id] = translate["sk"];
+    }
 
-		let keyExpressions = this._expressionAttributeBuilder(keys, ItemOperations.set, {
-			translate,
-			restrict,
-		});
+    let keyExpressions = this._expressionAttributeBuilder(
+      keys,
+      ItemOperations.set,
+      {
+        translate,
+        restrict,
+      },
+    );
 
-		return {
-			ExpressionAttributeNames: Object.assign({}, keyExpressions.ExpressionAttributeNames),
-			ExpressionAttributeValues: Object.assign({}, keyExpressions.ExpressionAttributeValues),
-		};
-	}
+    return {
+      ExpressionAttributeNames: Object.assign(
+        {},
+        keyExpressions.ExpressionAttributeNames,
+      ),
+      ExpressionAttributeValues: Object.assign(
+        {},
+        keyExpressions.ExpressionAttributeValues,
+      ),
+    };
+  }
 
-	/* istanbul ignore next */
-	_expressionAttributeBuilder(item = {}, operation = "", options = {}) {
-		let {
-			require = [],
-			reject = [],
-			restrict = [],
-			skip = [],
-			translate = {},
-		} = options;
-		/*
+  /* istanbul ignore next */
+  _expressionAttributeBuilder(item = {}, operation = "", options = {}) {
+    let {
+      require = [],
+      reject = [],
+      restrict = [],
+      skip = [],
+      translate = {},
+    } = options;
+    /*
         In order of execution:
         require   - if all elements in require are not present as attributes, it throws.
         reject    - if an attribute on item is present in "reject", it throws.
@@ -8979,561 +9756,644 @@ class Entity {
         skip      - if an attribute matches an element in "skip", it is skipped.
         translate - if an attribute in item matches a property in "translate", use the value in "translate".
     */
-		let expressions = {
-			UpdateExpression: [],
-			ExpressionAttributeNames: {},
-			ExpressionAttributeValues: {},
-		};
+    let expressions = {
+      UpdateExpression: [],
+      ExpressionAttributeNames: {},
+      ExpressionAttributeValues: {},
+    };
 
-		if (require.length) {
-			let props = Object.keys(item);
-			let missing = require.filter((prop) => !props.includes(prop));
-			if (!missing) {
-				throw new e.ElectroError(e.ErrorCodes.MissingAttribute, `Item is missing attributes: ${u.commaSeparatedString(missing)}`);
-			}
-		}
+    if (require.length) {
+      let props = Object.keys(item);
+      let missing = require.filter((prop) => !props.includes(prop));
+      if (!missing) {
+        throw new e.ElectroError(
+          e.ErrorCodes.MissingAttribute,
+          `Item is missing attributes: ${u.commaSeparatedString(missing)}`,
+        );
+      }
+    }
 
-		for (let prop in item) {
-			if (reject.includes(prop)) {
-				throw new Error(`Invalid attribute ${prop}`);
-			}
-			if (restrict.length && !restrict.includes(prop)) {
-				throw new Error(`${prop} is not a valid attribute: ${u.commaSeparatedString(restrict)}`);
-			}
-			if (prop === undefined || skip.includes(prop)) {
-				continue;
-			}
+    for (let prop in item) {
+      if (reject.includes(prop)) {
+        throw new Error(`Invalid attribute ${prop}`);
+      }
+      if (restrict.length && !restrict.includes(prop)) {
+        throw new Error(
+          `${prop} is not a valid attribute: ${u.commaSeparatedString(
+            restrict,
+          )}`,
+        );
+      }
+      if (prop === undefined || skip.includes(prop)) {
+        continue;
+      }
 
-			let name = prop;
-			let value = item[prop];
-			let nameProp = `#${prop}`;
-			let valProp = `:${prop}`;
+      let name = prop;
+      let value = item[prop];
+      let nameProp = `#${prop}`;
+      let valProp = `:${prop}`;
 
-			if (translate[prop]) {
-				name = translate[prop];
-			}
+      if (translate[prop]) {
+        name = translate[prop];
+      }
 
-			expressions.UpdateExpression.push(`${nameProp} = ${valProp}`);
-			expressions.ExpressionAttributeNames[nameProp] = name;
-			expressions.ExpressionAttributeValues[valProp] = value;
-		}
-		expressions.UpdateExpression = `${operation.toUpperCase()} ${expressions.UpdateExpression.join(
-			", ",
-		)}`;
-		return expressions;
-	}
+      expressions.UpdateExpression.push(`${nameProp} = ${valProp}`);
+      expressions.ExpressionAttributeNames[nameProp] = name;
+      expressions.ExpressionAttributeValues[valProp] = value;
+    }
+    expressions.UpdateExpression = `${operation.toUpperCase()} ${expressions.UpdateExpression.join(
+      ", ",
+    )}`;
+    return expressions;
+  }
 
-	_makeQueryKeys(state) {
-		let consolidatedQueryFacets = this._consolidateQueryFacets(
-			state.query.keys.sk,
-		);
-		switch (state.query.type) {
-			case QueryTypes.is:
-				return this._makeIndexKeys({
-					index: state.query.index,
-					pkAttributes: state.query.keys.pk,
-					skAttributes: consolidatedQueryFacets,
-					indexType: state.query.options.indexType,
-					queryType: state.query.type,
-					isCollection: state.query.options._isCollectionQuery,
-				});
-			default:
-				return this._makeIndexKeysWithoutTail(state, consolidatedQueryFacets);
-		}
-	}
+  _makeQueryKeys(state) {
+    let consolidatedQueryFacets = this._consolidateQueryFacets(
+      state.query.keys.sk,
+    );
+    switch (state.query.type) {
+      case QueryTypes.is:
+        return this._makeIndexKeys({
+          index: state.query.index,
+          pkAttributes: state.query.keys.pk,
+          skAttributes: consolidatedQueryFacets,
+          indexType: state.query.options.indexType,
+          queryType: state.query.type,
+          isCollection: state.query.options._isCollectionQuery,
+        });
+      default:
+        return this._makeIndexKeysWithoutTail(state, consolidatedQueryFacets);
+    }
+  }
 
-	/* istanbul ignore next */
-	_queryParams(state = {}, options = {}) {
-		const indexKeys = this._makeQueryKeys(state);
-		let parameters = {};
-		switch (state.query.type) {
-			case QueryTypes.is:
-				parameters = this._makeIsQueryParams(
-					state.query,
-					state.query.index,
-					state.query.filter[ExpressionTypes.FilterExpression],
-					indexKeys.pk,
-					...indexKeys.sk,
-				);
-				break;
-			case QueryTypes.begins:
-				parameters = this._makeBeginsWithQueryParams(
-					state.query.options,
-					state.query.index,
-					state.query.filter[ExpressionTypes.FilterExpression],
-					indexKeys.pk,
-					...indexKeys.sk,
-				);
-				break;
-			case QueryTypes.collection:
-				parameters = this._makeBeginsWithQueryParams(
-					state.query.options,
-					state.query.index,
-					state.query.filter[ExpressionTypes.FilterExpression],
-					indexKeys.pk,
-					this._getCollectionSk(state.query.collection),
-				);
-				break;
-			case QueryTypes.clustered_collection:
-				parameters = this._makeBeginsWithQueryParams(
-					state.query.options,
-					state.query.index,
-					state.query.filter[ExpressionTypes.FilterExpression],
-					indexKeys.pk,
-					...indexKeys.sk,
-				);
-				break;
-			case QueryTypes.between:
-				parameters = this._makeBetweenQueryParams(
-					state.query.index,
-					state.query.filter[ExpressionTypes.FilterExpression],
-					indexKeys.pk,
-					...indexKeys.sk,
-				);
-				break;
-			case QueryTypes.gte:
-			case QueryTypes.gt:
-			case QueryTypes.lte:
-			case QueryTypes.lt:
-				parameters = this._makeComparisonQueryParams(
-					state.query.index,
-					state.query.type,
-					state.query.filter[ExpressionTypes.FilterExpression],
-					indexKeys,
-				);
-				break;
-			default:
-				throw new Error(`Invalid query type: ${state.query.type}`);
-		}
+  /* istanbul ignore next */
+  _queryParams(state = {}, options = {}) {
+    const indexKeys = this._makeQueryKeys(state);
+    let parameters = {};
+    switch (state.query.type) {
+      case QueryTypes.is:
+        parameters = this._makeIsQueryParams(
+          state.query,
+          state.query.index,
+          state.query.filter[ExpressionTypes.FilterExpression],
+          indexKeys.pk,
+          ...indexKeys.sk,
+        );
+        break;
+      case QueryTypes.begins:
+        parameters = this._makeBeginsWithQueryParams(
+          state.query.options,
+          state.query.index,
+          state.query.filter[ExpressionTypes.FilterExpression],
+          indexKeys.pk,
+          ...indexKeys.sk,
+        );
+        break;
+      case QueryTypes.collection:
+        parameters = this._makeBeginsWithQueryParams(
+          state.query.options,
+          state.query.index,
+          state.query.filter[ExpressionTypes.FilterExpression],
+          indexKeys.pk,
+          this._getCollectionSk(state.query.collection),
+        );
+        break;
+      case QueryTypes.clustered_collection:
+        parameters = this._makeBeginsWithQueryParams(
+          state.query.options,
+          state.query.index,
+          state.query.filter[ExpressionTypes.FilterExpression],
+          indexKeys.pk,
+          ...indexKeys.sk,
+        );
+        break;
+      case QueryTypes.between:
+        parameters = this._makeBetweenQueryParams(
+          state.query.index,
+          state.query.filter[ExpressionTypes.FilterExpression],
+          indexKeys.pk,
+          ...indexKeys.sk,
+        );
+        break;
+      case QueryTypes.gte:
+      case QueryTypes.gt:
+      case QueryTypes.lte:
+      case QueryTypes.lt:
+        parameters = this._makeComparisonQueryParams(
+          state.query.index,
+          state.query.type,
+          state.query.filter[ExpressionTypes.FilterExpression],
+          indexKeys,
+        );
+        break;
+      default:
+        throw new Error(`Invalid query type: ${state.query.type}`);
+    }
 
-		const appliedParameters = this._applyParameterOptions({
-			params: parameters,
-			options,
-		});
+    const appliedParameters = this._applyParameterOptions({
+      params: parameters,
+      options,
+    });
 
-		return this._applyProjectionExpressions({
-			parameters: appliedParameters,
-			config: options,
-		});
-	}
+    return this._applyProjectionExpressions({
+      parameters: appliedParameters,
+      config: options,
+    });
+  }
 
-	_makeBetweenQueryParams(index, filter, pk, ...sk) {
-		let keyExpressions = this._queryKeyExpressionAttributeBuilder(
-			index,
-			pk,
-			...sk,
-		);
-		delete keyExpressions.ExpressionAttributeNames["#sk2"];
-		let params = {
-			TableName: this.getTableName(),
-			ExpressionAttributeNames: this._mergeExpressionsAttributes(
-				filter.getNames(),
-				keyExpressions.ExpressionAttributeNames,
-			),
-			ExpressionAttributeValues: this._mergeExpressionsAttributes(
-				filter.getValues(),
-				keyExpressions.ExpressionAttributeValues,
-			),
-			KeyConditionExpression: `#pk = :pk and #sk1 BETWEEN :sk1 AND :sk2`,
-		};
-		if (index) {
-			params["IndexName"] = index;
-		}
-		if (filter.build()) {
-			params.FilterExpression = filter.build();
-		}
-		return params;
-	}
+  _makeBetweenQueryParams(index, filter, pk, ...sk) {
+    let keyExpressions = this._queryKeyExpressionAttributeBuilder(
+      index,
+      pk,
+      ...sk,
+    );
+    delete keyExpressions.ExpressionAttributeNames["#sk2"];
+    let params = {
+      TableName: this.getTableName(),
+      ExpressionAttributeNames: this._mergeExpressionsAttributes(
+        filter.getNames(),
+        keyExpressions.ExpressionAttributeNames,
+      ),
+      ExpressionAttributeValues: this._mergeExpressionsAttributes(
+        filter.getValues(),
+        keyExpressions.ExpressionAttributeValues,
+      ),
+      KeyConditionExpression: `#pk = :pk and #sk1 BETWEEN :sk1 AND :sk2`,
+    };
+    if (index) {
+      params["IndexName"] = index;
+    }
+    if (filter.build()) {
+      params.FilterExpression = filter.build();
+    }
+    return params;
+  }
 
-	_makeInclusiveQueryParams(options, index, filter, pk, sk, type) {
-		let keyExpressions = this._queryKeyExpressionAttributeBuilder(index, pk, sk);
-		let KeyConditionExpression = "#pk = :pk";
+  _makeInclusiveQueryParams(options, index, filter, pk, sk, type) {
+    let keyExpressions = this._queryKeyExpressionAttributeBuilder(
+      index,
+      pk,
+      sk,
+    );
+    let KeyConditionExpression = "#pk = :pk";
 
-		if (this.model.lookup.indexHasSortKeys[index] && typeof keyExpressions.ExpressionAttributeValues[":sk1"] === "string" && keyExpressions.ExpressionAttributeValues[":sk1"].length > 0) {
-			if (type === QueryTypes.is) {
-				KeyConditionExpression = `${KeyConditionExpression} and #sk1 = :sk1`;
-			} else {
-				KeyConditionExpression = `${KeyConditionExpression} and begins_with(#sk1, :sk1)`;
-			}
-		} else {
-			delete keyExpressions.ExpressionAttributeNames["#sk1"];
-			delete keyExpressions.ExpressionAttributeValues[":sk1"];
-		}
+    if (
+      this.model.lookup.indexHasSortKeys[index] &&
+        (typeof keyExpressions.ExpressionAttributeValues[":sk1"] === "number" ||
+        (typeof keyExpressions.ExpressionAttributeValues[":sk1"] === "string" &&
+        keyExpressions.ExpressionAttributeValues[":sk1"].length > 0))
+    ) {
+      if (type === QueryTypes.is) {
+        KeyConditionExpression = `${KeyConditionExpression} and #sk1 = :sk1`;
+      } else {
+        KeyConditionExpression = `${KeyConditionExpression} and begins_with(#sk1, :sk1)`;
+      }
+    } else {
+      delete keyExpressions.ExpressionAttributeNames["#sk1"];
+      delete keyExpressions.ExpressionAttributeValues[":sk1"];
+    }
 
-		let customExpressions = {
-			names: (options.expressions && options.expressions.names) || {},
-			values: (options.expressions && options.expressions.values) || {},
-			expression: (options.expressions && options.expressions.expression) || ""
-		};
+    let customExpressions = {
+      names: (options.expressions && options.expressions.names) || {},
+      values: (options.expressions && options.expressions.values) || {},
+      expression: (options.expressions && options.expressions.expression) || "",
+    };
 
-		let params = {
-			KeyConditionExpression,
-			TableName: this.getTableName(),
-			ExpressionAttributeNames: this._mergeExpressionsAttributes(filter.getNames(), keyExpressions.ExpressionAttributeNames, customExpressions.names),
-			ExpressionAttributeValues: this._mergeExpressionsAttributes(filter.getValues(), keyExpressions.ExpressionAttributeValues, customExpressions.values),
-		};
+    let params = {
+      KeyConditionExpression,
+      TableName: this.getTableName(),
+      ExpressionAttributeNames: this._mergeExpressionsAttributes(
+        filter.getNames(),
+        keyExpressions.ExpressionAttributeNames,
+        customExpressions.names,
+      ),
+      ExpressionAttributeValues: this._mergeExpressionsAttributes(
+        filter.getValues(),
+        keyExpressions.ExpressionAttributeValues,
+        customExpressions.values,
+      ),
+    };
 
-		if (index) {
-			params["IndexName"] = index;
-		}
+    if (index) {
+      params["IndexName"] = index;
+    }
 
-		let expressions = [customExpressions.expression, filter.build()].filter(Boolean).join(" AND ");
+    let expressions = [customExpressions.expression, filter.build()]
+      .filter(Boolean)
+      .join(" AND ");
 
-		if (expressions.length) {
-			params.FilterExpression = expressions;
-		}
+    if (expressions.length) {
+      params.FilterExpression = expressions;
+    }
 
-		return params;
-	}
+    return params;
+  }
 
-	_makeIsQueryParams(query, index, filter, pk, sk) {
-		const { options, keys } = query;
+  _makeIsQueryParams(query, index, filter, pk, sk) {
+    const { options, keys } = query;
 
-		const providedSks = keys.provided
-			.filter(item => item.type === KeyTypes.sk)
-			.map(item => item.attribute);
+    const providedSks = keys.provided
+      .filter((item) => item.type === KeyTypes.sk)
+      .map((item) => item.attribute);
 
-		const skDefinition = (this.model.facets.byIndex[index] &&
-			this.model.facets.byIndex[index].sk &&
-			Array.isArray(this.model.facets.byIndex[index].sk) &&
-			this.model.facets.byIndex[index].sk
-		) || [];
+    const skDefinition =
+      (this.model.facets.byIndex[index] &&
+        this.model.facets.byIndex[index].sk &&
+        Array.isArray(this.model.facets.byIndex[index].sk) &&
+        this.model.facets.byIndex[index].sk) ||
+      [];
 
-		const skCompositeAttributes = new Set(skDefinition);
-		const skIsCompletelyFulfilled = skCompositeAttributes.size === providedSks.length &&
-			skDefinition.every(attr => providedSks.includes(attr));
+    const skCompositeAttributes = new Set(skDefinition);
+    const skIsCompletelyFulfilled =
+      skCompositeAttributes.size === providedSks.length &&
+      skDefinition.every((attr) => providedSks.includes(attr));
 
-		if (skIsCompletelyFulfilled) {
-			return this._makeInclusiveQueryParams(options, index, filter, pk, sk, QueryTypes.is);
-		} else {
-			return this._makeBeginsWithQueryParams(options, index, filter, pk, sk);
-		}
+    if (skIsCompletelyFulfilled) {
+      return this._makeInclusiveQueryParams(
+        options,
+        index,
+        filter,
+        pk,
+        sk,
+        QueryTypes.is,
+      );
+    } else {
+      return this._makeBeginsWithQueryParams(options, index, filter, pk, sk);
+    }
+  }
 
-	}
+  _makeBeginsWithQueryParams(options, index, filter, pk, sk) {
+    return this._makeInclusiveQueryParams(
+      options,
+      index,
+      filter,
+      pk,
+      sk,
+      QueryTypes.begins,
+    );
+  }
 
-	_makeBeginsWithQueryParams(options, index, filter, pk, sk) {
-		return this._makeInclusiveQueryParams(options, index, filter, pk, sk, QueryTypes.begins);
-	}
+  _mergeExpressionsAttributes(...expressionAttributes) {
+    let merged = {};
+    for (let obj of expressionAttributes) {
+      if (obj) {
+        merged = { ...merged, ...obj };
+      }
+    }
+    return merged;
+  }
 
-	_mergeExpressionsAttributes(...expressionAttributes) {
-		let merged = {};
-		for (let obj of expressionAttributes) {
-			if (obj) {
-				merged = { ...merged, ...obj };
-			}
-		}
-		return merged;
-	}
+  /* istanbul ignore next */
+  _makeComparisonQueryParams(
+    index = TableIndex,
+    comparison = "",
+    filter = {},
+    indexKeys = {},
+  ) {
+    const { pk, fulfilled } = indexKeys;
+    const sk = indexKeys.sk[0];
+    let operator = PartialComparisons[comparison];
+    // fulfilled
+    // ? Comparisons[comparison]
+    // : PartialComparisons[comparison];
 
-	/* istanbul ignore next */
-	_makeComparisonQueryParams(index = TableIndex, comparison = "", filter = {}, indexKeys = {}) {
-		const {pk, fulfilled} = indexKeys;
-		const sk = indexKeys.sk[0];
-		let operator = PartialComparisons[comparison];
-			// fulfilled
-			// ? Comparisons[comparison]
-			// : PartialComparisons[comparison];
+    if (!operator) {
+      throw new Error(
+        `Unexpected comparison operator "${comparison}", expected ${u.commaSeparatedString(
+          Object.values(Comparisons),
+        )}`,
+      );
+    }
+    let keyExpressions = this._queryKeyExpressionAttributeBuilder(
+      index,
+      pk,
+      sk,
+    );
+    let params = {
+      TableName: this.getTableName(),
+      ExpressionAttributeNames: this._mergeExpressionsAttributes(
+        filter.getNames(),
+        keyExpressions.ExpressionAttributeNames,
+      ),
+      ExpressionAttributeValues: this._mergeExpressionsAttributes(
+        filter.getValues(),
+        keyExpressions.ExpressionAttributeValues,
+      ),
+      KeyConditionExpression: `#pk = :pk and #sk1 ${operator} :sk1`,
+    };
+    if (index) {
+      params["IndexName"] = index;
+    }
+    if (filter.build()) {
+      params.FilterExpression = filter.build();
+    }
+    return params;
+  }
 
-		if (!operator) {
-			throw new Error(`Unexpected comparison operator "${comparison}", expected ${u.commaSeparatedString(Object.values(Comparisons))}`);
-		}
-		let keyExpressions = this._queryKeyExpressionAttributeBuilder(
-			index,
-			pk,
-			sk,
-		);
-		let params = {
-			TableName: this.getTableName(),
-			ExpressionAttributeNames: this._mergeExpressionsAttributes(
-				filter.getNames(),
-				keyExpressions.ExpressionAttributeNames,
-			),
-			ExpressionAttributeValues: this._mergeExpressionsAttributes(
-				filter.getValues(),
-				keyExpressions.ExpressionAttributeValues,
-			),
-			KeyConditionExpression: `#pk = :pk and #sk1 ${operator} :sk1`,
-		};
-		if (index) {
-			params["IndexName"] = index;
-		}
-		if (filter.build()) {
-			params.FilterExpression = filter.build();
-		}
-		return params;
-	}
+  _expectIndexFacets(attributes, facets) {
+    let [isIncomplete, { incomplete, complete }] = this._getIndexImpact(
+      attributes,
+      facets,
+    );
+    if (isIncomplete) {
+      let incompleteAccessPatterns = incomplete.map(
+        ({ index }) =>
+          this.model.translations.indexes.fromIndexToAccessPattern[index],
+      );
+      let missingFacets = incomplete.reduce(
+        (result, { missing }) => [...result, ...missing],
+        [],
+      );
+      throw new e.ElectroError(
+        e.ErrorCodes.IncompleteCompositeAttributes,
+        `Incomplete composite attributes: Without the composite attributes ${u.commaSeparatedString(
+          missingFacets,
+        )} the following access patterns cannot be updated: ${u.commaSeparatedString(
+          incompleteAccessPatterns.filter((val) => val !== undefined),
+        )}. If a composite attribute is readOnly and cannot be set, use the 'composite' chain method on update to supply the value for key formatting purposes.`,
+      );
+    }
+    return complete;
+  }
 
-	_expectIndexFacets(attributes, facets) {
-		let [isIncomplete, { incomplete, complete }] = this._getIndexImpact(
-			attributes,
-			facets,
-		);
-		if (isIncomplete) {
-			let incompleteAccessPatterns = incomplete.map(({index}) => this.model.translations.indexes.fromIndexToAccessPattern[index]);
-			let missingFacets = incomplete.reduce((result, { missing }) => [...result, ...missing], []);
-			throw new e.ElectroError(e.ErrorCodes.IncompleteCompositeAttributes,
-				`Incomplete composite attributes: Without the composite attributes ${u.commaSeparatedString(missingFacets)} the following access patterns cannot be updated: ${u.commaSeparatedString(incompleteAccessPatterns.filter((val) => val !== undefined))}. If a composite attribute is readOnly and cannot be set, use the 'composite' chain method on update to supply the value for key formatting purposes.`,
-			);
-		}
-		return complete;
-	}
+  _makeKeysFromAttributes(indexes, attributes) {
+    let indexKeys = {};
+    for (let [index, keyTypes] of Object.entries(indexes)) {
+      let keys = this._makeIndexKeys({
+        index,
+        pkAttributes: attributes,
+        skAttributes: [attributes],
+      });
+      if (keyTypes.pk || keyTypes.sk) {
+        indexKeys[index] = {};
+      }
 
-	_makeKeysFromAttributes(indexes, attributes) {
-		let indexKeys = {};
-		for (let [index, keyTypes] of Object.entries(indexes)) {
-			let keys = this._makeIndexKeys({
-				index,
-				pkAttributes: attributes,
-				skAttributes: [attributes],
-			});
-			if (keyTypes.pk || keyTypes.sk) {
-				indexKeys[index] = {};
-			}
+      if (keyTypes.pk && keys.pk) {
+        indexKeys[index].pk = keys.pk;
+      }
 
-			if (keyTypes.pk && keys.pk) {
-				indexKeys[index].pk = keys.pk
-			}
+      if (keyTypes.sk && keys.sk) {
+        indexKeys[index].sk = keys.sk;
+      } else {
+        // at least return the same datatype (array)
+        indexKeys[index].sk = [];
+      }
+    }
+    return indexKeys;
+  }
 
-			if (keyTypes.sk && keys.sk) {
-				indexKeys[index].sk = keys.sk
-			} else {
-				// at least return the same datatype (array)
-				indexKeys[index].sk = []
-			}
-		}
-		return indexKeys;
-	}
+  _makePutKeysFromAttributes(indexes, attributes) {
+    let indexKeys = {};
+    for (let index of indexes) {
+      indexKeys[index] = this._makeIndexKeys({
+        index,
+        pkAttributes: attributes,
+        skAttributes: [attributes],
+      });
+    }
+    return indexKeys;
+  }
 
-	_makePutKeysFromAttributes(indexes, attributes) {
-		let indexKeys = {};
-		for (let index of indexes) {
-			indexKeys[index] = this._makeIndexKeys({
-				index,
-				pkAttributes: attributes,
-				skAttributes: [attributes],
-			});
-		}
-		return indexKeys;
-	}
+  _getPutKeys(pk, sk, set, validationAssistance) {
+    let setAttributes = set;
+    let updateIndex = TableIndex;
+    let keyTranslations = this.model.translations.keys;
+    let keyAttributes = { ...sk, ...pk };
+    let completeFacets = this._expectIndexFacets(
+      { ...setAttributes, ...validationAssistance },
+      { ...keyAttributes },
+    );
 
-	_getPutKeys(pk, sk, set, validationAssistance) {
-		let setAttributes = set;
-		let updateIndex = TableIndex;
-		let keyTranslations = this.model.translations.keys;
-		let keyAttributes = { ...sk, ...pk };
-		let completeFacets = this._expectIndexFacets(
-			{ ...setAttributes, ...validationAssistance },
-			{ ...keyAttributes },
-		);
+    // complete facets, only includes impacted facets which likely does not include the updateIndex which then needs to be added here.
+    if (!completeFacets.indexes.includes(updateIndex)) {
+      completeFacets.indexes.push(updateIndex);
+    }
+    let composedKeys = this._makePutKeysFromAttributes(completeFacets.indexes, {
+      ...keyAttributes,
+      ...setAttributes,
+    });
+    let updatedKeys = {};
+    let indexKey = {};
+    for (let [index, keys] of Object.entries(composedKeys)) {
+      let { pk, sk } = keyTranslations[index];
+      if (index === updateIndex) {
+        indexKey[pk] = keys.pk;
+        if (sk) {
+          indexKey[sk] = keys.sk[0];
+        }
+      }
+      if (keys.pk !== undefined && keys.pk !== "") {
+        updatedKeys[pk] = keys.pk;
+      }
+      if (sk && keys.sk[0] !== undefined && keys.sk[0] !== "") {
+        updatedKeys[sk] = keys.sk[0];
+      }
+    }
 
-		// complete facets, only includes impacted facets which likely does not include the updateIndex which then needs to be added here.
-		if (!completeFacets.indexes.includes(updateIndex)) {
-			completeFacets.indexes.push(updateIndex);
-		}
-		let composedKeys = this._makePutKeysFromAttributes(completeFacets.indexes, { ...keyAttributes, ...setAttributes });
-		let updatedKeys = {};
-		let indexKey = {};
-		for (let [index, keys] of Object.entries(composedKeys)) {
-			let { pk, sk } = keyTranslations[index];
-			if (index === updateIndex) {
-				indexKey[pk] = keys.pk;
-				if (sk) {
-					indexKey[sk] = keys.sk[0];
-				}
-			}
-			if (keys.pk !== undefined && keys.pk !== '') {
-				updatedKeys[pk] = keys.pk;
-			}
-			if (sk && keys.sk[0] !== undefined && keys.sk[0] !== '') {
-				updatedKeys[sk] = keys.sk[0];
-			}
-		}
+    return { indexKey, updatedKeys, setAttributes };
+  }
 
-		return { indexKey, updatedKeys, setAttributes };
-	}
+  _getUpdatedKeys(pk, sk, set, removed) {
+    let updateIndex = TableIndex;
+    let keyTranslations = this.model.translations.keys;
+    let keyAttributes = { ...sk, ...pk };
+    let completeFacets = this._expectIndexFacets(
+      { ...set },
+      { ...keyAttributes },
+    );
+    const removedKeyImpact = this._expectIndexFacets(
+      { ...removed },
+      { ...keyAttributes },
+    );
 
-	_getUpdatedKeys(pk, sk, set, removed) {
-		let updateIndex = TableIndex;
-		let keyTranslations = this.model.translations.keys;
-		let keyAttributes = { ...sk, ...pk };
-		let completeFacets = this._expectIndexFacets(
-			{ ...set },
-			{ ...keyAttributes },
-		);
-		const removedKeyImpact = this._expectIndexFacets(
-			{ ...removed },
-			{...keyAttributes}
-		)
+    // complete facets, only includes impacted facets which likely does not include the updateIndex which then needs to be added here.
+    if (completeFacets.impactedIndexTypes[updateIndex] === undefined) {
+      completeFacets.impactedIndexTypes[updateIndex] = {
+        pk: "pk",
+        sk: "sk",
+      };
+    }
+    let composedKeys = this._makeKeysFromAttributes(
+      completeFacets.impactedIndexTypes,
+      { ...set, ...keyAttributes },
+    );
+    let updatedKeys = {};
+    let deletedKeys = [];
+    let indexKey = {};
+    for (const keys of Object.values(removedKeyImpact.impactedIndexTypes)) {
+      deletedKeys = deletedKeys.concat(Object.values(keys));
+    }
+    for (let [index, keys] of Object.entries(composedKeys)) {
+      let { pk, sk } = keyTranslations[index];
+      if (index === updateIndex) {
+        indexKey[pk] = keys.pk;
+        if (sk) {
+          indexKey[sk] = keys.sk[0];
+        }
+      } else {
+        // This block is for when Sort Keys used in sparse indexes never get made because they don't actually
+        // have any composite attributes. Without this the PK would be made for the GSI but the SK would always
+        // be blank, and therefore, not queryable.
+        let noImpactSk = Array.isArray(keys.sk) && keys.sk.length === 0;
+        let indexHasSk = this.model.lookup.indexHasSortKeys[index];
+        let noAttributeSk =
+          indexHasSk && this.model.facets.byIndex[index].sk.length === 0;
+        let hasPrefix =
+          indexHasSk && this.model.prefixes[index].sk.prefix !== undefined;
+        if (noImpactSk && noAttributeSk && hasPrefix) {
+          keys.sk.push(this.model.prefixes[index].sk.prefix);
+        }
+      }
 
-		// complete facets, only includes impacted facets which likely does not include the updateIndex which then needs to be added here.
-		if (completeFacets.impactedIndexTypes[updateIndex] === undefined) {
-			completeFacets.impactedIndexTypes[updateIndex] = {
-				pk: "pk",
-				sk: "sk"
-			}
-		}
-		let composedKeys = this._makeKeysFromAttributes(completeFacets.impactedIndexTypes,{ ...set, ...keyAttributes });
-		let updatedKeys = {};
-		let deletedKeys = [];
-		let indexKey = {};
-		for (const keys of Object.values(removedKeyImpact.impactedIndexTypes)) {
-			deletedKeys = deletedKeys.concat(Object.values(keys));
-		}
-		for (let [index, keys] of Object.entries(composedKeys)) {
-			let { pk, sk } = keyTranslations[index];
-			if (index === updateIndex) {
-				indexKey[pk] = keys.pk;
-				if (sk) {
-					indexKey[sk] = keys.sk[0];
-				}
-			} else {
-				// This block is for when Sort Keys used in sparse indexes never get made because they don't actually
-				// have any composite attributes. Without this the PK would be made for the GSI but the SK would always
-				// be blank, and therefore, not queryable.
-				let noImpactSk = Array.isArray(keys.sk) && keys.sk.length === 0;
-				let indexHasSk = this.model.lookup.indexHasSortKeys[index];
-				let noAttributeSk = indexHasSk && this.model.facets.byIndex[index].sk.length === 0;
-				let hasPrefix = indexHasSk && this.model.prefixes[index].sk.prefix !== undefined;
-				if (noImpactSk && noAttributeSk && hasPrefix) {
-					keys.sk.push(this.model.prefixes[index].sk.prefix);
-				}
-			}
+      if (keys.pk) {
+        updatedKeys[pk] = keys.pk;
+      }
 
-			if (keys.pk) {
-				updatedKeys[pk] = keys.pk;
-			}
+      if (sk && keys.sk[0]) {
+        updatedKeys[sk] = keys.sk[0];
+      }
+    }
+    return { indexKey, updatedKeys, deletedKeys };
+  }
 
-			if (sk && keys.sk[0]) {
-				updatedKeys[sk] = keys.sk[0];
-			}
-		}
-		return { indexKey, updatedKeys, deletedKeys };
-	}
+  /* istanbul ignore next */
+  _getIndexImpact(attributes = {}, included = {}) {
+    let includedFacets = Object.keys(included);
+    let impactedIndexes = {};
+    let impactedIndexTypes = {};
+    let completedIndexes = [];
+    let facets = {};
+    for (let [attribute, indexes] of Object.entries(this.model.facets.byAttr)) {
+      if (attributes[attribute] !== undefined) {
+        facets[attribute] = attributes[attribute];
+        indexes.forEach(({ index, type }) => {
+          impactedIndexes[index] = impactedIndexes[index] || {};
+          impactedIndexes[index][type] = impactedIndexes[index][type] || [];
+          impactedIndexes[index][type].push(attribute);
+          impactedIndexTypes[index] = impactedIndexTypes[index] || {};
+          impactedIndexTypes[index][type] =
+            this.model.translations.keys[index][type];
+        });
+      }
+    }
 
-	/* istanbul ignore next */
-	_getIndexImpact(attributes = {}, included = {}) {
-		let includedFacets = Object.keys(included);
-		let impactedIndexes = {};
-		let impactedIndexTypes = {}
-		let completedIndexes = [];
-		let facets = {};
-		for (let [attribute, indexes] of Object.entries(this.model.facets.byAttr)) {
-			if (attributes[attribute] !== undefined) {
-				facets[attribute] = attributes[attribute];
-				indexes.forEach(({ index, type }) => {
-					impactedIndexes[index] = impactedIndexes[index] || {};
-					impactedIndexes[index][type] = impactedIndexes[index][type] || [];
-					impactedIndexes[index][type].push(attribute);
-					impactedIndexTypes[index] = impactedIndexTypes[index] || {};
-					impactedIndexTypes[index][type] = this.model.translations.keys[index][type];
-				});
-			}
-		}
+    let incomplete = Object.entries(this.model.facets.byIndex)
+      .map(([index, { pk, sk }]) => {
+        let impacted = impactedIndexes[index];
+        let impact = { index, missing: [] };
+        if (impacted) {
+          let missingPk =
+            impacted[KeyTypes.pk] && impacted[KeyTypes.pk].length !== pk.length;
+          let missingSk =
+            impacted[KeyTypes.sk] && impacted[KeyTypes.sk].length !== sk.length;
+          if (missingPk) {
+            impact.missing = [
+              ...impact.missing,
+              ...pk.filter((attr) => {
+                return (
+                  !impacted[KeyTypes.pk].includes(attr) &&
+                  !includedFacets.includes(attr)
+                );
+              }),
+            ];
+          }
+          if (missingSk) {
+            impact.missing = [
+              ...impact.missing,
+              ...sk.filter(
+                (attr) =>
+                  !impacted[KeyTypes.sk].includes(attr) &&
+                  !includedFacets.includes(attr),
+              ),
+            ];
+          }
+          if (!missingPk && !missingSk) {
+            completedIndexes.push(index);
+          }
+        }
+        return impact;
+      })
+      .filter(({ missing }) => missing.length);
 
-		let incomplete = Object.entries(this.model.facets.byIndex)
-			.map(([index, { pk, sk }]) => {
-				let impacted = impactedIndexes[index];
-				let impact = { index, missing: [] };
-				if (impacted) {
-					let missingPk = impacted[KeyTypes.pk] && impacted[KeyTypes.pk].length !== pk.length;
-					let missingSk = impacted[KeyTypes.sk] && impacted[KeyTypes.sk].length !== sk.length;
-					if (missingPk) {
-						impact.missing = [
-							...impact.missing,
-							...pk.filter((attr) => {
-								return !impacted[KeyTypes.pk].includes(attr) && !includedFacets.includes(attr)
-							}),
-						];
-					}
-					if (missingSk) {
-						impact.missing = [
-							...impact.missing,
-							...sk.filter(
-								(attr) =>
-									!impacted[KeyTypes.sk].includes(attr) &&
-									!includedFacets.includes(attr),
-							),
-						];
-					}
-					if (!missingPk && !missingSk) {
-						completedIndexes.push(index);
-					}
-				}
-				return impact;
-			})
-			.filter(({ missing }) => missing.length)
+    let isIncomplete = !!incomplete.length;
+    let complete = { facets, indexes: completedIndexes, impactedIndexTypes };
+    return [isIncomplete, { incomplete, complete }];
+  }
 
-		let isIncomplete = !!incomplete.length;
-		let complete = {facets, indexes: completedIndexes, impactedIndexTypes};
-		return [isIncomplete, { incomplete, complete }];
-	}
+  _consolidateQueryFacets(queryFacets) {
+    let sk1 = {};
+    let sk2 = {};
+    for (let { type, facets } of queryFacets) {
+      if (type === QueryTypes.between) {
+        sk1 = { ...sk1, ...facets };
+      } else if (type === QueryTypes.and) {
+        sk2 = { ...sk2, ...facets };
+      } else {
+        sk1 = { ...sk1, ...facets };
+        sk2 = { ...sk2, ...facets };
+      }
+    }
+    return [sk1, sk2];
+  }
 
-	_consolidateQueryFacets(queryFacets) {
-		let sk1 = {};
-		let sk2 = {};
-		for (let { type, facets } of queryFacets) {
-			if (type === QueryTypes.between) {
-				sk1 = { ...sk1, ...facets };
-			} else if (type === QueryTypes.and) {
-				sk2 = { ...sk2, ...facets };
-			} else {
-				sk1 = { ...sk1, ...facets };
-				sk2 = { ...sk2, ...facets };
-			}
-		}
-		return [sk1, sk2];
-	}
+  _buildQueryFacets(facets, skFacets) {
+    let queryFacets = this._findProperties(facets, skFacets).reduce(
+      (result, [name, value]) => {
+        if (value !== undefined) {
+          result[name] = value;
+        }
+        return result;
+      },
+      {},
+    );
+    return { ...queryFacets };
+  }
 
-	_buildQueryFacets(facets, skFacets) {
-		let queryFacets = this._findProperties(facets, skFacets).reduce(
-			(result, [name, value]) => {
-				if (value !== undefined) {
-					result[name] = value;
-				}
-				return result;
-			},
-			{},
-		);
-		return { ...queryFacets };
-	}
+  /* istanbul ignore next */
+  _expectFacets(obj = {}, properties = [], type = "key composite attributes") {
+    let [incompletePk, missing, matching] = this._expectProperties(
+      obj,
+      properties,
+    );
+    if (incompletePk) {
+      throw new e.ElectroError(
+        e.ErrorCodes.IncompleteCompositeAttributes,
+        `Incomplete or invalid ${type} supplied. Missing properties: ${u.commaSeparatedString(
+          missing,
+        )}`,
+      );
+    } else {
+      return matching;
+    }
+  }
 
-	/* istanbul ignore next */
-	_expectFacets(obj = {}, properties = [], type = "key composite attributes") {
-		let [incompletePk, missing, matching] = this._expectProperties(obj, properties);
-		if (incompletePk) {
-			throw new e.ElectroError(e.ErrorCodes.IncompleteCompositeAttributes, `Incomplete or invalid ${type} supplied. Missing properties: ${u.commaSeparatedString(missing)}`);
-		} else {
-			return matching;
-		}
-	}
+  _findProperties(obj, properties) {
+    return properties.map((name) => [name, obj[name]]);
+  }
 
-	_findProperties(obj, properties) {
-		return properties.map((name) => [name, obj[name]]);
-	}
+  _expectProperties(obj, properties) {
+    let missing = [];
+    let matching = {};
+    this._findProperties(obj, properties).forEach(([name, value]) => {
+      if (value === undefined) {
+        missing.push(name);
+      } else {
+        matching[name] = value;
+      }
+    });
+    return [!!missing.length, missing, matching];
+  }
 
-	_expectProperties(obj, properties) {
-		let missing = [];
-		let matching = {};
-		this._findProperties(obj, properties).forEach(([name, value]) => {
-			if (value === undefined) {
-				missing.push(name);
-			} else {
-				matching[name] = value;
-			}
-		});
-		return [!!missing.length, missing, matching];
-	}
-
-	_makeKeyFixings({
-		service,
-		entity,
-		version = "1",
-		tableIndex,
-		modelVersion,
-		isClustered,
-		schema
-	}) {
-		/*
+  _makeKeyFixings({
+    service,
+    entity,
+    version = "1",
+    tableIndex,
+    modelVersion,
+    isClustered,
+    schema,
+  }) {
+    /*
 			Collections will prefix the sort key so they can be queried with
 			a "begins_with" operator when crossing entities. It is also possible
 			that the user defined a custom key on either the PK or SK. In the case
@@ -9541,1153 +10401,1379 @@ class Entity {
 			the custom key.
 		*/
 
-		let keys = {
-			pk: {
-				prefix: "",
-				field: tableIndex.pk.field,
-				casing: tableIndex.pk.casing,
-				isCustom: tableIndex.customFacets.pk,
-				cast: tableIndex.pk.cast,
-			},
-			sk: {
-				prefix: "",
-				casing: tableIndex.sk.casing,
-				isCustom: tableIndex.customFacets.sk,
-				field: tableIndex.sk ? tableIndex.sk.field : undefined,
-				cast: tableIndex.sk ? tableIndex.sk.cast : undefined,
-			}
-		};
-
-		let pk = `$${service}`;
-		let sk = "";
-		let entityKeys = "";
-		let postfix = "";
-		// If the index is in a collections, prepend the sk;
-		let collectionPrefix = this._makeCollectionPrefix(tableIndex.collection);
-		if (validations.isStringHasLength(collectionPrefix)) {
-			sk = `${collectionPrefix}`;
-			entityKeys += `#${entity}`;
-		} else {
-			entityKeys += `$${entity}`;
-		}
-
-		/** start beta/v1 condition **/
-		if (modelVersion === ModelVersions.beta) {
-			pk = `${pk}_${version}`;
-		} else {
-			entityKeys = `${entityKeys}_${version}`;
-		}
-		/** end beta/v1 condition **/
-
-		if (isClustered) {
-			postfix = entityKeys;
-		} else {
-			sk = `${sk}${entityKeys}`
-		}
-
-		// If no sk, append the sk properties to the pk
-		if (Object.keys(tableIndex.sk).length === 0) {
-			pk += sk;
-			if (isClustered) {
-				pk += postfix;
-			}
-		}
-
-		// If keys are not custom, set the prefixes
-		if (!keys.pk.isCustom) {
-			keys.pk.prefix = u.formatKeyCasing(pk, tableIndex.pk.casing);
-		}
-
-		if (!keys.sk.isCustom) {
-			keys.sk.prefix = u.formatKeyCasing(sk, tableIndex.sk.casing);
-			keys.sk.postfix = u.formatKeyCasing(postfix, tableIndex.sk.casing);
-		}
-
-		const castKeys = tableIndex.hasSk 
-			? [tableIndex.pk, tableIndex.sk]
-			: [tableIndex.pk];
-	
-		for (const castKey of castKeys) {
-			if (castKey.cast === CastKeyOptions.string) {
-				keys[castKey.type].cast = CastKeyOptions.string;
-			} else if (
-				// custom keys with only one facet and no labels are numeric by default
-				castKey.cast === undefined &&
-				castKey.isCustom &&
-				castKey.facets.length === 1 &&
-				castKey.facetLabels.every(({label}) => !label) &&
-				schema.attributes[castKey.facets[0]] &&
-				schema.attributes[castKey.facets[0]].type === 'number'
-			) {
-				keys[castKey.type].cast = CastKeyOptions.number;
-			} else if (
-				castKey.cast === CastKeyOptions.number &&
-				castKey.facets.length === 1 &&
-				schema.attributes[castKey.facets[0]] &&
-				['number', 'string', 'boolean'].includes(schema.attributes[castKey.facets[0]].type)
-			) {
-				keys[castKey.type].cast = CastKeyOptions.number;
-			} else if (
-				castKey.cast === CastKeyOptions.number &&
-				castKey.facets.length > 1
-			) {
-				throw new e.ElectroError(e.ErrorCodes.InvalidModel, `Invalid "cast" option provided for ${castKey.type} definition on index "${u.formatIndexNameForDisplay(tableIndex.index)}". Keys can only be cast to 'number' if they are a composite of one numeric attribute.`);
-			} else {
-				keys[castKey.type].cast = CastKeyOptions.string;
-			}
-		}
-
-		return keys;
-	}
-
-	_formatKeyCasing(accessPattern, key) {
-		const casing = this.model.indexes[accessPattern] !== undefined
-			? this.model.indexes[accessPattern].sk.casing
-			: undefined;
-
-		return u.formatKeyCasing(key, casing);
-	}
-
-	_validateIndex(index) {
-		if (!this.model.facets.byIndex[index]) {
-			throw new Error(`Invalid index: ${index}`);
-		}
-	}
-
-	_getCollectionSk(collection = "") {
-		const subCollections = this.model.subCollections[collection];
-		const index = this.model.translations.collections.fromCollectionToIndex[collection];
-		const accessPattern = this.model.translations.indexes.fromIndexToAccessPattern[index];
-		const prefixes = this.model.prefixes[index];
-		const prefix = this._makeCollectionPrefix(subCollections);
-		if (prefixes.sk && prefixes.sk.isCustom) {
-			return '';
-		}
-		return this._formatKeyCasing(accessPattern, prefix);
-	}
-
-	_makeCollectionPrefix(collection = []) {
-		let prefix = "";
-		if (validations.isArrayHasLength(collection)) {
-			for (let i = 0; i < collection.length; i++) {
-				let subCollection = collection[i];
-				if (i === 0) {
-					prefix += `$${subCollection}`;
-				} else {
-					prefix += `#${subCollection}`;
-				}
-			}
-		} else if (validations.isStringHasLength(collection)) {
-			prefix = `$${collection}`;
-		}
-		return prefix;
-	}
-
-	_makeKeyTransforms(queryType) {
-		const transforms = [];
-		const shiftUp = (val) => u.shiftSortOrder(val, 1);
-		const noop = (val) => val;
-		switch (queryType) {
-			case QueryTypes.between:
-				transforms.push(noop, shiftUp);
-				break;
-			case QueryTypes.lte:
-			case QueryTypes.gt:
-				transforms.push(shiftUp);
-				break;
-			default:
-				transforms.push(noop);
-				break;
-		}
-		return transforms;
-	}
-
-	/* istanbul ignore next */
-	_makeIndexKeysWithoutTail(state = {}, skFacets = []) {
-		const index = state.query.index || TableIndex;
-		this._validateIndex(index);
-		const pkFacets = state.query.keys.pk || {};
-		const excludePostfix = state.query.options.indexType === IndexTypes.clustered && state.query.options._isCollectionQuery;
-		const transforms = this._makeKeyTransforms(state.query.type);
-		if (!skFacets.length) {
-			skFacets.push({});
-		}
-		let facets = this.model.facets.byIndex[index];
-		let prefixes = this.model.prefixes[index];
-		if (!prefixes) {
-			throw new Error(`Invalid index: ${index}`);
-		}
-		// let partitionKey = this._makeKey(prefixes.pk, facets.pk, pkFacets, this.model.facets.labels[index].pk, { excludeLabelTail: true });
-		let partitionKey = this._makeKey(
-			prefixes.pk, 
-			facets.pk, 
-			pkFacets, 
-			this.model.facets.labels[index].pk,
-		);
-		let pk = partitionKey.key;
-		let sk = [];
-		let fulfilled = false;
-		if (this.model.lookup.indexHasSortKeys[index]) {
-			for (let i = 0; i < skFacets.length; i++) {
-				const skFacet = skFacets[i];
-				const transform = transforms[i];
-				let hasLabels = this.model.facets.labels[index] && Array.isArray(this.model.facets.labels[index].sk);
-				let labels = hasLabels
-					? this.model.facets.labels[index].sk
-					: [];
-				let sortKey = this._makeKey(prefixes.sk, facets.sk, skFacet, labels, {
-					excludeLabelTail: true,
-					excludePostfix,
-					transform,
-				});
-				if (sortKey.key !== undefined) {
-					sk.push(sortKey.key);
-				}
-				if (sortKey.fulfilled) {
-					fulfilled = true;
-				}
-			}
-		}
-		return {
-			pk,
-			sk,
-			fulfilled,
-		};
-	}
-
-	/* istanbul ignore next */
-	_makeIndexKeys({
-	   index = TableIndex,
-	   pkAttributes = {},
-	   skAttributes = [],
-	   queryType,
-	   indexType,
-	   isCollection = false,
-	}) {
-		this._validateIndex(index);
-		const excludePostfix = indexType === IndexTypes.clustered && isCollection;
-		const transforms = this._makeKeyTransforms(queryType);
-		if (!skAttributes.length) {
-			skAttributes.push({});
-		}
-		let facets = this.model.facets.byIndex[index];
-		let prefixes = this.model.prefixes[index];
-		if (!prefixes) {
-			throw new Error(`Invalid index: ${index}`);
-		}
-		let pk = this._makeKey(prefixes.pk, facets.pk, pkAttributes, this.model.facets.labels[index].pk);
-		let sk = [];
-		let fulfilled = false;
-		if (this.model.lookup.indexHasSortKeys[index]) {
-			for (let i = 0; i < skAttributes.length; i++) {
-				const skFacet = skAttributes[i];
-				const transform = transforms[i];
-				let hasLabels = this.model.facets.labels[index] && Array.isArray(this.model.facets.labels[index].sk);
-				let labels = hasLabels
-					? this.model.facets.labels[index].sk
-					: []
-				let sortKey = this._makeKey(prefixes.sk, facets.sk, skFacet, labels, {excludePostfix, transform});
-				if (sortKey.key !== undefined) {
-					sk.push(sortKey.key);
-				}
-				if (sortKey.fulfilled) {
-					fulfilled = true;
-				}
-			}
-		}
-		return {
-			pk: pk.key,
-			sk,
-			fulfilled
-		};
-	}
-
-	_formatNumericCastKey(attributeName, key) {
-		const fulfilled = key !== undefined;
-		if (!fulfilled) {
-			return {
-				fulfilled,
-				key,
-			}
-		}
-		if (typeof key === 'number') {
-			return {
-				fulfilled,
-				key,
-			}
-		}
-		if (typeof key === 'string') {
-			const parsed = parseInt(key);
-			if (!isNaN(parsed)) {
-				return {
-					fulfilled,
-					key: parsed,
-				}
-			}
-		}
-
-		if (typeof key === 'boolean') {
-			return {
-				fulfilled,
-				key: key === true ? 1 : 0,
-			}
-		}
-
-		throw new e.ElectroAttributeValidationError(attributeName, `Invalid key value provided, could not cast composite attribute ${attributeName} to number for index`);
-	}
-
-
-	/* istanbul ignore next */
-	_makeKey({prefix, isCustom, casing, postfix, cast} = {}, facets = [], supplied = {}, labels = [], {excludeLabelTail, excludePostfix, transform = (val) => val} = {}) {
-		if (cast === CastKeyOptions.number) {
-			return this._formatNumericCastKey(facets[0], supplied[facets[0]]);
-		}
-
-		let key = prefix;
-		let foundCount = 0;
-		for (let i = 0; i < labels.length; i++) {
-			const { name, label } = labels[i];
-			const attribute = this.model.schema.getAttribute(name);
-			let value = supplied[name];
-			if (supplied[name] === undefined && excludeLabelTail) {
-				break;
-			}
-
-			if (attribute && validations.isFunction(attribute.format)) {
-				value = attribute.format(`${value}`);
-			}
-
-			if (isCustom) {
-				key = `${key}${label}`;
-			} else {
-				key = `${key}#${label}_`;
-			}
-			// Undefined facet value means we cant build any more of the key
-			if (supplied[name] === undefined) {
-				break;
-			}
-			foundCount++;
-			key = `${key}${value}`;
-		}
-
-
-
-		// when sort keys are fulfilled we need to add the entity postfix
-		// this is used for cluster indexes
-		const fulfilled = foundCount === labels.length;
-		const shouldApplyPostfix = typeof postfix === 'string' && !excludePostfix;
-		if (fulfilled && shouldApplyPostfix) {
-			key += postfix;
-		}
-
-		const transformedKey = transform(u.formatKeyCasing(key, casing));
-
-		return {
-			fulfilled,
-			key: transformedKey,
-		};
-	}
-
-	_findBestIndexKeyMatch(attributes = {}) {
-		// an array of arrays, representing the order of pk and sk composites specified for each index, and then an
-		// array with each access pattern occupying the same array index.
-		let facets = this.model.facets.bySlot;
-		// a flat array containing the match results of each access pattern, in the same array index they occur within
-		// bySlot above
-		let matches = [];
-		for (let f = 0; f < facets.length; f++) {
-			const slots = facets[f] || [];
-			for (let s = 0; s < slots.length; s++) {
-				const accessPatternSlot = slots[s];
-				matches[s] = matches[s] || {
-					index: accessPatternSlot.index,
-					allKeys: false,
-					hasSk: false,
-					count: 0,
-					done: false,
-					keys: []
-				}
-				// already determined to be out of contention on prior iteration
-				const indexOutOfContention = matches[s].done;
-				// composite shorter than other indexes
-				const lacksAttributeAtSlot = !accessPatternSlot;
-				// attribute at this slot is not in the object provided
-				const attributeNotProvided = accessPatternSlot && attributes[accessPatternSlot.name] === undefined;
-				// if the next attribute is a sort key then all partition keys were provided
-				const nextAttributeIsSortKey = accessPatternSlot && accessPatternSlot.next && facets[f+1][s].type === "sk";
-				// if no keys are left then all attribute requirements were met (remember indexes don't require a sort key)
-				const hasAllKeys = accessPatternSlot && !accessPatternSlot.next;
-
-				// no sense iterating on items we know to be "done"
-				if (indexOutOfContention || lacksAttributeAtSlot || attributeNotProvided) {
-					matches[s].done = true;
-					continue;
-				}
-
-				// if the next attribute is a sort key (and you reached this line) then you have fulfilled all the
-				// partition key requirements for this index
-				if (nextAttributeIsSortKey) {
-					matches[s].hasSk = true;
-				// if you reached this step and there are no more attributes, then you fulfilled the index
-				} else if (hasAllKeys) {
-					matches[s].allKeys = true;
-				}
-
-				// number of successfully fulfilled attributes plays into the ranking heuristic
-				matches[s].count++;
-
-				// note the names/types of fulfilled attributes
-				matches[s].keys.push({
-					name: accessPatternSlot.name,
-					type: accessPatternSlot.type
-				});
-			}
-		}
-		// the highest count of matched attributes among all access patterns
-		let max = 0;
-		matches = matches
-			// remove incomplete indexes
-			.filter(match => match.hasSk || match.allKeys)
-			// calculate max attribute match
-			.map(match => {
-				max = Math.max(max, match.count);
-				return match;
-			});
-
-		// matched contains the ranked attributes. The closer an element is to zero the "higher" the rank.
-		const matched = [];
-		for (let m = 0; m < matches.length; m++) {
-			const match = matches[m];
-			// a finished primary index is most ideal (could be a get)
-			const primaryIndexIsFinished = match.index === "" && match.allKeys;
-			// if there is a tie for matched index attributes, primary index should win
-			const primaryIndexIsMostMatched = match.index === "" && match.count === max;
-			// composite attributes are complete
-			const indexRequirementsFulfilled = match.allKeys;
-			// having the most matches is important
-			const hasTheMostAttributeMatches = match.count === max;
-			if (primaryIndexIsFinished) {
-				matched[0] = match;
-			} else if (primaryIndexIsMostMatched) {
-				matched[1] = match;
-			} else if (indexRequirementsFulfilled) {
-				matched[2] = match;
-			} else if (hasTheMostAttributeMatches) {
-				matched[3] = match;
-			}
-		}
-		// find the first non-undefined element (best ranked) -- if possible
-		const match = matched.find(value => !!value);
-		let keys = [];
-		let index = "";
-		let shouldScan = true;
-		if (match) {
-			keys = match.keys;
-			index = match.index;
-			shouldScan = false;
-		}
-		return { keys, index, shouldScan };
-	}
-
-	/* istanbul ignore next */
-	_parseComposedKey(key = TableIndex) {
-		let attributes = {};
-		let names = key.match(/:[A-Z1-9]+/gi);
-		if (!names) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidKeyCompositeAttributeTemplate, `Invalid key composite attribute template. No composite attributes provided, expected at least one composite attribute with the format ":attributeName". Received: ${key}`);
-		}
-		let labels = key.split(/:[A-Z1-9]+/gi);
-		for (let i = 0; i < names.length; i++) {
-			let name = names[i].replace(":", "");
-			let label = labels[i];
-			if (name !== "") {
-				attributes[name] = attributes[name] || [];
-				attributes[name].push(label);
-			}
-		}
-		return attributes;
-	}
-
-	_parseTemplateKey(template = "") {
-		let attributes = [];
-		let current = {
-			label: "",
-			name: ""
-		};
-		let type = "label";
-		for (let i = 0; i < template.length; i++) {
-			let char = template[i];
-			let last = template[i - 1];
-			let next = template[i + 1];
-			if (char === "{" && last === "$" && type === "label") {
-				type = "name";
-			} else if (char === "}" && type === "name") {
-				if (current.name.match(/^\s*$/)) {
-					throw new e.ElectroError(e.ErrorCodes.InvalidKeyCompositeAttributeTemplate, `Invalid key composite attribute template. Empty expression "\${${current.name}}" provided. Expected attribute name.`);
-				}
-				attributes.push({name: current.name, label: current.label});
-				current.name = "";
-				current.label = "";
-				type = "label";
-			} else if (char === "$" && next === "{" && type === "label") {
-				continue;
-			} else {
-				current[type] += char;
-			}
-		}
-		if (current.name.length > 0 || current.label.length > 0) {
-			attributes.push({name: current.name, label: current.label});
-		}
-
-		return attributes;
-	}
-
-	_parseFacets(facets) {
-		let isCustom = !Array.isArray(facets) && typeof facets === "string";
-		if (isCustom && facets.length > 0) {
-			let labels = this._parseComposedKey(facets);
-			return {
-				isCustom,
-				labels: [],
-				attributes: Object.keys(attributes),
-			}
-		} else if (isCustom && facets.length === 0) {
-			// treat like empty array sk
-			return {
-				isCustom: false,
-				labels: [],
-				attributes: []
-			}
-		} else {
-			return {
-				isCustom,
-				labels: [],
-				attributes: Object.keys(facets),
-			};
-		}
-	}
-
-	_parseTemplateAttributes(composite = []) {
-		let isCustom = !Array.isArray(composite) && typeof composite === "string";
-		if (isCustom && composite.length > 0) {
-			let labels = this._parseTemplateKey(composite);
-			return {
-				isCustom,
-				labels,
-				attributes: labels.map(({name}) => name).filter(name => !!name)
-			}
-		} else if (isCustom && composite.length === 0) {
-			// treat like empty array sk
-			return {
-				isCustom: false,
-				labels: [],
-				attributes: []
-			}
-		} else {
-			return {
-				isCustom,
-				labels: composite.map(name => ({name})),
-				attributes: composite,
-			};
-		}
-	}
-
-	_compositeTemplateAreCompatible(parsedAttributes, composite) {
-		if (!Array.isArray(composite) || !parsedAttributes || !parsedAttributes.isCustom) {
-			// not beholden to compatibility constraints
-			return true;
-		}
-
-		return validations.stringArrayMatch(composite, parsedAttributes.attributes);
-	}
-
-	_optimizeIndexKey(keyDefinition) {
-		const hasTemplate = typeof keyDefinition.template === "string";
-		const hasSingleItemComposite = Array.isArray(keyDefinition.facets) && keyDefinition.facets.length === 1 && keyDefinition.facets[0] === keyDefinition.field;
-		if (!hasTemplate && hasSingleItemComposite) {
-			keyDefinition.facets = "${" + keyDefinition.field + "}";
-		}
-		return keyDefinition;
-	}
-
-	_optimizeMatchingKeyAttributes(model = {}) {
-		const attributeFields = [];
-		for (const name of Object.keys(model.attributes)) {
-			const {field} = model.attributes[name];
-			attributeFields.push(field || name);
-		}
-		for (const accessPattern of Object.keys(model.indexes)) {
-			let {pk, sk} = model.indexes[accessPattern];
-			if (attributeFields.includes(pk.field)) {
-				model.indexes[accessPattern].pk = this._optimizeIndexKey(pk);
-			}
-			if (sk && attributeFields.includes(sk.field)) {
-				model.indexes[accessPattern].sk = this._optimizeIndexKey(sk);
-			}
-		}
-		return model;
-	}
-
-	_normalizeIndexes(indexes) {
-		let normalized = {};
-		let indexFieldTranslation = {};
-		let indexHasSortKeys = {};
-		let indexHasSubCollections = {};
-		let clusteredIndexes = new Set();
-		let indexAccessPatternTransaction = {
-			fromAccessPatternToIndex: {},
-			fromIndexToAccessPattern: {},
-		};
-		let collectionIndexTranslation = {
-			fromCollectionToIndex: {},
-			fromIndexToCollection: {},
-		};
-		let subCollections = {};
-		let collections = {};
-		let facets = {
-			byIndex: {},
-			byField: {},
-			byFacet: {},
-			byAttr: {},
-			byType: {},
-			bySlot: [],
-			fields: [],
-			attributes: [],
-			labels: {},
-		};
-		let seenIndexes = {};
-		let seenIndexFields = {};
-		let accessPatterns = Object.keys(indexes);
-
-		for (let i in accessPatterns) {
-			let accessPattern = accessPatterns[i];
-			let index = indexes[accessPattern];
-			let indexName = index.index || TableIndex;
-			let indexType = typeof index.type === 'string' ? index.type : IndexTypes.isolated;
-			if (indexType === 'clustered') {
-				clusteredIndexes.add(accessPattern);
-			}
-			if (seenIndexes[indexName] !== undefined) {
-				if (indexName === TableIndex) {
-					throw new e.ElectroError(e.ErrorCodes.DuplicateIndexes, `Duplicate index defined in model found in Access Pattern '${accessPattern}': '${u.formatIndexNameForDisplay(indexName)}'. This could be because you forgot to specify the index name of a secondary index defined in your model.`);
-				} else {
-					throw new e.ElectroError(e.ErrorCodes.DuplicateIndexes, `Duplicate index defined in model found in Access Pattern '${accessPattern}': '${indexName}'`);
-				}
-			}
-			seenIndexes[indexName] = indexName;
-			let hasSk = !!index.sk;
-			let inCollection = !!index.collection;
-			if (!hasSk && inCollection) {
-				throw new e.ElectroError(e.ErrorCodes.CollectionNoSK, `Invalid Access pattern definition for '${accessPattern}': '${u.formatIndexNameForDisplay(indexName)}', contains a collection definition without a defined SK. Collections can only be defined on indexes with a defined SK.`);
-			}
-			let collection = index.collection || "";
-			let customFacets = {
-				pk: false,
-				sk: false,
-			};
-			const pkCasing = KeyCasing[index.pk.casing] === undefined
-				? KeyCasing.default
-				: index.pk.casing;
-			let skCasing = KeyCasing.default;
-			if (hasSk && KeyCasing[index.sk.casing] !== undefined) {
-				skCasing = index.sk.casing;
-			}
-			indexHasSortKeys[indexName] = hasSk;
-			let parsedPKAttributes = this._parseTemplateAttributes(index.pk.facets);
-			customFacets.pk = parsedPKAttributes.isCustom;
-			// labels can be set via the attribute definition or as part of the facetTemplate.
-			facets.labels[indexName] = facets.labels[indexName] || {};
-			facets.labels[indexName]["pk"] = facets.labels[indexName]["pk"] || parsedPKAttributes;
-			facets.labels[indexName]["sk"] = facets.labels[indexName]["sk"] || this._parseTemplateAttributes();
-			let pk = {
-				inCollection,
-				accessPattern,
-				index: indexName,
-				casing: pkCasing,
-				type: KeyTypes.pk,
-				cast: index.pk.cast, 
-				field: index.pk.field || "",
-				facets: parsedPKAttributes.attributes,
-				isCustom: parsedPKAttributes.isCustom,
-				facetLabels: parsedPKAttributes.labels,
-			};
-			let sk = {};
-			let parsedSKAttributes = {};
-			if (hasSk) {
-				parsedSKAttributes = this._parseTemplateAttributes(index.sk.facets);
-				customFacets.sk = parsedSKAttributes.isCustom;
-				facets.labels[indexName]["sk"] = parsedSKAttributes;
-				sk = {
-					inCollection,
-					accessPattern,
-					index: indexName,
-					casing: skCasing,
-					type: KeyTypes.sk,
-					cast: index.sk.cast, 
-					field: index.sk.field || "",
-					facets: parsedSKAttributes.attributes,
-					isCustom: parsedSKAttributes.isCustom,
-					facetLabels: parsedSKAttributes.labels,
-				};
-				facets.fields.push(sk.field);
-			}
-
-			if (Array.isArray(sk.facets)) {
-				let duplicates = pk.facets.filter(facet => sk.facets.includes(facet));
-				if (duplicates.length !== 0) {
-					if (sk.facets.length > 1) {
-						throw new e.ElectroError(e.ErrorCodes.DuplicateIndexCompositeAttributes, `The Access Pattern '${accessPattern}' contains duplicate references the composite attribute(s): ${u.commaSeparatedString(duplicates)}. Composite attributes can only be used more than once in an index if your sort key is limitted to a single attribute. This is to prevent unexpected runtime errors related to the inability to generate keys.`);
-					}
-				}
-			}
-
-			let definition = {
-				pk,
-				sk,
-				collection,
-				hasSk,
-				customFacets,
-				index: indexName,
-				type: indexType,
-			};
-
-			indexHasSubCollections[indexName] = inCollection && Array.isArray(collection);
-
-			if (inCollection) {
-				let collectionArray = this._toSubCollectionArray(collection);
-
-				for (let collectionName of collectionArray) {
-					if (collections[collectionName] !== undefined) {
-						throw new e.ElectroError(e.ErrorCodes.DuplicateCollections, `Duplicate collection, "${collectionName}" is defined across multiple indexes "${collections[collectionName]}" and "${accessPattern}". Collections must be unique names across indexes for an Entity.`,);
-					} else {
-						collections[collectionName] = accessPattern;
-					}
-					collectionIndexTranslation.fromCollectionToIndex[collectionName] = indexName;
-					collectionIndexTranslation.fromIndexToCollection[indexName] = collectionIndexTranslation.fromIndexToCollection[indexName] || [];
-					collectionIndexTranslation.fromIndexToCollection[indexName].push(collection);
-				}
-				subCollections = {
-					...subCollections,
-					...this._normalizeSubCollections(collectionArray)
-				};
-			}
-
-			let attributes = [
-				...pk.facets.map((name) => ({
-					name,
-					index: indexName,
-					type: KeyTypes.pk,
-				})),
-				...(sk.facets || []).map((name) => ({
-					name,
-					index: indexName,
-					type: KeyTypes.sk,
-				})),
-			];
-
-			normalized[accessPattern] = definition;
-
-			indexAccessPatternTransaction.fromAccessPatternToIndex[
-				accessPattern
-			] = indexName;
-			indexAccessPatternTransaction.fromIndexToAccessPattern[
-				indexName
-			] = accessPattern;
-
-			indexFieldTranslation[indexName] = {
-				pk: pk.field,
-				sk: sk.field || "",
-			};
-
-			facets.attributes = [...facets.attributes, ...attributes];
-
-			facets.fields.push(pk.field);
-
-			facets.byIndex[indexName] = {
-				customFacets,
-				pk: pk.facets,
-				sk: sk.facets,
-				all: attributes,
-				collection: index.collection,
-				hasSortKeys: !!indexHasSortKeys[indexName],
-				hasSubCollections: !!indexHasSubCollections[indexName],
-				casing: {
-					pk: pkCasing,
-					sk: skCasing
-				}
-			};
-
-			facets.byField = facets.byField || {};
-			facets.byField[pk.field] = facets.byField[pk.field] || {};
-			facets.byField[pk.field][indexName] = pk;
-			if (sk.field) {
-				facets.byField[sk.field] = facets.byField[sk.field] || {};
-				facets.byField[sk.field][indexName] = sk;
-			}
-
-			if (seenIndexFields[pk.field] !== undefined) {
-				const definition = Object.values(facets.byField[pk.field]).find(definition => definition.index !== indexName)
-				const definitionsMatch = validations.stringArrayMatch(pk.facets, definition.facets);
-				if (!definitionsMatch) {
-					throw new e.ElectroError(e.ErrorCodes.InconsistentIndexDefinition, `Partition Key (pk) on Access Pattern '${u.formatIndexNameForDisplay(accessPattern)}' is defined with the composite attribute(s) ${u.commaSeparatedString(pk.facets)}, but the accessPattern '${u.formatIndexNameForDisplay(definition.index)}' defines this field with the composite attributes ${u.commaSeparatedString(definition.facets)}'. Key fields must have the same composite attribute definitions across all indexes they are involved with`);
-				}
-				seenIndexFields[pk.field].push({accessPattern, type: 'pk'});
-			} else {
-				seenIndexFields[pk.field] = [];
-				seenIndexFields[pk.field].push({accessPattern, type: 'pk'});
-			}
-
-			if (sk.field) {
-				if (sk.field === pk.field) {
-					throw new e.ElectroError(e.ErrorCodes.DuplicateIndexFields, `The Access Pattern '${u.formatIndexNameForDisplay(accessPattern)}' references the field '${sk.field}' as the field name for both the PK and SK. Fields used for indexes need to be unique to avoid conflicts.`);
-				} else if (seenIndexFields[sk.field] !== undefined) {
-					const isAlsoDefinedAsPK = seenIndexFields[sk.field].find(field => field.type === "pk");
-					if (isAlsoDefinedAsPK) {
-						throw new e.ElectroError(e.ErrorCodes.InconsistentIndexDefinition, `The Sort Key (sk) on Access Pattern '${u.formatIndexNameForDisplay(accessPattern)}' references the field '${pk.field}' which is already referenced by the Access Pattern(s) '${u.formatIndexNameForDisplay(isAlsoDefinedAsPK.accessPattern)}' as a Partition Key. Fields mapped to Partition Keys cannot be also mapped to Sort Keys.`);
-					}
-					const definition = Object.values(facets.byField[sk.field]).find(definition => definition.index !== indexName)
-					const definitionsMatch = validations.stringArrayMatch(sk.facets, definition.facets);
-					if (!definitionsMatch) {
-						throw new e.ElectroError(e.ErrorCodes.DuplicateIndexFields, `Sort Key (sk) on Access Pattern '${u.formatIndexNameForDisplay(accessPattern)}' is defined with the composite attribute(s) ${u.commaSeparatedString(sk.facets)}, but the accessPattern '${u.formatIndexNameForDisplay(definition.index)}' defines this field with the composite attributes ${u.commaSeparatedString(definition.facets)}'. Key fields must have the same composite attribute definitions across all indexes they are involved with`);
-					}
-					seenIndexFields[sk.field].push({accessPattern, type: 'sk'});
-				} else {
-					seenIndexFields[sk.field] = [];
-					seenIndexFields[sk.field].push({accessPattern, type: 'sk'});
-				}
-			}
-
-			attributes.forEach(({index, type, name}, j) => {
-				let next = attributes[j + 1] !== undefined ? attributes[j + 1].name : "";
-				let facet = { index, name, type, next };
-				facets.byAttr[name] = facets.byAttr[name] || [];
-				facets.byAttr[name].push(facet);
-				facets.byType[type] = facets.byType[type] || [];
-				facets.byType[type].push(facet);
-				facets.byFacet[name] = facets.byFacet[name] || [];
-				facets.byFacet[name][j] = facets.byFacet[name][j] || [];
-				facets.byFacet[name][j].push(facet);
-				facets.bySlot[j] = facets.bySlot[j] || [];
-				facets.bySlot[j][i] = facet;
-			});
-
-			let pkTemplateIsCompatible = this._compositeTemplateAreCompatible(parsedPKAttributes, index.pk.composite);
-			if (!pkTemplateIsCompatible) {
-				throw new e.ElectroError(e.ErrorCodes.IncompatibleKeyCompositeAttributeTemplate, `Incompatible PK 'template' and 'composite' properties for defined on index "${u.formatIndexNameForDisplay(indexName)}". PK "template" string is defined as having composite attributes ${u.commaSeparatedString(parsedPKAttributes.attributes)} while PK "composite" array is defined with composite attributes ${u.commaSeparatedString(index.pk.composite)}`);
-			}
-
-			if (index.sk !== undefined && Array.isArray(index.sk.composite) && typeof index.sk.template === "string") {
-				let skTemplateIsCompatible = this._compositeTemplateAreCompatible(parsedSKAttributes, index.sk.composite);
-				if (!skTemplateIsCompatible) {
-					throw new e.ElectroError(e.ErrorCodes.IncompatibleKeyCompositeAttributeTemplate, `Incompatible SK 'template' and 'composite' properties for defined on index "${u.formatIndexNameForDisplay(indexName)}". SK "template" string is defined as having composite attributes ${u.commaSeparatedString(parsedSKAttributes.attributes)} while SK "composite" array is defined with composite attributes ${u.commaSeparatedString(index.sk.composite)}`);
-				}
-			}
-		}
-
-		if (facets.byIndex[TableIndex] === undefined) {
-			throw new e.ElectroError(e.ErrorCodes.MissingPrimaryIndex, "Schema is missing an index definition for the table's main index. Please update the schema to include an index without a specified name to define the table's natural index");
-		}
-
-		return {
-			facets,
-			subCollections,
-			indexHasSortKeys,
-			clusteredIndexes,
-			indexHasSubCollections,
-			indexes: normalized,
-			indexField: indexFieldTranslation,
-			indexAccessPattern: indexAccessPatternTransaction,
-			indexCollection: collectionIndexTranslation,
-			collections: Object.keys(collections),
-		};
-	}
-
-	_normalizeFilters(filters = {}) {
-		let normalized = {};
-		let invalidFilterNames = ["go", "params", "filter", "where", "set"];
-
-		for (let [name, fn] of Object.entries(filters)) {
-			if (invalidFilterNames.includes(name)) {
-				throw new e.ElectroError(e.ErrorCodes.InvalidFilter, `Invalid filter name: ${name}. Filter cannot be named ${u.commaSeparatedString(invalidFilterNames)}`);
-			} else {
-				normalized[name] = fn;
-			}
-		}
-
-		return normalized;
-	}
-
-	_normalizeKeyFixings({service, entity, version, indexes, modelVersion, clusteredIndexes, schema}) {
-		let prefixes = {};
-		for (let accessPattern of Object.keys(indexes)) {
-			let tableIndex = indexes[accessPattern];
-			prefixes[tableIndex.index] = this._makeKeyFixings({
-				service,
-				entity,
-				version,
-				tableIndex,
-				modelVersion,
-				isClustered: clusteredIndexes.has(accessPattern),
-				schema,
-			});
-		}
-		return prefixes;
-	}
-
-	_normalizeSubCollections(collections = []) {
-		let lookup = {};
-		for (let i = collections.length -1; i >= 0; i--) {
-			let subCollection = collections[i];
-			lookup[subCollection] = lookup[subCollection] || [];
-			for (let j = 0; j <= i; j++) {
-				lookup[subCollection].push(collections[j]);
-			}
-		}
-		return lookup;
-	}
-
-	_toSubCollectionArray(collection) {
-		let collectionArray = [];
-		if (Array.isArray(collection) && collection.every(col => validations.isStringHasLength(col))) {
-			collectionArray = collection;
-		} else if (validations.isStringHasLength(collection)) {
-			collectionArray.push(collection);
-		} else {
-			throw new Error("Invalid collection definition");
-		}
-		return collectionArray;
-	}
-
-	_applyCompositeToFacetConversion(model) {
-		for (let accessPattern of Object.keys(model.indexes)) {
-			let index = model.indexes[accessPattern];
-			let invalidPK = index.pk.facets === undefined && index.pk.composite === undefined && index.pk.template === undefined;
-			let invalidSK = index.sk && (index.sk.facets === undefined && index.sk.composite === undefined && index.sk.template === undefined);
-			if (invalidPK) {
-				throw new Error("Missing Index Composite Attributes!");
-			} else if (invalidSK) {
-				throw new Error("Missing Index Composite Attributes!");
-			}
-
-
-			if (Array.isArray(index.pk.composite)) {
-				index.pk = {
-					...index.pk,
-					facets: index.pk.composite
-				}
-			}
-
-			if (typeof index.pk.template === "string") {
-				index.pk = {
-					...index.pk,
-					facets: index.pk.template
-				}
-		    }
-
-			// SK may not exist on index
-			if (index.sk && Array.isArray(index.sk.composite)) {
-				index.sk = {
-					...index.sk,
-					facets: index.sk.composite
-				}
-			}
-
-			if (index.sk && typeof index.sk.template === "string") {
-				index.sk = {
-					...index.sk,
-					facets: index.sk.template
-				}
-			}
-
-			model.indexes[accessPattern] = index;
-		}
-		return model;
-	}
-
-	_mergeKeyDefinitions(fromIndex, fromModel) {
-		let definitions = {};
-		for (let indexName of Object.keys(fromIndex)) {
-			let pk = fromIndex[indexName].pk;
-			let sk = fromIndex[indexName].sk || {labels: []};
-			definitions[indexName] = {
-				pk: [],
-				sk: []
-			};
-			for (let {name, label} of pk.labels) {
-				if (pk.isCustom) {
-					definitions[indexName].pk.push({name, label});
-				} else {
-					definitions[indexName].pk.push({name, label: fromModel[name] || name});
-				}
-			}
-			for (let {name, label} of sk.labels) {
-				if (sk.isCustom) {
-					definitions[indexName].sk.push({name, label});
-				} else {
-					definitions[indexName].sk.push({name, label: u.getFirstDefined(fromModel[name], name) });
-				}
-			}
-		}
-
-		return definitions;
-	}
-
-	_parseModel(model, config = {}) {
-		/** start beta/v1 condition **/
-		let modelVersion = u.getModelVersion(model);
-		let service, entity, version, table, name;
-		switch(modelVersion) {
-			case ModelVersions.beta:
-				service = model.service;
-				entity = model.entity;
-				version = model.version;
-				table = config.table || model.table;
-				name = entity;
-				break;
-			case ModelVersions.v1:
-				service = model.model && model.model.service;
-				entity = model.model && model.model.entity;
-				version = model.model && model.model.version;
-				table = config.table || model.table;
-				name = entity;
-				break;
-			default:
-				throw new Error("Invalid model");
-		}
-
-		model = this._applyCompositeToFacetConversion(model);
-
-		// _optimizeMatchingKeyAttributes abides by the design compromises made by _applyCompositeToFacetConversion :\
-		model = this._optimizeMatchingKeyAttributes(model);
-		/** end beta/v1 condition **/
-
-		let {
-			facets,
-			indexes,
-			indexField,
-			collections,
-			subCollections,
-			indexCollection,
-			clusteredIndexes,
-			indexHasSortKeys,
-			indexAccessPattern,
-			indexHasSubCollections,
-		} = this._normalizeIndexes(model.indexes);
-		let schema = new Schema(model.attributes, facets, {
-			getClient: () => this.client,
-			isRoot: true,
-		});
-		let filters = this._normalizeFilters(model.filters);
-		// todo: consider a rename
-		let prefixes = this._normalizeKeyFixings({service, entity, version, indexes, modelVersion, clusteredIndexes, schema});
-
-		// apply model defined labels
-		let schemaDefinedLabels = schema.getLabels();
-		const deconstructors = {};
-		facets.labels = this._mergeKeyDefinitions(facets.labels, schemaDefinedLabels);
-		for (let indexName of Object.keys(facets.labels)) {
-			const accessPattern = indexAccessPattern.fromIndexToAccessPattern[indexName];
-			indexes[accessPattern].pk.labels = facets.labels[indexName].pk;
-			indexes[accessPattern].sk.labels = facets.labels[indexName].sk;
-			
-			const keyTypes = prefixes[indexName] || {};
-			deconstructors[indexName] = {};
-			for (const keyType in keyTypes) {
-				const prefixes = keyTypes[keyType];
-				const labels = facets.labels[indexName][keyType] || [];
-				const attributes = schema.attributes;
-				deconstructors[indexName][keyType] = this._createKeyDeconstructor(prefixes, labels, attributes);
-			}
-		}
-
-		return {
-			name,
-			table,
-			schema,
-			facets,
-			entity,
-			service,
-			indexes,
-			version,
-			filters,
-			prefixes,
-			collections,
-			modelVersion,
-			subCollections,
-			lookup: {
-				clusteredIndexes,
-				indexHasSortKeys,
-				indexHasSubCollections
-			},
-			translations: {
-				keys: indexField,
-				indexes: indexAccessPattern,
-				collections: indexCollection,
-			},
-			keys: {
-				deconstructors,
-			},
-			original: model,
-		};
-	}
+    let keys = {
+      pk: {
+        prefix: "",
+        field: tableIndex.pk.field,
+        casing: tableIndex.pk.casing,
+        isCustom: tableIndex.customFacets.pk,
+        cast: tableIndex.pk.cast,
+      },
+      sk: {
+        prefix: "",
+        casing: tableIndex.sk.casing,
+        isCustom: tableIndex.customFacets.sk,
+        field: tableIndex.sk ? tableIndex.sk.field : undefined,
+        cast: tableIndex.sk ? tableIndex.sk.cast : undefined,
+      },
+    };
+
+    let pk = `$${service}`;
+    let sk = "";
+    let entityKeys = "";
+    let postfix = "";
+    // If the index is in a collections, prepend the sk;
+    let collectionPrefix = this._makeCollectionPrefix(tableIndex.collection);
+    if (validations.isStringHasLength(collectionPrefix)) {
+      sk = `${collectionPrefix}`;
+      entityKeys += `#${entity}`;
+    } else {
+      entityKeys += `$${entity}`;
+    }
+
+    /** start beta/v1 condition **/
+    if (modelVersion === ModelVersions.beta) {
+      pk = `${pk}_${version}`;
+    } else {
+      entityKeys = `${entityKeys}_${version}`;
+    }
+    /** end beta/v1 condition **/
+
+    if (isClustered) {
+      postfix = entityKeys;
+    } else {
+      sk = `${sk}${entityKeys}`;
+    }
+
+    // If no sk, append the sk properties to the pk
+    if (Object.keys(tableIndex.sk).length === 0) {
+      pk += sk;
+      if (isClustered) {
+        pk += postfix;
+      }
+    }
+
+    // If keys are not custom, set the prefixes
+    if (!keys.pk.isCustom) {
+      keys.pk.prefix = u.formatKeyCasing(pk, tableIndex.pk.casing);
+    }
+
+    if (!keys.sk.isCustom) {
+      keys.sk.prefix = u.formatKeyCasing(sk, tableIndex.sk.casing);
+      keys.sk.postfix = u.formatKeyCasing(postfix, tableIndex.sk.casing);
+    }
+
+    const castKeys = tableIndex.hasSk
+      ? [tableIndex.pk, tableIndex.sk]
+      : [tableIndex.pk];
+
+    for (const castKey of castKeys) {
+      if (castKey.cast === CastKeyOptions.string) {
+        keys[castKey.type].cast = CastKeyOptions.string;
+      } else if (
+        // custom keys with only one facet and no labels are numeric by default
+        castKey.cast === undefined &&
+        castKey.isCustom &&
+        castKey.facets.length === 1 &&
+        castKey.facetLabels.every(({ label }) => !label) &&
+        schema.attributes[castKey.facets[0]] &&
+        schema.attributes[castKey.facets[0]].type === "number"
+      ) {
+        keys[castKey.type].cast = CastKeyOptions.number;
+      } else if (
+        castKey.cast === CastKeyOptions.number &&
+        castKey.facets.length === 1 &&
+        schema.attributes[castKey.facets[0]] &&
+        ["number", "string", "boolean"].includes(
+          schema.attributes[castKey.facets[0]].type,
+        )
+      ) {
+        keys[castKey.type].cast = CastKeyOptions.number;
+      } else if (
+        castKey.cast === CastKeyOptions.number &&
+        castKey.facets.length > 1
+      ) {
+        throw new e.ElectroError(
+          e.ErrorCodes.InvalidModel,
+          `Invalid "cast" option provided for ${
+            castKey.type
+          } definition on index "${u.formatIndexNameForDisplay(
+            tableIndex.index,
+          )}". Keys can only be cast to 'number' if they are a composite of one numeric attribute.`,
+        );
+      } else {
+        keys[castKey.type].cast = CastKeyOptions.string;
+      }
+    }
+
+    return keys;
+  }
+
+  _formatKeyCasing(accessPattern, key) {
+    const casing =
+      this.model.indexes[accessPattern] !== undefined
+        ? this.model.indexes[accessPattern].sk.casing
+        : undefined;
+
+    return u.formatKeyCasing(key, casing);
+  }
+
+  _validateIndex(index) {
+    if (!this.model.facets.byIndex[index]) {
+      throw new Error(`Invalid index: ${index}`);
+    }
+  }
+
+  _getCollectionSk(collection = "") {
+    const subCollections = this.model.subCollections[collection];
+    const index =
+      this.model.translations.collections.fromCollectionToIndex[collection];
+    const accessPattern =
+      this.model.translations.indexes.fromIndexToAccessPattern[index];
+    const prefixes = this.model.prefixes[index];
+    const prefix = this._makeCollectionPrefix(subCollections);
+    if (prefixes.sk && prefixes.sk.isCustom) {
+      return "";
+    }
+    return this._formatKeyCasing(accessPattern, prefix);
+  }
+
+  _makeCollectionPrefix(collection = []) {
+    let prefix = "";
+    if (validations.isArrayHasLength(collection)) {
+      for (let i = 0; i < collection.length; i++) {
+        let subCollection = collection[i];
+        if (i === 0) {
+          prefix += `$${subCollection}`;
+        } else {
+          prefix += `#${subCollection}`;
+        }
+      }
+    } else if (validations.isStringHasLength(collection)) {
+      prefix = `$${collection}`;
+    }
+    return prefix;
+  }
+
+  _makeKeyTransforms(queryType) {
+    const transforms = [];
+    const shiftUp = (val) => u.shiftSortOrder(val, 1);
+    const noop = (val) => val;
+    switch (queryType) {
+      case QueryTypes.between:
+        transforms.push(noop, shiftUp);
+        break;
+      case QueryTypes.lte:
+      case QueryTypes.gt:
+        transforms.push(shiftUp);
+        break;
+      default:
+        transforms.push(noop);
+        break;
+    }
+    return transforms;
+  }
+
+  /* istanbul ignore next */
+  _makeIndexKeysWithoutTail(state = {}, skFacets = []) {
+    const index = state.query.index || TableIndex;
+    this._validateIndex(index);
+    const pkFacets = state.query.keys.pk || {};
+    const excludePostfix =
+      state.query.options.indexType === IndexTypes.clustered &&
+      state.query.options._isCollectionQuery;
+    const transforms = this._makeKeyTransforms(state.query.type);
+    if (!skFacets.length) {
+      skFacets.push({});
+    }
+    let facets = this.model.facets.byIndex[index];
+    let prefixes = this.model.prefixes[index];
+    if (!prefixes) {
+      throw new Error(`Invalid index: ${index}`);
+    }
+    // let partitionKey = this._makeKey(prefixes.pk, facets.pk, pkFacets, this.model.facets.labels[index].pk, { excludeLabelTail: true });
+    let partitionKey = this._makeKey(
+      prefixes.pk,
+      facets.pk,
+      pkFacets,
+      this.model.facets.labels[index].pk,
+    );
+    let pk = partitionKey.key;
+    let sk = [];
+    let fulfilled = false;
+    if (this.model.lookup.indexHasSortKeys[index]) {
+      for (let i = 0; i < skFacets.length; i++) {
+        const skFacet = skFacets[i];
+        const transform = transforms[i];
+        let hasLabels =
+          this.model.facets.labels[index] &&
+          Array.isArray(this.model.facets.labels[index].sk);
+        let labels = hasLabels ? this.model.facets.labels[index].sk : [];
+        let sortKey = this._makeKey(prefixes.sk, facets.sk, skFacet, labels, {
+          excludeLabelTail: true,
+          excludePostfix,
+          transform,
+        });
+        if (sortKey.key !== undefined) {
+          sk.push(sortKey.key);
+        }
+        if (sortKey.fulfilled) {
+          fulfilled = true;
+        }
+      }
+    }
+    return {
+      pk,
+      sk,
+      fulfilled,
+    };
+  }
+
+  /* istanbul ignore next */
+  _makeIndexKeys({
+    index = TableIndex,
+    pkAttributes = {},
+    skAttributes = [],
+    queryType,
+    indexType,
+    isCollection = false,
+  }) {
+    this._validateIndex(index);
+    const excludePostfix = indexType === IndexTypes.clustered && isCollection;
+    const transforms = this._makeKeyTransforms(queryType);
+    if (!skAttributes.length) {
+      skAttributes.push({});
+    }
+    let facets = this.model.facets.byIndex[index];
+    let prefixes = this.model.prefixes[index];
+    if (!prefixes) {
+      throw new Error(`Invalid index: ${index}`);
+    }
+    let pk = this._makeKey(
+      prefixes.pk,
+      facets.pk,
+      pkAttributes,
+      this.model.facets.labels[index].pk,
+    );
+    let sk = [];
+    let fulfilled = false;
+    if (this.model.lookup.indexHasSortKeys[index]) {
+      for (let i = 0; i < skAttributes.length; i++) {
+        const skFacet = skAttributes[i];
+        const transform = transforms[i];
+        let hasLabels =
+          this.model.facets.labels[index] &&
+          Array.isArray(this.model.facets.labels[index].sk);
+        let labels = hasLabels ? this.model.facets.labels[index].sk : [];
+        let sortKey = this._makeKey(prefixes.sk, facets.sk, skFacet, labels, {
+          excludePostfix,
+          transform,
+        });
+        if (sortKey.key !== undefined) {
+          sk.push(sortKey.key);
+        }
+        if (sortKey.fulfilled) {
+          fulfilled = true;
+        }
+      }
+    }
+    return {
+      pk: pk.key,
+      sk,
+      fulfilled,
+    };
+  }
+
+  _formatNumericCastKey(attributeName, key) {
+    const fulfilled = key !== undefined;
+    if (!fulfilled) {
+      return {
+        fulfilled,
+        key,
+      };
+    }
+    if (typeof key === "number") {
+      return {
+        fulfilled,
+        key,
+      };
+    }
+    if (typeof key === "string") {
+      const parsed = parseInt(key);
+      if (!isNaN(parsed)) {
+        return {
+          fulfilled,
+          key: parsed,
+        };
+      }
+    }
+
+    if (typeof key === "boolean") {
+      return {
+        fulfilled,
+        key: key === true ? 1 : 0,
+      };
+    }
+
+    throw new e.ElectroAttributeValidationError(
+      attributeName,
+      `Invalid key value provided, could not cast composite attribute ${attributeName} to number for index`,
+    );
+  }
+
+  /* istanbul ignore next */
+  _makeKey(
+    { prefix, isCustom, casing, postfix, cast } = {},
+    facets = [],
+    supplied = {},
+    labels = [],
+    { excludeLabelTail, excludePostfix, transform = (val) => val } = {},
+  ) {
+    if (cast === CastKeyOptions.number) {
+      return this._formatNumericCastKey(facets[0], supplied[facets[0]]);
+    }
+
+    let key = prefix;
+    let foundCount = 0;
+    for (let i = 0; i < labels.length; i++) {
+      const { name, label } = labels[i];
+      const attribute = this.model.schema.getAttribute(name);
+      let value = supplied[name];
+      if (supplied[name] === undefined && excludeLabelTail) {
+        break;
+      }
+
+      if (attribute && validations.isFunction(attribute.format)) {
+        value = attribute.format(`${value}`);
+      }
+
+      if (isCustom) {
+        key = `${key}${label}`;
+      } else {
+        key = `${key}#${label}_`;
+      }
+      // Undefined facet value means we cant build any more of the key
+      if (supplied[name] === undefined) {
+        break;
+      }
+      foundCount++;
+      key = `${key}${value}`;
+    }
+
+    // when sort keys are fulfilled we need to add the entity postfix
+    // this is used for cluster indexes
+    const fulfilled = foundCount === labels.length;
+    const shouldApplyPostfix = typeof postfix === "string" && !excludePostfix;
+    if (fulfilled && shouldApplyPostfix) {
+      key += postfix;
+    }
+
+    const transformedKey = transform(u.formatKeyCasing(key, casing));
+
+    return {
+      fulfilled,
+      key: transformedKey,
+    };
+  }
+
+  _findBestIndexKeyMatch(attributes = {}) {
+    // an array of arrays, representing the order of pk and sk composites specified for each index, and then an
+    // array with each access pattern occupying the same array index.
+    let facets = this.model.facets.bySlot;
+    // a flat array containing the match results of each access pattern, in the same array index they occur within
+    // bySlot above
+    let matches = [];
+    for (let f = 0; f < facets.length; f++) {
+      const slots = facets[f] || [];
+      for (let s = 0; s < slots.length; s++) {
+        const accessPatternSlot = slots[s];
+        matches[s] = matches[s] || {
+          index: accessPatternSlot.index,
+          allKeys: false,
+          hasSk: false,
+          count: 0,
+          done: false,
+          keys: [],
+        };
+        // already determined to be out of contention on prior iteration
+        const indexOutOfContention = matches[s].done;
+        // composite shorter than other indexes
+        const lacksAttributeAtSlot = !accessPatternSlot;
+        // attribute at this slot is not in the object provided
+        const attributeNotProvided =
+          accessPatternSlot && attributes[accessPatternSlot.name] === undefined;
+        // if the next attribute is a sort key then all partition keys were provided
+        const nextAttributeIsSortKey =
+          accessPatternSlot &&
+          accessPatternSlot.next &&
+          facets[f + 1][s].type === "sk";
+        // if no keys are left then all attribute requirements were met (remember indexes don't require a sort key)
+        const hasAllKeys = accessPatternSlot && !accessPatternSlot.next;
+
+        // no sense iterating on items we know to be "done"
+        if (
+          indexOutOfContention ||
+          lacksAttributeAtSlot ||
+          attributeNotProvided
+        ) {
+          matches[s].done = true;
+          continue;
+        }
+
+        // if the next attribute is a sort key (and you reached this line) then you have fulfilled all the
+        // partition key requirements for this index
+        if (nextAttributeIsSortKey) {
+          matches[s].hasSk = true;
+          // if you reached this step and there are no more attributes, then you fulfilled the index
+        } else if (hasAllKeys) {
+          matches[s].allKeys = true;
+        }
+
+        // number of successfully fulfilled attributes plays into the ranking heuristic
+        matches[s].count++;
+
+        // note the names/types of fulfilled attributes
+        matches[s].keys.push({
+          name: accessPatternSlot.name,
+          type: accessPatternSlot.type,
+        });
+      }
+    }
+    // the highest count of matched attributes among all access patterns
+    let max = 0;
+    matches = matches
+      // remove incomplete indexes
+      .filter((match) => match.hasSk || match.allKeys)
+      // calculate max attribute match
+      .map((match) => {
+        max = Math.max(max, match.count);
+        return match;
+      });
+
+    // matched contains the ranked attributes. The closer an element is to zero the "higher" the rank.
+    const matched = [];
+    for (let m = 0; m < matches.length; m++) {
+      const match = matches[m];
+      // a finished primary index is most ideal (could be a get)
+      const primaryIndexIsFinished = match.index === "" && match.allKeys;
+      // if there is a tie for matched index attributes, primary index should win
+      const primaryIndexIsMostMatched =
+        match.index === "" && match.count === max;
+      // composite attributes are complete
+      const indexRequirementsFulfilled = match.allKeys;
+      // having the most matches is important
+      const hasTheMostAttributeMatches = match.count === max;
+      if (primaryIndexIsFinished) {
+        matched[0] = match;
+      } else if (primaryIndexIsMostMatched) {
+        matched[1] = match;
+      } else if (indexRequirementsFulfilled) {
+        matched[2] = match;
+      } else if (hasTheMostAttributeMatches) {
+        matched[3] = match;
+      }
+    }
+    // find the first non-undefined element (best ranked) -- if possible
+    const match = matched.find((value) => !!value);
+    let keys = [];
+    let index = "";
+    let shouldScan = true;
+    if (match) {
+      keys = match.keys;
+      index = match.index;
+      shouldScan = false;
+    }
+    return { keys, index, shouldScan };
+  }
+
+  /* istanbul ignore next */
+  _parseComposedKey(key = TableIndex) {
+    let attributes = {};
+    let names = key.match(/:[A-Z1-9]+/gi);
+    if (!names) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidKeyCompositeAttributeTemplate,
+        `Invalid key composite attribute template. No composite attributes provided, expected at least one composite attribute with the format ":attributeName". Received: ${key}`,
+      );
+    }
+    let labels = key.split(/:[A-Z1-9]+/gi);
+    for (let i = 0; i < names.length; i++) {
+      let name = names[i].replace(":", "");
+      let label = labels[i];
+      if (name !== "") {
+        attributes[name] = attributes[name] || [];
+        attributes[name].push(label);
+      }
+    }
+    return attributes;
+  }
+
+  _parseTemplateKey(template = "") {
+    let attributes = [];
+    let current = {
+      label: "",
+      name: "",
+    };
+    let type = "label";
+    for (let i = 0; i < template.length; i++) {
+      let char = template[i];
+      let last = template[i - 1];
+      let next = template[i + 1];
+      if (char === "{" && last === "$" && type === "label") {
+        type = "name";
+      } else if (char === "}" && type === "name") {
+        if (current.name.match(/^\s*$/)) {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidKeyCompositeAttributeTemplate,
+            `Invalid key composite attribute template. Empty expression "\${${current.name}}" provided. Expected attribute name.`,
+          );
+        }
+        attributes.push({ name: current.name, label: current.label });
+        current.name = "";
+        current.label = "";
+        type = "label";
+      } else if (char === "$" && next === "{" && type === "label") {
+        continue;
+      } else {
+        current[type] += char;
+      }
+    }
+    if (current.name.length > 0 || current.label.length > 0) {
+      attributes.push({ name: current.name, label: current.label });
+    }
+
+    return attributes;
+  }
+
+  _parseFacets(facets) {
+    let isCustom = !Array.isArray(facets) && typeof facets === "string";
+    if (isCustom && facets.length > 0) {
+      let labels = this._parseComposedKey(facets);
+      return {
+        isCustom,
+        labels: [],
+        attributes: Object.keys(attributes),
+      };
+    } else if (isCustom && facets.length === 0) {
+      // treat like empty array sk
+      return {
+        isCustom: false,
+        labels: [],
+        attributes: [],
+      };
+    } else {
+      return {
+        isCustom,
+        labels: [],
+        attributes: Object.keys(facets),
+      };
+    }
+  }
+
+  _parseTemplateAttributes(composite = []) {
+    let isCustom = !Array.isArray(composite) && typeof composite === "string";
+    if (isCustom && composite.length > 0) {
+      let labels = this._parseTemplateKey(composite);
+      return {
+        isCustom,
+        labels,
+        attributes: labels.map(({ name }) => name).filter((name) => !!name),
+      };
+    } else if (isCustom && composite.length === 0) {
+      // treat like empty array sk
+      return {
+        isCustom: false,
+        labels: [],
+        attributes: [],
+      };
+    } else {
+      return {
+        isCustom,
+        labels: composite.map((name) => ({ name })),
+        attributes: composite,
+      };
+    }
+  }
+
+  _compositeTemplateAreCompatible(parsedAttributes, composite) {
+    if (
+      !Array.isArray(composite) ||
+      !parsedAttributes ||
+      !parsedAttributes.isCustom
+    ) {
+      // not beholden to compatibility constraints
+      return true;
+    }
+
+    return validations.stringArrayMatch(composite, parsedAttributes.attributes);
+  }
+
+  _optimizeIndexKey(keyDefinition) {
+    const hasTemplate = typeof keyDefinition.template === "string";
+    const hasSingleItemComposite =
+      Array.isArray(keyDefinition.facets) &&
+      keyDefinition.facets.length === 1 &&
+      keyDefinition.facets[0] === keyDefinition.field;
+    if (!hasTemplate && hasSingleItemComposite) {
+      keyDefinition.facets = "${" + keyDefinition.field + "}";
+    }
+    return keyDefinition;
+  }
+
+  _optimizeMatchingKeyAttributes(model = {}) {
+    const attributeFields = [];
+    for (const name of Object.keys(model.attributes)) {
+      const { field } = model.attributes[name];
+      attributeFields.push(field || name);
+    }
+    for (const accessPattern of Object.keys(model.indexes)) {
+      let { pk, sk } = model.indexes[accessPattern];
+      if (attributeFields.includes(pk.field)) {
+        model.indexes[accessPattern].pk = this._optimizeIndexKey(pk);
+      }
+      if (sk && attributeFields.includes(sk.field)) {
+        model.indexes[accessPattern].sk = this._optimizeIndexKey(sk);
+      }
+    }
+    return model;
+  }
+
+  _normalizeIndexes(indexes) {
+    let normalized = {};
+    let indexFieldTranslation = {};
+    let indexHasSortKeys = {};
+    let indexHasSubCollections = {};
+    let clusteredIndexes = new Set();
+    let indexAccessPatternTransaction = {
+      fromAccessPatternToIndex: {},
+      fromIndexToAccessPattern: {},
+    };
+    let collectionIndexTranslation = {
+      fromCollectionToIndex: {},
+      fromIndexToCollection: {},
+    };
+    let subCollections = {};
+    let collections = {};
+    let facets = {
+      byIndex: {},
+      byField: {},
+      byFacet: {},
+      byAttr: {},
+      byType: {},
+      bySlot: [],
+      fields: [],
+      attributes: [],
+      labels: {},
+    };
+    let seenIndexes = {};
+    let seenIndexFields = {};
+    let accessPatterns = Object.keys(indexes);
+
+    for (let i in accessPatterns) {
+      let accessPattern = accessPatterns[i];
+      let index = indexes[accessPattern];
+      let indexName = index.index || TableIndex;
+      let indexType =
+        typeof index.type === "string" ? index.type : IndexTypes.isolated;
+      if (indexType === "clustered") {
+        clusteredIndexes.add(accessPattern);
+      }
+      if (seenIndexes[indexName] !== undefined) {
+        if (indexName === TableIndex) {
+          throw new e.ElectroError(
+            e.ErrorCodes.DuplicateIndexes,
+            `Duplicate index defined in model found in Access Pattern '${accessPattern}': '${u.formatIndexNameForDisplay(
+              indexName,
+            )}'. This could be because you forgot to specify the index name of a secondary index defined in your model.`,
+          );
+        } else {
+          throw new e.ElectroError(
+            e.ErrorCodes.DuplicateIndexes,
+            `Duplicate index defined in model found in Access Pattern '${accessPattern}': '${indexName}'`,
+          );
+        }
+      }
+      seenIndexes[indexName] = indexName;
+      let hasSk = !!index.sk;
+      let inCollection = !!index.collection;
+      if (!hasSk && inCollection) {
+        throw new e.ElectroError(
+          e.ErrorCodes.CollectionNoSK,
+          `Invalid Access pattern definition for '${accessPattern}': '${u.formatIndexNameForDisplay(
+            indexName,
+          )}', contains a collection definition without a defined SK. Collections can only be defined on indexes with a defined SK.`,
+        );
+      }
+      let collection = index.collection || "";
+      let customFacets = {
+        pk: false,
+        sk: false,
+      };
+      const pkCasing =
+        KeyCasing[index.pk.casing] === undefined
+          ? KeyCasing.default
+          : index.pk.casing;
+      let skCasing = KeyCasing.default;
+      if (hasSk && KeyCasing[index.sk.casing] !== undefined) {
+        skCasing = index.sk.casing;
+      }
+      indexHasSortKeys[indexName] = hasSk;
+      let parsedPKAttributes = this._parseTemplateAttributes(index.pk.facets);
+      customFacets.pk = parsedPKAttributes.isCustom;
+      // labels can be set via the attribute definition or as part of the facetTemplate.
+      facets.labels[indexName] = facets.labels[indexName] || {};
+      facets.labels[indexName]["pk"] =
+        facets.labels[indexName]["pk"] || parsedPKAttributes;
+      facets.labels[indexName]["sk"] =
+        facets.labels[indexName]["sk"] || this._parseTemplateAttributes();
+      let pk = {
+        inCollection,
+        accessPattern,
+        index: indexName,
+        casing: pkCasing,
+        type: KeyTypes.pk,
+        cast: index.pk.cast,
+        field: index.pk.field || "",
+        facets: parsedPKAttributes.attributes,
+        isCustom: parsedPKAttributes.isCustom,
+        facetLabels: parsedPKAttributes.labels,
+      };
+      let sk = {};
+      let parsedSKAttributes = {};
+      if (hasSk) {
+        parsedSKAttributes = this._parseTemplateAttributes(index.sk.facets);
+        customFacets.sk = parsedSKAttributes.isCustom;
+        facets.labels[indexName]["sk"] = parsedSKAttributes;
+        sk = {
+          inCollection,
+          accessPattern,
+          index: indexName,
+          casing: skCasing,
+          type: KeyTypes.sk,
+          cast: index.sk.cast,
+          field: index.sk.field || "",
+          facets: parsedSKAttributes.attributes,
+          isCustom: parsedSKAttributes.isCustom,
+          facetLabels: parsedSKAttributes.labels,
+        };
+        facets.fields.push(sk.field);
+      }
+
+      if (Array.isArray(sk.facets)) {
+        let duplicates = pk.facets.filter((facet) => sk.facets.includes(facet));
+        if (duplicates.length !== 0) {
+          if (sk.facets.length > 1) {
+            throw new e.ElectroError(
+              e.ErrorCodes.DuplicateIndexCompositeAttributes,
+              `The Access Pattern '${accessPattern}' contains duplicate references the composite attribute(s): ${u.commaSeparatedString(
+                duplicates,
+              )}. Composite attributes can only be used more than once in an index if your sort key is limitted to a single attribute. This is to prevent unexpected runtime errors related to the inability to generate keys.`,
+            );
+          }
+        }
+      }
+
+      let definition = {
+        pk,
+        sk,
+        collection,
+        hasSk,
+        customFacets,
+        index: indexName,
+        type: indexType,
+      };
+
+      indexHasSubCollections[indexName] =
+        inCollection && Array.isArray(collection);
+
+      if (inCollection) {
+        let collectionArray = this._toSubCollectionArray(collection);
+
+        for (let collectionName of collectionArray) {
+          if (collections[collectionName] !== undefined) {
+            throw new e.ElectroError(
+              e.ErrorCodes.DuplicateCollections,
+              `Duplicate collection, "${collectionName}" is defined across multiple indexes "${collections[collectionName]}" and "${accessPattern}". Collections must be unique names across indexes for an Entity.`,
+            );
+          } else {
+            collections[collectionName] = accessPattern;
+          }
+          collectionIndexTranslation.fromCollectionToIndex[collectionName] =
+            indexName;
+          collectionIndexTranslation.fromIndexToCollection[indexName] =
+            collectionIndexTranslation.fromIndexToCollection[indexName] || [];
+          collectionIndexTranslation.fromIndexToCollection[indexName].push(
+            collection,
+          );
+        }
+        subCollections = {
+          ...subCollections,
+          ...this._normalizeSubCollections(collectionArray),
+        };
+      }
+
+      let attributes = [
+        ...pk.facets.map((name) => ({
+          name,
+          index: indexName,
+          type: KeyTypes.pk,
+        })),
+        ...(sk.facets || []).map((name) => ({
+          name,
+          index: indexName,
+          type: KeyTypes.sk,
+        })),
+      ];
+
+      normalized[accessPattern] = definition;
+
+      indexAccessPatternTransaction.fromAccessPatternToIndex[accessPattern] =
+        indexName;
+      indexAccessPatternTransaction.fromIndexToAccessPattern[indexName] =
+        accessPattern;
+
+      indexFieldTranslation[indexName] = {
+        pk: pk.field,
+        sk: sk.field || "",
+      };
+
+      facets.attributes = [...facets.attributes, ...attributes];
+
+      facets.fields.push(pk.field);
+
+      facets.byIndex[indexName] = {
+        customFacets,
+        pk: pk.facets,
+        sk: sk.facets,
+        all: attributes,
+        collection: index.collection,
+        hasSortKeys: !!indexHasSortKeys[indexName],
+        hasSubCollections: !!indexHasSubCollections[indexName],
+        casing: {
+          pk: pkCasing,
+          sk: skCasing,
+        },
+      };
+
+      facets.byField = facets.byField || {};
+      facets.byField[pk.field] = facets.byField[pk.field] || {};
+      facets.byField[pk.field][indexName] = pk;
+      if (sk.field) {
+        facets.byField[sk.field] = facets.byField[sk.field] || {};
+        facets.byField[sk.field][indexName] = sk;
+      }
+
+      if (seenIndexFields[pk.field] !== undefined) {
+        const definition = Object.values(facets.byField[pk.field]).find(
+          (definition) => definition.index !== indexName,
+        );
+        const definitionsMatch = validations.stringArrayMatch(
+          pk.facets,
+          definition.facets,
+        );
+        if (!definitionsMatch) {
+          throw new e.ElectroError(
+            e.ErrorCodes.InconsistentIndexDefinition,
+            `Partition Key (pk) on Access Pattern '${u.formatIndexNameForDisplay(
+              accessPattern,
+            )}' is defined with the composite attribute(s) ${u.commaSeparatedString(
+              pk.facets,
+            )}, but the accessPattern '${u.formatIndexNameForDisplay(
+              definition.index,
+            )}' defines this field with the composite attributes ${u.commaSeparatedString(
+              definition.facets,
+            )}'. Key fields must have the same composite attribute definitions across all indexes they are involved with`,
+          );
+        }
+        seenIndexFields[pk.field].push({ accessPattern, type: "pk" });
+      } else {
+        seenIndexFields[pk.field] = [];
+        seenIndexFields[pk.field].push({ accessPattern, type: "pk" });
+      }
+
+      if (sk.field) {
+        if (sk.field === pk.field) {
+          throw new e.ElectroError(
+            e.ErrorCodes.DuplicateIndexFields,
+            `The Access Pattern '${u.formatIndexNameForDisplay(
+              accessPattern,
+            )}' references the field '${
+              sk.field
+            }' as the field name for both the PK and SK. Fields used for indexes need to be unique to avoid conflicts.`,
+          );
+        } else if (seenIndexFields[sk.field] !== undefined) {
+          const isAlsoDefinedAsPK = seenIndexFields[sk.field].find(
+            (field) => field.type === "pk",
+          );
+          if (isAlsoDefinedAsPK) {
+            throw new e.ElectroError(
+              e.ErrorCodes.InconsistentIndexDefinition,
+              `The Sort Key (sk) on Access Pattern '${u.formatIndexNameForDisplay(
+                accessPattern,
+              )}' references the field '${
+                pk.field
+              }' which is already referenced by the Access Pattern(s) '${u.formatIndexNameForDisplay(
+                isAlsoDefinedAsPK.accessPattern,
+              )}' as a Partition Key. Fields mapped to Partition Keys cannot be also mapped to Sort Keys.`,
+            );
+          }
+          const definition = Object.values(facets.byField[sk.field]).find(
+            (definition) => definition.index !== indexName,
+          );
+          const definitionsMatch = validations.stringArrayMatch(
+            sk.facets,
+            definition.facets,
+          );
+          if (!definitionsMatch) {
+            throw new e.ElectroError(
+              e.ErrorCodes.DuplicateIndexFields,
+              `Sort Key (sk) on Access Pattern '${u.formatIndexNameForDisplay(
+                accessPattern,
+              )}' is defined with the composite attribute(s) ${u.commaSeparatedString(
+                sk.facets,
+              )}, but the accessPattern '${u.formatIndexNameForDisplay(
+                definition.index,
+              )}' defines this field with the composite attributes ${u.commaSeparatedString(
+                definition.facets,
+              )}'. Key fields must have the same composite attribute definitions across all indexes they are involved with`,
+            );
+          }
+          seenIndexFields[sk.field].push({ accessPattern, type: "sk" });
+        } else {
+          seenIndexFields[sk.field] = [];
+          seenIndexFields[sk.field].push({ accessPattern, type: "sk" });
+        }
+      }
+
+      attributes.forEach(({ index, type, name }, j) => {
+        let next =
+          attributes[j + 1] !== undefined ? attributes[j + 1].name : "";
+        let facet = { index, name, type, next };
+        facets.byAttr[name] = facets.byAttr[name] || [];
+        facets.byAttr[name].push(facet);
+        facets.byType[type] = facets.byType[type] || [];
+        facets.byType[type].push(facet);
+        facets.byFacet[name] = facets.byFacet[name] || [];
+        facets.byFacet[name][j] = facets.byFacet[name][j] || [];
+        facets.byFacet[name][j].push(facet);
+        facets.bySlot[j] = facets.bySlot[j] || [];
+        facets.bySlot[j][i] = facet;
+      });
+
+      let pkTemplateIsCompatible = this._compositeTemplateAreCompatible(
+        parsedPKAttributes,
+        index.pk.composite,
+      );
+      if (!pkTemplateIsCompatible) {
+        throw new e.ElectroError(
+          e.ErrorCodes.IncompatibleKeyCompositeAttributeTemplate,
+          `Incompatible PK 'template' and 'composite' properties for defined on index "${u.formatIndexNameForDisplay(
+            indexName,
+          )}". PK "template" string is defined as having composite attributes ${u.commaSeparatedString(
+            parsedPKAttributes.attributes,
+          )} while PK "composite" array is defined with composite attributes ${u.commaSeparatedString(
+            index.pk.composite,
+          )}`,
+        );
+      }
+
+      if (
+        index.sk !== undefined &&
+        Array.isArray(index.sk.composite) &&
+        typeof index.sk.template === "string"
+      ) {
+        let skTemplateIsCompatible = this._compositeTemplateAreCompatible(
+          parsedSKAttributes,
+          index.sk.composite,
+        );
+        if (!skTemplateIsCompatible) {
+          throw new e.ElectroError(
+            e.ErrorCodes.IncompatibleKeyCompositeAttributeTemplate,
+            `Incompatible SK 'template' and 'composite' properties for defined on index "${u.formatIndexNameForDisplay(
+              indexName,
+            )}". SK "template" string is defined as having composite attributes ${u.commaSeparatedString(
+              parsedSKAttributes.attributes,
+            )} while SK "composite" array is defined with composite attributes ${u.commaSeparatedString(
+              index.sk.composite,
+            )}`,
+          );
+        }
+      }
+    }
+
+    if (facets.byIndex[TableIndex] === undefined) {
+      throw new e.ElectroError(
+        e.ErrorCodes.MissingPrimaryIndex,
+        "Schema is missing an index definition for the table's main index. Please update the schema to include an index without a specified name to define the table's natural index",
+      );
+    }
+
+    return {
+      facets,
+      subCollections,
+      indexHasSortKeys,
+      clusteredIndexes,
+      indexHasSubCollections,
+      indexes: normalized,
+      indexField: indexFieldTranslation,
+      indexAccessPattern: indexAccessPatternTransaction,
+      indexCollection: collectionIndexTranslation,
+      collections: Object.keys(collections),
+    };
+  }
+
+  _normalizeFilters(filters = {}) {
+    let normalized = {};
+    let invalidFilterNames = ["go", "params", "filter", "where", "set"];
+
+    for (let [name, fn] of Object.entries(filters)) {
+      if (invalidFilterNames.includes(name)) {
+        throw new e.ElectroError(
+          e.ErrorCodes.InvalidFilter,
+          `Invalid filter name: ${name}. Filter cannot be named ${u.commaSeparatedString(
+            invalidFilterNames,
+          )}`,
+        );
+      } else {
+        normalized[name] = fn;
+      }
+    }
+
+    return normalized;
+  }
+
+  _normalizeKeyFixings({
+    service,
+    entity,
+    version,
+    indexes,
+    modelVersion,
+    clusteredIndexes,
+    schema,
+  }) {
+    let prefixes = {};
+    for (let accessPattern of Object.keys(indexes)) {
+      let tableIndex = indexes[accessPattern];
+      prefixes[tableIndex.index] = this._makeKeyFixings({
+        service,
+        entity,
+        version,
+        tableIndex,
+        modelVersion,
+        isClustered: clusteredIndexes.has(accessPattern),
+        schema,
+      });
+    }
+    return prefixes;
+  }
+
+  _normalizeSubCollections(collections = []) {
+    let lookup = {};
+    for (let i = collections.length - 1; i >= 0; i--) {
+      let subCollection = collections[i];
+      lookup[subCollection] = lookup[subCollection] || [];
+      for (let j = 0; j <= i; j++) {
+        lookup[subCollection].push(collections[j]);
+      }
+    }
+    return lookup;
+  }
+
+  _toSubCollectionArray(collection) {
+    let collectionArray = [];
+    if (
+      Array.isArray(collection) &&
+      collection.every((col) => validations.isStringHasLength(col))
+    ) {
+      collectionArray = collection;
+    } else if (validations.isStringHasLength(collection)) {
+      collectionArray.push(collection);
+    } else {
+      throw new Error("Invalid collection definition");
+    }
+    return collectionArray;
+  }
+
+  _applyCompositeToFacetConversion(model) {
+    for (let accessPattern of Object.keys(model.indexes)) {
+      let index = model.indexes[accessPattern];
+      let invalidPK =
+        index.pk.facets === undefined &&
+        index.pk.composite === undefined &&
+        index.pk.template === undefined;
+      let invalidSK =
+        index.sk &&
+        index.sk.facets === undefined &&
+        index.sk.composite === undefined &&
+        index.sk.template === undefined;
+      if (invalidPK) {
+        throw new Error("Missing Index Composite Attributes!");
+      } else if (invalidSK) {
+        throw new Error("Missing Index Composite Attributes!");
+      }
+
+      if (Array.isArray(index.pk.composite)) {
+        index.pk = {
+          ...index.pk,
+          facets: index.pk.composite,
+        };
+      }
+
+      if (typeof index.pk.template === "string") {
+        index.pk = {
+          ...index.pk,
+          facets: index.pk.template,
+        };
+      }
+
+      // SK may not exist on index
+      if (index.sk && Array.isArray(index.sk.composite)) {
+        index.sk = {
+          ...index.sk,
+          facets: index.sk.composite,
+        };
+      }
+
+      if (index.sk && typeof index.sk.template === "string") {
+        index.sk = {
+          ...index.sk,
+          facets: index.sk.template,
+        };
+      }
+
+      model.indexes[accessPattern] = index;
+    }
+    return model;
+  }
+
+  _mergeKeyDefinitions(fromIndex, fromModel) {
+    let definitions = {};
+    for (let indexName of Object.keys(fromIndex)) {
+      let pk = fromIndex[indexName].pk;
+      let sk = fromIndex[indexName].sk || { labels: [] };
+      definitions[indexName] = {
+        pk: [],
+        sk: [],
+      };
+      for (let { name, label } of pk.labels) {
+        if (pk.isCustom) {
+          definitions[indexName].pk.push({ name, label });
+        } else {
+          definitions[indexName].pk.push({
+            name,
+            label: fromModel[name] || name,
+          });
+        }
+      }
+      for (let { name, label } of sk.labels) {
+        if (sk.isCustom) {
+          definitions[indexName].sk.push({ name, label });
+        } else {
+          definitions[indexName].sk.push({
+            name,
+            label: u.getFirstDefined(fromModel[name], name),
+          });
+        }
+      }
+    }
+
+    return definitions;
+  }
+
+  _parseModel(model, config = {}) {
+    /** start beta/v1 condition **/
+    let modelVersion = u.getModelVersion(model);
+    let service, entity, version, table, name;
+    switch (modelVersion) {
+      case ModelVersions.beta:
+        service = model.service;
+        entity = model.entity;
+        version = model.version;
+        table = config.table || model.table;
+        name = entity;
+        break;
+      case ModelVersions.v1:
+        service = model.model && model.model.service;
+        entity = model.model && model.model.entity;
+        version = model.model && model.model.version;
+        table = config.table || model.table;
+        name = entity;
+        break;
+      default:
+        throw new Error("Invalid model");
+    }
+
+    model = this._applyCompositeToFacetConversion(model);
+
+    // _optimizeMatchingKeyAttributes abides by the design compromises made by _applyCompositeToFacetConversion :\
+    model = this._optimizeMatchingKeyAttributes(model);
+    /** end beta/v1 condition **/
+
+    let {
+      facets,
+      indexes,
+      indexField,
+      collections,
+      subCollections,
+      indexCollection,
+      clusteredIndexes,
+      indexHasSortKeys,
+      indexAccessPattern,
+      indexHasSubCollections,
+    } = this._normalizeIndexes(model.indexes);
+    let schema = new Schema(model.attributes, facets, {
+      getClient: () => this.client,
+      isRoot: true,
+    });
+
+    let filters = this._normalizeFilters(model.filters);
+    // todo: consider a rename
+    let prefixes = this._normalizeKeyFixings({
+      service,
+      entity,
+      version,
+      indexes,
+      modelVersion,
+      clusteredIndexes,
+      schema,
+    });
+
+    // apply model defined labels
+    let schemaDefinedLabels = schema.getLabels();
+    const deconstructors = {};
+    facets.labels = this._mergeKeyDefinitions(
+      facets.labels,
+      schemaDefinedLabels,
+    );
+    for (let indexName of Object.keys(facets.labels)) {
+      const accessPattern =
+        indexAccessPattern.fromIndexToAccessPattern[indexName];
+      indexes[accessPattern].pk.labels = facets.labels[indexName].pk;
+      indexes[accessPattern].sk.labels = facets.labels[indexName].sk;
+
+      const keyTypes = prefixes[indexName] || {};
+      deconstructors[indexName] = {};
+      for (const keyType in keyTypes) {
+        const prefixes = keyTypes[keyType];
+        const labels = facets.labels[indexName][keyType] || [];
+        const attributes = schema.attributes;
+        deconstructors[indexName][keyType] = this._createKeyDeconstructor(
+          prefixes,
+          labels,
+          attributes,
+        );
+        for (let attributeName in schema.attributes) {
+          const { field } = schema.attributes[attributeName];
+          if (indexes[accessPattern][keyType].field === field) {
+            indexes[accessPattern][keyType].isFieldRef = true;
+          }
+        }
+      }
+    }
+
+    return {
+      name,
+      table,
+      schema,
+      facets,
+      entity,
+      service,
+      indexes,
+      version,
+      filters,
+      prefixes,
+      collections,
+      modelVersion,
+      subCollections,
+      lookup: {
+        clusteredIndexes,
+        indexHasSortKeys,
+        indexHasSubCollections,
+      },
+      translations: {
+        keys: indexField,
+        indexes: indexAccessPattern,
+        collections: indexCollection,
+      },
+      keys: {
+        deconstructors,
+      },
+      original: model,
+    };
+  }
 }
 
 function getEntityIdentifiers(entities) {
-	let identifiers = [];
-	for (let alias of Object.keys(entities)) {
-		let entity = entities[alias];
-		let name = entity.model.entity;
-		let version = entity.model.version;
-		identifiers.push({
-			name,
-			alias,
-			version,
-			entity,
-			nameField: entity.identifiers.entity,
-			versionField: entity.identifiers.version
-		});
-	}
-	return identifiers;
+  let identifiers = [];
+  for (let alias of Object.keys(entities)) {
+    let entity = entities[alias];
+    let name = entity.model.entity;
+    let version = entity.model.version;
+    identifiers.push({
+      name,
+      alias,
+      version,
+      entity,
+      nameField: entity.identifiers.entity,
+      versionField: entity.identifiers.version,
+    });
+  }
+  return identifiers;
 }
 
-function matchToEntityAlias({ paramItem, identifiers, record, entities = {}, allowMatchOnKeys = false } = {}) {
-	let entity;
-	if (paramItem && v.isFunction(paramItem[TransactionCommitSymbol])) {
-		const committed = paramItem[TransactionCommitSymbol]();
-		entity = committed.entity;
-	}
+function matchToEntityAlias({
+  paramItem,
+  identifiers,
+  record,
+  entities = {},
+  allowMatchOnKeys = false,
+} = {}) {
+  let entity;
+  if (paramItem && v.isFunction(paramItem[TransactionCommitSymbol])) {
+    const committed = paramItem[TransactionCommitSymbol]();
+    entity = committed.entity;
+  }
 
-	let entityAlias;
-	for (let {name, version, nameField, versionField, alias} of identifiers) {
-		if (entity && entity.model.entity === name && entity.model.version === version) {
-			entityAlias = alias;
-			break;
-		} else if (record[nameField] !== undefined && record[versionField] !== undefined && record[nameField] === name && record[versionField] === version) {
-			entityAlias = alias;
-			break;
-		// } else if (allowMatchOnKeys && entities[alias] && entities[alias].ownsKeys({keys: record})) {
-		// 	if (entityAlias) {
-		// 		if (alias !== entityAlias) {
-		// 			throw new Error('Key ownership found to be not distinct');
-		// 		}
-		// 	} else {
-		// 		entityAlias = alias;
-		// 	}
-		// }
-		} else if (entities[alias] && entities[alias].ownsKeys(record)) {
-			entityAlias = alias;
-			break;
-		}
-	}
+  let entityAlias;
+  for (let { name, version, nameField, versionField, alias } of identifiers) {
+    if (
+      entity &&
+      entity.model.entity === name &&
+      entity.model.version === version
+    ) {
+      entityAlias = alias;
+      break;
+    } else if (
+      record[nameField] !== undefined &&
+      record[versionField] !== undefined &&
+      record[nameField] === name &&
+      record[versionField] === version
+    ) {
+      entityAlias = alias;
+      break;
+      // } else if (allowMatchOnKeys && entities[alias] && entities[alias].ownsKeys({keys: record})) {
+      // 	if (entityAlias) {
+      // 		if (alias !== entityAlias) {
+      // 			throw new Error('Key ownership found to be not distinct');
+      // 		}
+      // 	} else {
+      // 		entityAlias = alias;
+      // 	}
+      // }
+    } else if (entities[alias] && entities[alias].ownsKeys(record)) {
+      entityAlias = alias;
+      break;
+    }
+  }
 
-	return entityAlias;
+  return entityAlias;
 }
 
 module.exports = {
-	Entity,
-	clauses,
-	getEntityIdentifiers,
-	matchToEntityAlias,
+  Entity,
+  clauses,
+  getEntityIdentifiers,
+  matchToEntityAlias,
 };
 
 },{"./clauses":17,"./client":18,"./errors":20,"./events":21,"./filters":23,"./operations":24,"./schema":25,"./types":29,"./util":32,"./validations":33,"./where":34}],20:[function(require,module,exports){
@@ -10758,31 +11844,31 @@ const ErrorCodes = {
     code: 1009,
     section: "invalid-model",
     name: "InvalidModel",
-    sym: ErrorCode
+    sym: ErrorCode,
   },
   InvalidOptions: {
     code: 1010,
     section: "invalid-options",
     name: "InvalidOptions",
-    sym: ErrorCode
+    sym: ErrorCode,
   },
   InvalidFilter: {
     code: 1011,
     section: "filters",
     name: "InvalidFilter",
-    sym: ErrorCode
+    sym: ErrorCode,
   },
   InvalidWhere: {
     code: 1012,
     section: "where",
     name: "InvalidWhere",
-    sym: ErrorCode
+    sym: ErrorCode,
   },
   InvalidJoin: {
     code: 1013,
     section: "join",
     name: "InvalidJoin",
-    sym: ErrorCode
+    sym: ErrorCode,
   },
   DuplicateIndexFields: {
     code: 1014,
@@ -10800,7 +11886,7 @@ const ErrorCodes = {
     code: 1016,
     section: "invalid-attribute-watch-definition",
     name: "InvalidAttributeWatchDefinition",
-    sym: ErrorCode
+    sym: ErrorCode,
   },
   IncompatibleKeyCompositeAttributeTemplate: {
     code: 1017,
@@ -10860,13 +11946,13 @@ const ErrorCodes = {
     code: 2003,
     section: "missing-table",
     name: "MissingTable",
-    sym: ErrorCode
+    sym: ErrorCode,
   },
   InvalidConcurrencyOption: {
     code: 2004,
     section: "invalid-concurrency-option",
     name: "InvalidConcurrencyOption",
-    sym: ErrorCode
+    sym: ErrorCode,
   },
   InvalidPagesOption: {
     code: 2005,
@@ -10908,7 +11994,7 @@ const ErrorCodes = {
     code: 3001,
     section: "invalid-attribute",
     name: "InvalidAttribute",
-    sym: ErrorCode
+    sym: ErrorCode,
   },
   AWSError: {
     code: 4001,
@@ -10926,7 +12012,7 @@ const ErrorCodes = {
     code: 5002,
     section: "",
     name: "GeneralError",
-    sym: ErrorCode
+    sym: ErrorCode,
   },
   LastEvaluatedKey: {
     code: 5003,
@@ -10951,19 +12037,21 @@ const ErrorCodes = {
     section: "pager-not-unique",
     name: "NoOwnerForPager",
     sym: ErrorCode,
-  }
+  },
 };
 
 function makeMessage(message, section) {
-  return `${message} - For more detail on this error reference: ${getHelpLink(section)}`
+  return `${message} - For more detail on this error reference: ${getHelpLink(
+    section,
+  )}`;
 }
 
 class ElectroError extends Error {
-  constructor(code, message) {
-    super(message);
+  constructor(code, message, cause) {
+    super(message, { cause });
     let detail = ErrorCodes.UnknownError;
     if (code && code.sym === ErrorCode) {
-      detail = code
+      detail = code;
     }
     this._message = message;
     // this.message = `${message} - For more detail on this error reference: ${getHelpLink(detail.section)}`;
@@ -10972,7 +12060,7 @@ class ElectroError extends Error {
       Error.captureStackTrace(this, ElectroError);
     }
 
-    this.name = 'ElectroError';
+    this.name = "ElectroError";
     this.ref = code;
     this.code = detail.code;
     this.date = Date.now();
@@ -10986,7 +12074,7 @@ class ElectroValidationError extends ElectroError {
     const messages = [];
     for (let i = 0; i < errors.length; i++) {
       const error = errors[i];
-      const message = error ? (error._message || error.message) : undefined;
+      const message = error ? error._message || error.message : undefined;
       messages.push(message);
       if (error instanceof ElectroUserValidationError) {
         fields.push({
@@ -10994,7 +12082,7 @@ class ElectroValidationError extends ElectroError {
           index: error.index,
           reason: message,
           cause: error.cause,
-          type: 'validation'
+          type: "validation",
         });
       } else if (error instanceof ElectroAttributeValidationError) {
         fields.push({
@@ -11002,22 +12090,23 @@ class ElectroValidationError extends ElectroError {
           index: error.index,
           reason: message,
           cause: error.cause || error, // error | undefined
-          type: 'validation'
+          type: "validation",
         });
       } else if (message) {
         fields.push({
-          field: '',
+          field: "",
           index: error.index,
           reason: message,
           cause: error !== undefined ? error.cause || error : undefined,
-          type: 'fatal'
+          type: "fatal",
         });
       }
     }
 
-    const message = messages
-        .filter(message => typeof message === "string" && message.length)
-        .join(', ') || `Invalid value(s) provided`;
+    const message =
+      messages
+        .filter((message) => typeof message === "string" && message.length)
+        .join(", ") || `Invalid value(s) provided`;
 
     super(ErrorCodes.InvalidAttribute, message);
     this.fields = fields;
@@ -11031,14 +12120,22 @@ class ElectroUserValidationError extends ElectroError {
     let hasCause = false;
     if (typeof cause === "string") {
       message = cause;
-    } else if (cause !== undefined && typeof cause._message === "string" && cause._message.length) {
+    } else if (
+      cause !== undefined &&
+      typeof cause._message === "string" &&
+      cause._message.length
+    ) {
       message = cause._message;
       hasCause = true;
-    } else if (cause !== undefined && typeof cause.message === "string" && cause.message.length) {
+    } else if (
+      cause !== undefined &&
+      typeof cause.message === "string" &&
+      cause.message.length
+    ) {
       message = cause.message;
       hasCause = true;
     } else {
-        message = "Invalid value provided";
+      message = "Invalid value provided";
     }
     super(ErrorCodes.InvalidAttribute, message);
     this.field = field;
@@ -11061,49 +12158,59 @@ module.exports = {
   ElectroError,
   ElectroValidationError,
   ElectroUserValidationError,
-  ElectroAttributeValidationError
+  ElectroAttributeValidationError,
 };
 
 },{}],21:[function(require,module,exports){
 const e = require("./errors");
-const v = require('./validations');
+const v = require("./validations");
 
 class EventManager {
   static createSafeListener(listener) {
     if (listener === undefined) {
       return undefined;
-    } if (!v.isFunction(listener)) {
-      throw new e.ElectroError(e.ErrorCodes.InvalidListenerProvided, `Provided listener is not of type 'function'`);
+    }
+    if (!v.isFunction(listener)) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidListenerProvided,
+        `Provided listener is not of type 'function'`,
+      );
     } else {
       return (...params) => {
         try {
           listener(...params);
-        } catch(err) {
+        } catch (err) {
           console.error(`Error invoking user supplied listener`, err);
         }
-      }
+      };
     }
   }
 
   static normalizeListeners(listeners = []) {
     if (!Array.isArray(listeners)) {
-      throw new e.ElectroError(e.ErrorCodes.InvalidListenerProvided, `Listeners must be provided as an array of functions`);
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidListenerProvided,
+        `Listeners must be provided as an array of functions`,
+      );
     }
     return listeners
-      .map(listener => EventManager.createSafeListener(listener))
-      .filter(listener => {
+      .map((listener) => EventManager.createSafeListener(listener))
+      .filter((listener) => {
         switch (typeof listener) {
-          case 'function':
+          case "function":
             return true;
-          case 'undefined':
+          case "undefined":
             return false;
           default:
-            throw new e.ElectroError(e.ErrorCodes.InvalidListenerProvided, `Provided listener is not of type 'function`);
+            throw new e.ElectroError(
+              e.ErrorCodes.InvalidListenerProvided,
+              `Provided listener is not of type 'function`,
+            );
         }
       });
   }
 
-  constructor({listeners = []} = {}) {
+  constructor({ listeners = [] } = {}) {
     this.listeners = EventManager.normalizeListeners(listeners);
   }
 
@@ -11113,14 +12220,14 @@ class EventManager {
     }
 
     this.listeners = this.listeners.concat(
-      EventManager.normalizeListeners(listeners)
+      EventManager.normalizeListeners(listeners),
     );
   }
 
   trigger(event, adHocListeners = []) {
     const allListeners = [
       ...this.listeners,
-      ...EventManager.normalizeListeners(adHocListeners)
+      ...EventManager.normalizeListeners(adHocListeners),
     ];
 
     for (const listener of allListeners) {
@@ -11130,3830 +12237,4517 @@ class EventManager {
 }
 
 module.exports = {
-  EventManager
+  EventManager,
 };
+
 },{"./errors":20,"./validations":33}],22:[function(require,module,exports){
 const FilterOperations = {
-    escape: {
-        template: function escape(options, attr) {
-            return `${attr}`;
-        },
-        rawValue: true,
+  escape: {
+    template: function escape(options, attr) {
+      return `${attr}`;
     },
-    size: {
-        template: function size(options, attr, name) {
-            return `size(${name})`
-        },
-        strict: false,
+    rawValue: true,
+  },
+  size: {
+    template: function size(options, attr, name) {
+      return `size(${name})`;
     },
-    type: {
-        template: function attributeType(options, attr, name, value) {
-            return `attribute_type(${name}, ${value})`;
-        },
-        strict: false
+    strict: false,
+  },
+  type: {
+    template: function attributeType(options, attr, name, value) {
+      return `attribute_type(${name}, ${value})`;
     },
-    ne: {
-        template: function ne(options, attr, name, value) {
-            return `${name} <> ${value}`;
-        },
-        strict: false,
+    strict: false,
+  },
+  ne: {
+    template: function ne(options, attr, name, value) {
+      return `${name} <> ${value}`;
     },
-    eq: {
-        template: function eq(options, attr, name, value) {
-            return `${name} = ${value}`;
-        },
-        strict: false,
+    strict: false,
+  },
+  eq: {
+    template: function eq(options, attr, name, value) {
+      return `${name} = ${value}`;
     },
-    gt: {
-        template: function gt(options, attr, name, value) {
-            return `${name} > ${value}`;
-        },
-        strict: false
+    strict: false,
+  },
+  gt: {
+    template: function gt(options, attr, name, value) {
+      return `${name} > ${value}`;
     },
-    lt: {
-        template: function lt(options, attr, name, value) {
-            return `${name} < ${value}`;
-        },
-        strict: false
+    strict: false,
+  },
+  lt: {
+    template: function lt(options, attr, name, value) {
+      return `${name} < ${value}`;
     },
-    gte: {
-        template: function gte(options, attr, name, value) {
-            return `${name} >= ${value}`;
-        },
-        strict: false
+    strict: false,
+  },
+  gte: {
+    template: function gte(options, attr, name, value) {
+      return `${name} >= ${value}`;
     },
-    lte: {
-        template: function lte(options, attr, name, value) {
-            return `${name} <= ${value}`;
-        },
-        strict: false
+    strict: false,
+  },
+  lte: {
+    template: function lte(options, attr, name, value) {
+      return `${name} <= ${value}`;
     },
-    between: {
-        template: function between(options, attr, name, value1, value2) {
-            return `(${name} between ${value1} and ${value2})`;
-        },
-        strict: false
+    strict: false,
+  },
+  between: {
+    template: function between(options, attr, name, value1, value2) {
+      return `(${name} between ${value1} and ${value2})`;
     },
-    begins: {
-        template: function begins(options, attr, name, value) {
-            return `begins_with(${name}, ${value})`;
-        },
-        strict: false
+    strict: false,
+  },
+  begins: {
+    template: function begins(options, attr, name, value) {
+      return `begins_with(${name}, ${value})`;
     },
-    exists: {
-        template: function exists(options, attr, name) {
-            return `attribute_exists(${name})`;
-        },
-        strict: false
+    strict: false,
+  },
+  exists: {
+    template: function exists(options, attr, name) {
+      return `attribute_exists(${name})`;
     },
-    notExists: {
-        template: function notExists(options, attr, name) {
-            return `attribute_not_exists(${name})`;
-        },
-        strict: false
+    strict: false,
+  },
+  notExists: {
+    template: function notExists(options, attr, name) {
+      return `attribute_not_exists(${name})`;
     },
-    contains: {
-        template: function contains(options, attr, name, value) {
-            return `contains(${name}, ${value})`;
-        },
-        strict: false
+    strict: false,
+  },
+  contains: {
+    template: function contains(options, attr, name, value) {
+      return `contains(${name}, ${value})`;
     },
-    notContains: {
-        template: function notContains(options, attr, name, value) {
-            return `not contains(${name}, ${value})`;
-        },
-        strict: false
+    strict: false,
+  },
+  notContains: {
+    template: function notContains(options, attr, name, value) {
+      return `not contains(${name}, ${value})`;
     },
-    value: {
-        template: function(options, attr, name, value) {
-            return value;
-        },
-        strict: false,
-        canNest: true,
+    strict: false,
+  },
+  value: {
+    template: function (options, attr, name, value) {
+      return value;
     },
-    name: {
-        template: function(options, attr, name) {
-            return name;
-        },
-        strict: false,
-        canNest: true,
+    strict: false,
+    canNest: true,
+  },
+  name: {
+    template: function (options, attr, name) {
+      return name;
     },
-    eqOrNotExists: {
-        template: function eq(options, attr, name, value) {
-            return `(${name} = ${value} OR attribute_not_exists(${name}))`;
-        },
-        strict: false,
+    strict: false,
+    canNest: true,
+  },
+  eqOrNotExists: {
+    template: function eq(options, attr, name, value) {
+      return `(${name} = ${value} OR attribute_not_exists(${name}))`;
     },
-    field: {
-        template: function(options, _, fieldName) {
-            return fieldName !== undefined
-                ? `${fieldName}`
-                : '';
-        },
-        strict: false,
-        canNest: true,
-        rawField: true,
-    }
+    strict: false,
+  },
+  field: {
+    template: function (options, _, fieldName) {
+      return fieldName !== undefined ? `${fieldName}` : "";
+    },
+    strict: false,
+    canNest: true,
+    rawField: true,
+  },
 };
 
 module.exports = {
-    FilterOperations
-}
+  FilterOperations,
+};
+
 },{}],23:[function(require,module,exports){
 const e = require("./errors");
-const {MethodTypes, ExpressionTypes} = require("./types");
+const { MethodTypes, ExpressionTypes } = require("./types");
 
 class FilterFactory {
-	constructor(attributes = {}, filterTypes = {}) {
-		this.attributes = { ...attributes };
-		this.filters = {
-			...filterTypes,
-		};
-	}
+  constructor(attributes = {}, filterTypes = {}) {
+    this.attributes = { ...attributes };
+    this.filters = {
+      ...filterTypes,
+    };
+  }
 
-	getExpressionType(methodType) {
-		switch (methodType) {
-			case MethodTypes.put:
-			case MethodTypes.create:
-			case MethodTypes.update:
-			case MethodTypes.patch:
-			case MethodTypes.delete:
-			case MethodTypes.get:
-			case MethodTypes.upsert:
-				return ExpressionTypes.ConditionExpression
-			default:
-				return ExpressionTypes.FilterExpression
-		}
-	}
+  getExpressionType(methodType) {
+    switch (methodType) {
+      case MethodTypes.put:
+      case MethodTypes.create:
+      case MethodTypes.update:
+      case MethodTypes.patch:
+      case MethodTypes.delete:
+      case MethodTypes.get:
+      case MethodTypes.upsert:
+        return ExpressionTypes.ConditionExpression;
+      default:
+        return ExpressionTypes.FilterExpression;
+    }
+  }
 
-	_buildFilterAttributes(setName, setValue) {
-		let attributes = {};
-		for (let [name, attribute] of Object.entries(this.attributes)) {
-			let filterAttribute = {};
-			for (let [type, {template}] of Object.entries(this.filters)) {
-				Object.defineProperty(filterAttribute, type, {
-					get: () => {
-						return (...values) => {
-							let {prop} = setName({}, name, attribute.field);
-							let attrValues = [];
-							for (let value of values) {
-								if (template.length > 1) {
-									attrValues.push(
-										setValue(name, value, name)
-									);
-								}
-							}
-							let expression = template({}, attribute, prop, ...attrValues);
-							return expression.trim();
-						};
-					},
-				});
-			}
-			attributes[name] = filterAttribute;
-		}
-		return attributes;
-	}
+  _buildFilterAttributes(setName, setValue) {
+    let attributes = {};
+    for (let [name, attribute] of Object.entries(this.attributes)) {
+      let filterAttribute = {};
+      for (let [type, { template }] of Object.entries(this.filters)) {
+        Object.defineProperty(filterAttribute, type, {
+          get: () => {
+            return (...values) => {
+              let { prop } = setName({}, name, attribute.field);
+              let attrValues = [];
+              for (let value of values) {
+                if (template.length > 1) {
+                  attrValues.push(setValue(name, value, name));
+                }
+              }
+              let expression = template({}, attribute, prop, ...attrValues);
+              return expression.trim();
+            };
+          },
+        });
+      }
+      attributes[name] = filterAttribute;
+    }
+    return attributes;
+  }
 
-	buildClause(filterFn) {
-		return (entity, state, ...params) => {
-			const type = this.getExpressionType(state.query.method);
-			const builder = state.query.filter[type];
-			let setName = (paths, name, value) => builder.setName(paths, name, value);
-			let setValue = (name, value, path) => builder.setValue(name, value, path);
-			let attributes = this._buildFilterAttributes(
-				setName,
-				setValue,
-			);
-			const expression = filterFn(attributes, ...params);
-			if (typeof expression !== "string") {
-				throw new e.ElectroError(e.ErrorCodes.InvalidFilter, "Invalid filter response. Expected result to be of type string");
-			}
-			builder.add(expression);
-			return state;
-		};
-	}
+  buildClause(filterFn) {
+    return (entity, state, ...params) => {
+      const type = this.getExpressionType(state.query.method);
+      const builder = state.query.filter[type];
+      let setName = (paths, name, value) => builder.setName(paths, name, value);
+      let setValue = (name, value, path) => builder.setValue(name, value, path);
+      let attributes = this._buildFilterAttributes(setName, setValue);
+      const expression = filterFn(attributes, ...params);
+      if (typeof expression !== "string") {
+        throw new e.ElectroError(
+          e.ErrorCodes.InvalidFilter,
+          "Invalid filter response. Expected result to be of type string",
+        );
+      }
+      builder.add(expression);
+      return state;
+    };
+  }
 
-	injectFilterClauses(clauses = {}, filters = {}) {
-		let injected = { ...clauses };
-		let filterParents = Object.entries(injected)
-			.filter(clause => {
-				let [name, { children }] = clause;
-				return children.find(child => ['go', 'commit'].includes(child));
-			})
-			.map(([name]) => name);
-		let modelFilters = Object.keys(filters);
-		let filterChildren = [];
-		for (let [name, filter] of Object.entries(filters)) {
-			filterChildren.push(name);
-			injected[name] = {
-				name: name,
-				action: this.buildClause(filter),
-				children: ["params", "go", "commit", "filter", ...modelFilters],
-			};
-		}
-		filterChildren.push("filter");
-		injected["filter"] = {
-			name: "filter",
-			action: (entity, state, fn) => {
-				return this.buildClause(fn)(entity, state);
-			},
-			children: ["params", "go", "commit", "filter", ...modelFilters],
-		};
-		for (let parent of filterParents) {
-			injected[parent] = { ...injected[parent] };
-			injected[parent].children = [
-				...filterChildren,
-				...injected[parent].children,
-			];
-		}
-		return injected;
-	}
+  injectFilterClauses(clauses = {}, filters = {}) {
+    let injected = { ...clauses };
+    let filterParents = Object.entries(injected)
+      .filter((clause) => {
+        let [name, { children }] = clause;
+        return children.find((child) => ["go", "commit"].includes(child));
+      })
+      .map(([name]) => name);
+    let modelFilters = Object.keys(filters);
+    let filterChildren = [];
+    for (let [name, filter] of Object.entries(filters)) {
+      filterChildren.push(name);
+      injected[name] = {
+        name: name,
+        action: this.buildClause(filter),
+        children: ["params", "go", "commit", "filter", ...modelFilters],
+      };
+    }
+    filterChildren.push("filter");
+    injected["filter"] = {
+      name: "filter",
+      action: (entity, state, fn) => {
+        return this.buildClause(fn)(entity, state);
+      },
+      children: ["params", "go", "commit", "filter", ...modelFilters],
+    };
+    for (let parent of filterParents) {
+      injected[parent] = { ...injected[parent] };
+      injected[parent].children = [
+        ...filterChildren,
+        ...injected[parent].children,
+      ];
+    }
+    return injected;
+  }
 }
 
 module.exports = { FilterFactory };
 
 },{"./errors":20,"./types":29}],24:[function(require,module,exports){
-const { AttributeTypes, ItemOperations, AttributeProxySymbol, BuilderTypes} = require("./types");
-const { UpdateOperations } = require('./updateOperations');
-const { FilterOperations } = require('./filterOperations');
+const {
+  AttributeTypes,
+  ItemOperations,
+  AttributeProxySymbol,
+  BuilderTypes,
+} = require("./types");
+const { UpdateOperations } = require("./updateOperations");
+const { FilterOperations } = require("./filterOperations");
 const e = require("./errors");
 const u = require("./util");
 
 class ExpressionState {
-    constructor({prefix} = {}) {
-        this.names = {};
-        this.values = {};
-        this.paths = {};
-        this.counts = {};
-        this.impacted = {};
-        this.expression = "";
-        this.prefix = prefix || "";
-        this.refs = {};
-    }
+  constructor({ prefix } = {}) {
+    this.names = {};
+    this.values = {};
+    this.paths = {};
+    this.counts = {};
+    this.impacted = {};
+    this.expression = "";
+    this.prefix = prefix || "";
+    this.refs = {};
+  }
 
-    incrementName(name) {
-        if (this.counts[name] === undefined) {
-            this.counts[name] = 0;
-        }
-        return `${this.prefix}${this.counts[name]++}`;
+  incrementName(name) {
+    if (this.counts[name] === undefined) {
+      this.counts[name] = 0;
     }
+    return `${this.prefix}${this.counts[name]++}`;
+  }
 
-    // todo: make the structure: name, value, paths
-    setName(paths, name, value) {
-        let json = "";
-        let expression = "";
-        const prop = `#${name}`;
-        if (Object.keys(paths).length === 0) {
-            json = `${name}`;
-            expression = `${prop}`;
-            this.names[prop] = value;
-        } else if (isNaN(name)) {
-            json = `${paths.json}.${name}`;
-            expression = `${paths.expression}.${prop}`;
-            this.names[prop] = value;
-        } else {
-            json = `${paths.json}[${name}]`;
-            expression = `${paths.expression}[${name}]`;
-        }
-        return { json, expression, prop };
+  // todo: make the structure: name, value, paths
+  setName(paths, name, value) {
+    let json = "";
+    let expression = "";
+    const prop = `#${name}`;
+    if (Object.keys(paths).length === 0) {
+      json = `${name}`;
+      expression = `${prop}`;
+      this.names[prop] = value;
+    } else if (isNaN(name)) {
+      json = `${paths.json}.${name}`;
+      expression = `${paths.expression}.${prop}`;
+      this.names[prop] = value;
+    } else {
+      json = `${paths.json}[${name}]`;
+      expression = `${paths.expression}[${name}]`;
     }
+    return { json, expression, prop };
+  }
 
-    getNames() {
-        return this.names;
-    }
+  getNames() {
+    return this.names;
+  }
 
-    setValue(name, value) {
-        let valueCount = this.incrementName(name);
-        let expression = `:${name}${valueCount}`
-        this.values[expression] = value;
-        return expression;
-    }
+  setValue(name, value) {
+    let valueCount = this.incrementName(name);
+    let expression = `:${name}${valueCount}`;
+    this.values[expression] = value;
+    return expression;
+  }
 
-    updateValue(name, value) {
-        this.values[name] = value;
-    }
+  updateValue(name, value) {
+    this.values[name] = value;
+  }
 
-    getValues() {
-        return this.values;
-    }
+  getValues() {
+    return this.values;
+  }
 
-    setPath(path, value) {
-        this.paths[path] = value;
-    }
+  setPath(path, value) {
+    this.paths[path] = value;
+  }
 
-    setExpression(expression) {
-        this.expression = expression;
-    }
+  setExpression(expression) {
+    this.expression = expression;
+  }
 
-    getExpression() {
-        return this.expression;
-    }
+  getExpression() {
+    return this.expression;
+  }
 
-    setImpacted(operation, path, ref) {
-        this.impacted[path] = operation;
-        this.refs[path] = ref;
-    }
+  setImpacted(operation, path, ref) {
+    this.impacted[path] = operation;
+    this.refs[path] = ref;
+  }
 }
 
 class AttributeOperationProxy {
-    constructor({builder, attributes = {}, operations = {}}) {
-        this.ref = {
-            attributes,
-            operations
-        };
-        this.attributes = AttributeOperationProxy.buildAttributes(builder, attributes);
-        this.operations = AttributeOperationProxy.buildOperations(builder, operations);
-    }
+  constructor({ builder, attributes = {}, operations = {} }) {
+    this.ref = {
+      attributes,
+      operations,
+    };
+    this.attributes = AttributeOperationProxy.buildAttributes(
+      builder,
+      attributes,
+    );
+    this.operations = AttributeOperationProxy.buildOperations(
+      builder,
+      operations,
+    );
+  }
 
-    invokeCallback(op, ...params) {
-        return op(this.attributes, this.operations, ...params);
-    }
+  invokeCallback(op, ...params) {
+    return op(this.attributes, this.operations, ...params);
+  }
 
-    performOperation({operation, path, value, force = false}) {
-        if (value === undefined) {
-            return;
+  performOperation({ operation, path, value, force = false }) {
+    if (value === undefined) {
+      return;
+    }
+    const parts = u.parseJSONPath(path);
+    let attribute = this.attributes;
+    for (let part of parts) {
+      attribute = attribute[part];
+    }
+    if (attribute) {
+      this.operations[operation](attribute, value);
+      const { target } = attribute();
+      if (target.readOnly && !force) {
+        throw new Error(
+          `Attribute "${target.path}" is Read-Only and cannot be updated`,
+        );
+      }
+    }
+  }
+
+  fromObject(operation, record) {
+    for (let path of Object.keys(record)) {
+      this.performOperation({
+        operation,
+        path,
+        value: record[path],
+      });
+    }
+  }
+
+  fromArray(operation, paths) {
+    for (let path of paths) {
+      const parts = u.parseJSONPath(path);
+      let attribute = this.attributes;
+      for (let part of parts) {
+        attribute = attribute[part];
+      }
+      if (attribute) {
+        this.operations[operation](attribute);
+        const { target } = attribute();
+        if (target.readOnly) {
+          throw new Error(
+            `Attribute "${target.path}" is Read-Only and cannot be updated`,
+          );
+        } else if (operation === ItemOperations.remove && target.required) {
+          throw new Error(
+            `Attribute "${target.path}" is Required and cannot be removed`,
+          );
         }
-        const parts = u.parseJSONPath(path);
-        let attribute = this.attributes;
-        for (let part of parts) {
-            attribute = attribute[part];
-        }
-        if (attribute) {
-            this.operations[operation](attribute, value);
-            const {target} = attribute();
-            if (target.readOnly && !force) {
-                throw new Error(`Attribute "${target.path}" is Read-Only and cannot be updated`);
+      }
+    }
+  }
+
+  static buildOperations(builder, operations) {
+    let ops = {};
+    let seen = new Map();
+    for (let operation of Object.keys(operations)) {
+      let { template, canNest, rawValue, rawField } = operations[operation];
+      Object.defineProperty(ops, operation, {
+        get: () => {
+          return (property, ...values) => {
+            if (property === undefined) {
+              throw new e.ElectroError(
+                e.ErrorCodes.InvalidWhere,
+                `Invalid/Unknown property passed in where clause passed to operation: '${operation}'`,
+              );
             }
-        }
-    }
-
-    fromObject(operation, record) {
-        for (let path of Object.keys(record)) {
-            this.performOperation({
-                operation,
-                path,
-                value: record[path]
-            });
-        }
-    }
-
-    fromArray(operation, paths) {
-        for (let path of paths) {
-            const parts = u.parseJSONPath(path);
-            let attribute = this.attributes;
-            for (let part of parts) {
-                attribute = attribute[part];
-            }
-            if (attribute) {
-                this.operations[operation](attribute);
-                const {target} = attribute();
-                if (target.readOnly) {
-                    throw new Error(`Attribute "${target.path}" is Read-Only and cannot be updated`);
-                } else if (operation === ItemOperations.remove && target.required) {
-                    throw new Error(`Attribute "${target.path}" is Required and cannot be removed`);
+            if (property[AttributeProxySymbol]) {
+              const { commit, target } = property();
+              const fixedValues = values
+                .map((value) => target.applyFixings(value))
+                .filter((value) => value !== undefined);
+              const isFilterBuilder = builder.type === BuilderTypes.filter;
+              const takesValueArgument = template.length > 3;
+              const isAcceptableValue = fixedValues.every((value) => {
+                const seenAttributes = seen.get(value);
+                if (seenAttributes) {
+                  return seenAttributes.every((v) => target.acceptable(v));
                 }
-            }
-        }
-    }
+                return target.acceptable(value);
+              });
 
-    static buildOperations(builder, operations) {
-        let ops = {};
-        let seen = new Map();
-        for (let operation of Object.keys(operations)) {
-            let {template, canNest, rawValue, rawField} = operations[operation];
-            Object.defineProperty(ops, operation, {
-                get: () => {
-                    return (property, ...values) => {
-                        if (property === undefined) {
-                            throw new e.ElectroError(e.ErrorCodes.InvalidWhere, `Invalid/Unknown property passed in where clause passed to operation: '${operation}'`);
-                        }
-                        if (property[AttributeProxySymbol]) {
-                            const {commit, target} = property();
-                            const fixedValues = values.map((value) => target.applyFixings(value))
-                                .filter(value => value !== undefined);
-                            const isFilterBuilder = builder.type === BuilderTypes.filter;
-                            const takesValueArgument = template.length > 3;
-                            const isAcceptableValue = fixedValues.every(value => {
-                                const seenAttributes = seen.get(value);
-                                if (seenAttributes) {
-                                    return seenAttributes.every(v => target.acceptable(v))
-                                }
-                                return target.acceptable(value);
-                            });
+              const shouldCommit =
+                // if it is a filterBuilder than we don't care what they pass because the user needs more freedom here
+                isFilterBuilder ||
+                // if the operation does not take a value argument then not committing here could cause problems.
+                // this should be revisited to make more robust, we could hypothetically store the commit in the
+                // "seen" map for when the value is used, but that's a lot of new complexity
+                !takesValueArgument ||
+                // if the operation takes a value, we should determine if that value is acceptable. For
+                // example, in the cases of a "set" we check to see if it is empty, or if the value is
+                // undefined, we should not commit. The "fixedValues" length check is because the
+                // "fixedValues" array has been filtered for undefined, so no length there indicates an
+                // undefined value was passed.
+                (takesValueArgument &&
+                  isAcceptableValue &&
+                  fixedValues.length > 0);
 
-                            const shouldCommit =
-                                // if it is a filterBuilder than we don't care what they pass because the user needs more freedom here
-                                isFilterBuilder ||
-                                // if the operation does not take a value argument then not committing here could cause problems.
-                                // this should be revisited to make more robust, we could hypothetically store the commit in the
-                                // "seen" map for when the value is used, but that's a lot of new complexity
-                                !takesValueArgument ||
-                                // if the operation takes a value, we should determine if that value is acceptable. For
-                                // example, in the cases of a "set" we check to see if it is empty, or if the value is
-                                // undefined, we should not commit. The "fixedValues" length check is because the
-                                // "fixedValues" array has been filtered for undefined, so no length there indicates an
-                                // undefined value was passed.
-                                (takesValueArgument && isAcceptableValue && fixedValues.length > 0);
+              if (!shouldCommit) {
+                return "";
+              }
 
-                            if (!shouldCommit) {
-                                return '';
-                            }
-
-                            const paths = commit();
-                            const attributeValues = [];
-                            let hasNestedValue = false;
-                            for (let fixedValue of fixedValues) {
-                                if (seen.has(fixedValue)) {
-                                    attributeValues.push(fixedValue);
-                                    hasNestedValue = true;
-                                } else {
-                                    let attributeValueName = builder.setValue(target.name, fixedValue);
-                                    builder.setPath(paths.json, {
-                                        value: fixedValue,
-                                        name: attributeValueName
-                                    });
-                                    attributeValues.push(attributeValueName);
-                                }
-                            }
-
-                            const options = {
-                                nestedValue: hasNestedValue,
-                                createValue: (name, value) => builder.setValue(`${target.name}_${name}`, value),
-                            }
-
-                            const formatted = template(options, target, paths.expression, ...attributeValues);
-                            builder.setImpacted(operation, paths.json, target);
-                            if (canNest) {
-                                seen.set(paths.expression, attributeValues);
-                                seen.set(formatted, attributeValues);
-                            }
-
-                            if (builder.type === BuilderTypes.update && formatted && typeof formatted.operation === "string" && typeof formatted.expression === "string") {
-                                builder.add(formatted.operation, formatted.expression);
-                                return formatted.expression;
-                            }
-
-                            return formatted;
-                        } else if (rawValue) {
-                            // const {json, expression} = builder.setName({}, property, property);
-                            let attributeValueName = builder.setValue(property, property);
-                            builder.setPath(property, {
-                                value: property,
-                                name: attributeValueName,
-                            });
-                            const formatted = template({}, attributeValueName);
-                            seen.set(attributeValueName, [property]);
-                            seen.set(formatted, [property]);
-                            return formatted;
-                        } else if (rawField) {
-                            const { prop, expression } = builder.setName({}, property, property);
-                            const formatted = template({}, null, prop);
-                            seen.set(expression, [property]);
-                            seen.set(formatted, [property]);
-                            return formatted;
-                        } else {
-                            throw new e.ElectroError(e.ErrorCodes.InvalidWhere, `Invalid Attribute in where clause passed to operation '${operation}'. Use injected attributes only.`);
-                        }
-                    }
-                }
-            });
-        }
-        return ops;
-    }
-
-    static pathProxy(build) {
-        return new Proxy(() => build(), {
-            get: (_, prop, o) => {
-                if (prop === AttributeProxySymbol) {
-                    return true;
+              const paths = commit();
+              const attributeValues = [];
+              let hasNestedValue = false;
+              for (let fixedValue of fixedValues) {
+                if (seen.has(fixedValue)) {
+                  attributeValues.push(fixedValue);
+                  hasNestedValue = true;
                 } else {
-                    return AttributeOperationProxy.pathProxy(() => {
-                        const { commit, root, target, builder } = build();
-                        const attribute = target.getChild(prop);
-                        let field;
-                        if (attribute === undefined) {
-                            throw new Error(`Invalid attribute "${prop}" at path "${target.path}.${prop}"`);
-                        } else if (attribute === root && attribute.type === AttributeTypes.any) {
-                            // This function is only called if a nested property is called. If this attribute is ultimately the root, don't use the root's field name
-                            field = prop;
-                        } else {
-                            field = attribute.field;
-                        }
-
-                        return {
-                            root,
-                            builder,
-                            target: attribute,
-                            commit: () => {
-                                const paths = commit();
-                                return builder.setName(paths, prop, field);
-                            },
-                        }
-                    });
+                  let attributeValueName = builder.setValue(
+                    target.name,
+                    fixedValue,
+                  );
+                  builder.setPath(paths.json, {
+                    value: fixedValue,
+                    name: attributeValueName,
+                  });
+                  attributeValues.push(attributeValueName);
                 }
+              }
+
+              const options = {
+                nestedValue: hasNestedValue,
+                createValue: (name, value) =>
+                  builder.setValue(`${target.name}_${name}`, value),
+              };
+
+              const formatted = template(
+                options,
+                target,
+                paths.expression,
+                ...attributeValues,
+              );
+              builder.setImpacted(operation, paths.json, target);
+              if (canNest) {
+                seen.set(paths.expression, attributeValues);
+                seen.set(formatted, attributeValues);
+              }
+
+              if (
+                builder.type === BuilderTypes.update &&
+                formatted &&
+                typeof formatted.operation === "string" &&
+                typeof formatted.expression === "string"
+              ) {
+                builder.add(formatted.operation, formatted.expression);
+                return formatted.expression;
+              }
+
+              return formatted;
+            } else if (rawValue) {
+              // const {json, expression} = builder.setName({}, property, property);
+              let attributeValueName = builder.setValue(property, property);
+              builder.setPath(property, {
+                value: property,
+                name: attributeValueName,
+              });
+              const formatted = template({}, attributeValueName);
+              seen.set(attributeValueName, [property]);
+              seen.set(formatted, [property]);
+              return formatted;
+            } else if (rawField) {
+              const { prop, expression } = builder.setName(
+                {},
+                property,
+                property,
+              );
+              const formatted = template({}, null, prop);
+              seen.set(expression, [property]);
+              seen.set(formatted, [property]);
+              return formatted;
+            } else {
+              throw new e.ElectroError(
+                e.ErrorCodes.InvalidWhere,
+                `Invalid Attribute in where clause passed to operation '${operation}'. Use injected attributes only.`,
+              );
             }
-        });
+          };
+        },
+      });
     }
+    return ops;
+  }
 
-    static buildAttributes(builder, attributes) {
-        let attr = {};
-        for (let [name, attribute] of Object.entries(attributes)) {
-            Object.defineProperty(attr, name, {
-                get: () => {
-                    return AttributeOperationProxy.pathProxy(() => {
-                        return {
-                            root: attribute,
-                            target: attribute,
-                            builder,
-                            commit: () => builder.setName({}, attribute.name, attribute.field)
-                        }
-                    });
-                }
-            });
+  static pathProxy(build) {
+    return new Proxy(() => build(), {
+      get: (_, prop, o) => {
+        if (prop === AttributeProxySymbol) {
+          return true;
+        } else {
+          return AttributeOperationProxy.pathProxy(() => {
+            const { commit, root, target, builder } = build();
+            const attribute = target.getChild(prop);
+            let field;
+            if (attribute === undefined) {
+              throw new Error(
+                `Invalid attribute "${prop}" at path "${target.path}.${prop}"`,
+              );
+            } else if (
+              attribute === root &&
+              attribute.type === AttributeTypes.any
+            ) {
+              // This function is only called if a nested property is called. If this attribute is ultimately the root, don't use the root's field name
+              field = prop;
+            } else {
+              field = attribute.field;
+            }
+
+            return {
+              root,
+              builder,
+              target: attribute,
+              commit: () => {
+                const paths = commit();
+                return builder.setName(paths, prop, field);
+              },
+            };
+          });
         }
-        return attr;
+      },
+    });
+  }
+
+  static buildAttributes(builder, attributes) {
+    let attr = {};
+    for (let [name, attribute] of Object.entries(attributes)) {
+      Object.defineProperty(attr, name, {
+        get: () => {
+          return AttributeOperationProxy.pathProxy(() => {
+            return {
+              root: attribute,
+              target: attribute,
+              builder,
+              commit: () =>
+                builder.setName({}, attribute.name, attribute.field),
+            };
+          });
+        },
+      });
     }
+    return attr;
+  }
 }
 
-const FilterOperationNames = Object.keys(FilterOperations).reduce((ops, name) => {
+const FilterOperationNames = Object.keys(FilterOperations).reduce(
+  (ops, name) => {
     ops[name] = name;
     return ops;
-}, {});
+  },
+  {},
+);
 
-const UpdateOperationNames = Object.keys(UpdateOperations).reduce((ops, name) => {
+const UpdateOperationNames = Object.keys(UpdateOperations).reduce(
+  (ops, name) => {
     ops[name] = name;
     return ops;
-}, {});
+  },
+  {},
+);
 
-module.exports = {UpdateOperations, UpdateOperationNames, FilterOperations, FilterOperationNames, ExpressionState, AttributeOperationProxy};
+module.exports = {
+  UpdateOperations,
+  UpdateOperationNames,
+  FilterOperations,
+  FilterOperationNames,
+  ExpressionState,
+  AttributeOperationProxy,
+};
+
 },{"./errors":20,"./filterOperations":22,"./types":29,"./updateOperations":31,"./util":32}],25:[function(require,module,exports){
-const { CastTypes, ValueTypes, KeyCasing, AttributeTypes, AttributeMutationMethods, AttributeWildCard, PathTypes, TableIndex, ItemOperations } = require("./types");
+const {
+  CastTypes,
+  ValueTypes,
+  KeyCasing,
+  AttributeTypes,
+  AttributeMutationMethods,
+  AttributeWildCard,
+  PathTypes,
+  TableIndex,
+  ItemOperations,
+} = require("./types");
 const AttributeTypeNames = Object.keys(AttributeTypes);
-const ValidFacetTypes = [AttributeTypes.string, AttributeTypes.number, AttributeTypes.boolean, AttributeTypes.enum];
+const ValidFacetTypes = [
+  AttributeTypes.string,
+  AttributeTypes.number,
+  AttributeTypes.boolean,
+  AttributeTypes.enum,
+];
 const e = require("./errors");
 const u = require("./util");
 const v = require("./validations");
-const {DynamoDBSet} = require("./set");
+const { DynamoDBSet } = require("./set");
 
 function getValueType(value) {
-	if (value === undefined) {
-		return ValueTypes.undefined;
-	} else if (value === null) {
-		return ValueTypes.null;
-	} else if (typeof value === "string") {
-		return ValueTypes.string;
-	} else if (typeof value === "number") {
-		return ValueTypes.number;
-	} else if (typeof value === "boolean") {
-		return ValueTypes.boolean;
-	} else if (Array.isArray(value)) {
-		return ValueTypes.array;
-	} else if (value.wrapperName === "Set") {
-		return ValueTypes.aws_set;
-	} else if (value.constructor.name === "Set") {
-		return ValueTypes.set;
-	} else if (value.constructor.name === "Map") {
-		return ValueTypes.map;
-	} else if (value.constructor.name === "Object") {
-		return ValueTypes.object;
-	} else {
-		return ValueTypes.unknown;
-	}
+  if (value === undefined) {
+    return ValueTypes.undefined;
+  } else if (value === null) {
+    return ValueTypes.null;
+  } else if (typeof value === "string") {
+    return ValueTypes.string;
+  } else if (typeof value === "number") {
+    return ValueTypes.number;
+  } else if (typeof value === "boolean") {
+    return ValueTypes.boolean;
+  } else if (Array.isArray(value)) {
+    return ValueTypes.array;
+  } else if (value.wrapperName === "Set") {
+    return ValueTypes.aws_set;
+  } else if (value.constructor.name === "Set") {
+    return ValueTypes.set;
+  } else if (value.constructor.name === "Map") {
+    return ValueTypes.map;
+  } else if (value.constructor.name === "Object") {
+    return ValueTypes.object;
+  } else {
+    return ValueTypes.unknown;
+  }
 }
 
 class AttributeTraverser {
-	constructor(parentTraverser) {
-		if (parentTraverser instanceof AttributeTraverser) {
-			this.parent = parentTraverser;
-			this.paths = this.parent.paths;
-		} else {
-			this.parent = null;
-			this.paths = new Map();
-		}
-		this.children = new Map();
-	}
+  constructor(parentTraverser) {
+    if (parentTraverser instanceof AttributeTraverser) {
+      this.parent = parentTraverser;
+      this.paths = this.parent.paths;
+    } else {
+      this.parent = null;
+      this.paths = new Map();
+    }
+    this.children = new Map();
+  }
 
-	setChild(name, attribute) {
-		this.children.set(name, attribute);
-	}
+  setChild(name, attribute) {
+    this.children.set(name, attribute);
+  }
 
-	asChild(name, attribute) {
-		if (this.parent) {
-			this.parent.setChild(name, attribute);
-		}
-	}
+  asChild(name, attribute) {
+    if (this.parent) {
+      this.parent.setChild(name, attribute);
+    }
+  }
 
-	setPath(path, attribute) {
-		if (this.parent) {
-			this.parent.setPath(path, attribute);
-		}
-		this.paths.set(path, attribute);
-	}
+  setPath(path, attribute) {
+    if (this.parent) {
+      this.parent.setPath(path, attribute);
+    }
+    this.paths.set(path, attribute);
+  }
 
-	getPath(path) {
-		path = u.genericizeJSONPath(path);
-		if (this.parent) {
-			return this.parent.getPath(path);
-		}
-		return this.paths.get(path);
-	}
+  getPath(path) {
+    path = u.genericizeJSONPath(path);
+    if (this.parent) {
+      return this.parent.getPath(path);
+    }
+    return this.paths.get(path);
+  }
 
-	getChild(name) {
-		return this.children.get(name);
-	}
+  getChild(name) {
+    return this.children.get(name);
+  }
 
-	getAllChildren() {
-		return this.children.entries();
-	}
+  getAllChildren() {
+    return this.children.entries();
+  }
 
-	getAll() {
-		if (this.parent) {
-			return this.parent.getAll();
-		}
-		return this.paths.entries();
-	}
+  getAll() {
+    if (this.parent) {
+      return this.parent.getAll();
+    }
+    return this.paths.entries();
+  }
 }
 
-
 class Attribute {
-	constructor(definition = {}) {
-		this.name = definition.name;
-		this.field = definition.field || definition.name;
-		this.label = definition.label;
-		this.readOnly = !!definition.readOnly;
-		this.hidden = !!definition.hidden;
-		this.required = !!definition.required;
-		this.cast = this._makeCast(definition.name, definition.cast);
-		this.default = this._makeDefault(definition.default);
-		this.validate = this._makeValidate(definition.validate);
-		this.isKeyField = !!definition.isKeyField;
-		this.unformat = this._makeDestructureKey(definition);
-		this.format = this._makeStructureKey(definition);
-		this.padding = definition.padding;
-		this.applyFixings = this._makeApplyFixings(definition);
-		this.applyPadding = this._makePadding(definition);
-		this.indexes = [...(definition.indexes || [])];
-		let {isWatched, isWatcher, watchedBy, watching, watchAll} = Attribute._destructureWatcher(definition);
-		this._isWatched = isWatched
-		this._isWatcher = isWatcher;
-		this.watchedBy = watchedBy;
-		this.watching = watching;
-		this.watchAll = watchAll;
-		let { type, enumArray } = this._makeType(this.name, definition);
-		this.type = type;
-		this.enumArray = enumArray;
-		this.parentType = definition.parentType;
-		this.parentPath = definition.parentPath;
-		const pathType = this.getPathType(this.type, this.parentType);
-		const path = Attribute.buildPath(this.name, pathType, this.parentPath);
-		const fieldPath = Attribute.buildPath(this.field, pathType, this.parentType);
-		this.path = path;
-		this.fieldPath = fieldPath;
-		this.traverser = new AttributeTraverser(definition.traverser);
-		this.traverser.setPath(this.path, this);
-		this.traverser.setPath(this.fieldPath, this);
-		this.traverser.asChild(this.name, this);
-		this.parent = { parentType: this.type, parentPath: this.path };
-		this.get = this._makeGet(definition.get);
-		this.set = this._makeSet(definition.set);
-		this.getClient = definition.getClient;
-	}
+  constructor(definition = {}) {
+    this.name = definition.name;
+    this.field = definition.field || definition.name;
+    this.label = definition.label;
+    this.readOnly = !!definition.readOnly;
+    this.hidden = !!definition.hidden;
+    this.required = !!definition.required;
+    this.cast = this._makeCast(definition.name, definition.cast);
+    this.default = this._makeDefault(definition.default);
+    this.validate = this._makeValidate(definition.validate);
+    this.isKeyField = !!definition.isKeyField;
+    this.unformat = this._makeDestructureKey(definition);
+    this.format = this._makeStructureKey(definition);
+    this.padding = definition.padding;
+    this.applyFixings = this._makeApplyFixings(definition);
+    this.applyPadding = this._makePadding(definition);
+    this.indexes = [...(definition.indexes || [])];
+    let { isWatched, isWatcher, watchedBy, watching, watchAll } =
+      Attribute._destructureWatcher(definition);
+    this._isWatched = isWatched;
+    this._isWatcher = isWatcher;
+    this.watchedBy = watchedBy;
+    this.watching = watching;
+    this.watchAll = watchAll;
+    let { type, enumArray } = this._makeType(this.name, definition);
+    this.type = type;
+    this.enumArray = enumArray;
+    this.parentType = definition.parentType;
+    this.parentPath = definition.parentPath;
+    const pathType = this.getPathType(this.type, this.parentType);
+    const path = Attribute.buildPath(this.name, pathType, this.parentPath);
+    const fieldPath = Attribute.buildPath(
+      this.field,
+      pathType,
+      this.parentType,
+    );
+    this.path = path;
+    this.fieldPath = fieldPath;
+    this.traverser = new AttributeTraverser(definition.traverser);
+    this.traverser.setPath(this.path, this);
+    this.traverser.setPath(this.fieldPath, this);
+    this.traverser.asChild(this.name, this);
+    this.parent = { parentType: this.type, parentPath: this.path };
+    this.get = this._makeGet(definition.get);
+    this.set = this._makeSet(definition.set);
+    this.getClient = definition.getClient;
+  }
 
-	static buildChildAttributes(type, definition, parent) {
-		let items;
-		let properties;
-		if (type === AttributeTypes.list) {
-			items = Attribute.buildChildListItems(definition, parent);
-		} else if (type === AttributeTypes.set) {
-			items = Attribute.buildChildSetItems(definition, parent);
-		} else if (type === AttributeTypes.map) {
-			properties = Attribute.buildChildMapProperties(definition, parent);
-		}
+  static buildChildAttributes(type, definition, parent) {
+    let items;
+    let properties;
+    if (type === AttributeTypes.list) {
+      items = Attribute.buildChildListItems(definition, parent);
+    } else if (type === AttributeTypes.set) {
+      items = Attribute.buildChildSetItems(definition, parent);
+    } else if (type === AttributeTypes.map) {
+      properties = Attribute.buildChildMapProperties(definition, parent);
+    }
 
-		return {items, properties};
-	}
+    return { items, properties };
+  }
 
-	static buildChildListItems(definition, parent) {
-		const {items, getClient} = definition;
-		const prop = {...items, ...parent};
-		// The use of "*" is to ensure the child's name is "*" when added to the traverser and searching for the children of a list
-		return Schema.normalizeAttributes({ '*': prop }, {}, {getClient, traverser: parent.traverser, parent}).attributes["*"];
-	}
+  static buildChildListItems(definition, parent) {
+    const { items, getClient } = definition;
+    const prop = { ...items, ...parent };
+    // The use of "*" is to ensure the child's name is "*" when added to the traverser and searching for the children of a list
+    return Schema.normalizeAttributes(
+      { "*": prop },
+      {},
+      { getClient, traverser: parent.traverser, parent },
+    ).attributes["*"];
+  }
 
-	static buildChildSetItems(definition, parent) {
-		const {items, getClient} = definition;
+  static buildChildSetItems(definition, parent) {
+    const { items, getClient } = definition;
 
-		const allowedTypes = [AttributeTypes.string, AttributeTypes.boolean, AttributeTypes.number, AttributeTypes.enum];
-		if (!Array.isArray(items) && !allowedTypes.includes(items)) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidAttributeDefinition, `Invalid "items" definition for Set attribute: "${definition.path}". Acceptable item types include ${u.commaSeparatedString(allowedTypes)}`);
-		}
-		const prop = {type: items, ...parent};
-		return Schema.normalizeAttributes({ prop }, {}, {getClient, traverser: parent.traverser, parent}).attributes.prop;
-	}
+    const allowedTypes = [
+      AttributeTypes.string,
+      AttributeTypes.boolean,
+      AttributeTypes.number,
+      AttributeTypes.enum,
+    ];
+    if (!Array.isArray(items) && !allowedTypes.includes(items)) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidAttributeDefinition,
+        `Invalid "items" definition for Set attribute: "${
+          definition.path
+        }". Acceptable item types include ${u.commaSeparatedString(
+          allowedTypes,
+        )}`,
+      );
+    }
+    const prop = { type: items, ...parent };
+    return Schema.normalizeAttributes(
+      { prop },
+      {},
+      { getClient, traverser: parent.traverser, parent },
+    ).attributes.prop;
+  }
 
-	static buildChildMapProperties(definition, parent) {
-		const {properties, getClient} = definition;
-		if (!properties || typeof properties !== "object") {
-			throw new e.ElectroError(e.ErrorCodes.InvalidAttributeDefinition, `Invalid "properties" definition for Map attribute: "${definition.path}". The "properties" definition must describe the attributes that the Map will accept`);
-		}
-		const attributes = {};
-		for (let name of Object.keys(properties)) {
-			attributes[name] = {...properties[name], ...parent};
-		}
-		return Schema.normalizeAttributes(attributes, {}, {getClient, traverser: parent.traverser, parent});
-	}
+  static buildChildMapProperties(definition, parent) {
+    const { properties, getClient } = definition;
+    if (!properties || typeof properties !== "object") {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidAttributeDefinition,
+        `Invalid "properties" definition for Map attribute: "${definition.path}". The "properties" definition must describe the attributes that the Map will accept`,
+      );
+    }
+    const attributes = {};
+    for (let name of Object.keys(properties)) {
+      attributes[name] = { ...properties[name], ...parent };
+    }
+    return Schema.normalizeAttributes(
+      attributes,
+      {},
+      { getClient, traverser: parent.traverser, parent },
+    );
+  }
 
-	static buildPath(name, type, parentPath) {
-		if (!parentPath) return name;
-		switch(type) {
-			case AttributeTypes.string:
-			case AttributeTypes.number:
-			case AttributeTypes.boolean:
-			case AttributeTypes.map:
-			case AttributeTypes.set:
-			case AttributeTypes.list:
-			case AttributeTypes.enum:
-				return `${parentPath}.${name}`;
-			case PathTypes.item:
-				return `${parentPath}[*]`;
-			case AttributeTypes.any:
-			default:
-				return `${parentPath}.*`;
-		}
-	}
+  static buildPath(name, type, parentPath) {
+    if (!parentPath) return name;
+    switch (type) {
+      case AttributeTypes.string:
+      case AttributeTypes.number:
+      case AttributeTypes.boolean:
+      case AttributeTypes.map:
+      case AttributeTypes.set:
+      case AttributeTypes.list:
+      case AttributeTypes.enum:
+        return `${parentPath}.${name}`;
+      case PathTypes.item:
+        return `${parentPath}[*]`;
+      case AttributeTypes.any:
+      default:
+        return `${parentPath}.*`;
+    }
+  }
 
-	static _destructureWatcher(definition) {
-		let watchAll = !!definition.watchAll;
-		let watchingArr = watchAll ? []: [...(definition.watching || [])];
-		let watchedByArr = [...(definition.watchedBy || [])];
-		let isWatched = watchedByArr.length > 0;
-		let isWatcher = watchingArr.length > 0;
-		let watchedBy = {};
-		let watching = {};
+  static _destructureWatcher(definition) {
+    let watchAll = !!definition.watchAll;
+    let watchingArr = watchAll ? [] : [...(definition.watching || [])];
+    let watchedByArr = [...(definition.watchedBy || [])];
+    let isWatched = watchedByArr.length > 0;
+    let isWatcher = watchingArr.length > 0;
+    let watchedBy = {};
+    let watching = {};
 
-		for (let watched of watchedByArr) {
-			watchedBy[watched] = watched;
-		}
+    for (let watched of watchedByArr) {
+      watchedBy[watched] = watched;
+    }
 
-		for (let attribute of watchingArr) {
-			watching[attribute] = attribute;
-		}
+    for (let attribute of watchingArr) {
+      watching[attribute] = attribute;
+    }
 
-		return {
-			watchAll,
-			watching,
-			watchedBy,
-			isWatched,
-			isWatcher
-		}
-	}
+    return {
+      watchAll,
+      watching,
+      watchedBy,
+      isWatched,
+      isWatcher,
+    };
+  }
 
-	_makeGet(get) {
-		this._checkGetSet(get, "get");
-		const getter = get || ((attr) => attr);
-		return (value, siblings) => {
-			if (this.hidden) {
-				return;
-			}
-			value = this.unformat(value);
-			return getter(value, siblings);
-		}
-	}
+  _makeGet(get) {
+    this._checkGetSet(get, "get");
+    const getter = get || ((attr) => attr);
+    return (value, siblings) => {
+      if (this.hidden) {
+        return;
+      }
+      value = this.unformat(value);
+      return getter(value, siblings);
+    };
+  }
 
-	_makeSet(set) {
-		this._checkGetSet(set, "set");
-		return set || ((attr) => attr);
-	}
+  _makeSet(set) {
+    this._checkGetSet(set, "set");
+    return set || ((attr) => attr);
+  }
 
-	_makeApplyFixings({ prefix = "", postfix = "", casing= KeyCasing.none } = {}) {
-		return (value) => {
-			if (value === undefined) {
-				return;
-			}
+  _makeApplyFixings({
+    prefix = "",
+    postfix = "",
+    casing = KeyCasing.none,
+  } = {}) {
+    return (value) => {
+      if (value === undefined) {
+        return;
+      }
 
-			if ([AttributeTypes.string, AttributeTypes.enum].includes(this.type)) {
-				value = `${prefix}${value}${postfix}`;
-			}
+      if ([AttributeTypes.string, AttributeTypes.enum].includes(this.type)) {
+        value = `${prefix}${value}${postfix}`;
+      }
 
-			return u.formatAttributeCasing(value, casing);
-		}
-	}
+      return u.formatAttributeCasing(value, casing);
+    };
+  }
 
-	_makeStructureKey() {
-		return (key) => {
-			return this.applyPadding(key);
-		}
-	}
+  _makeStructureKey() {
+    return (key) => {
+      return this.applyPadding(key);
+    };
+  }
 
-	_isPaddingEligible(padding = {} ) {
-		return !!padding && padding.length && v.isStringHasLength(padding.char);
-	}
+  _isPaddingEligible(padding = {}) {
+    return !!padding && padding.length && v.isStringHasLength(padding.char);
+  }
 
-	_makePadding({ padding = {} }) {
-		return (value) => {
-			if (typeof value !== 'string') {
-				return value;
-			} else if (this._isPaddingEligible(padding)) {
-				return u.addPadding({padding, value});
-			} else {
-				return value;
-			}
-		}
-	}
+  _makePadding({ padding = {} }) {
+    return (value) => {
+      if (typeof value !== "string") {
+        return value;
+      } else if (this._isPaddingEligible(padding)) {
+        return u.addPadding({ padding, value });
+      } else {
+        return value;
+      }
+    };
+  }
 
-	_makeRemoveFixings({prefix = "", postfix = "", casing= KeyCasing.none} = {}) {
-		return (key) => {
-			let value = "";
-			if (![AttributeTypes.string, AttributeTypes.enum].includes(this.type) || typeof key !== "string") {
-				value = key;
-			} else if (prefix.length > 0 && key.length > prefix.length) {
-				for (let i = prefix.length; i < key.length - postfix.length; i++) {
-					value += key[i];
-				}
-			} else {
-				value = key;
-			}
+  _makeRemoveFixings({
+    prefix = "",
+    postfix = "",
+    casing = KeyCasing.none,
+  } = {}) {
+    return (key) => {
+      let value = "";
+      if (
+        ![AttributeTypes.string, AttributeTypes.enum].includes(this.type) ||
+        typeof key !== "string"
+      ) {
+        value = key;
+      } else if (prefix.length > 0 && key.length > prefix.length) {
+        for (let i = prefix.length; i < key.length - postfix.length; i++) {
+          value += key[i];
+        }
+      } else {
+        value = key;
+      }
 
-			return value;
-		}
-	}
+      return value;
+    };
+  }
 
-	_makeDestructureKey({prefix = "", postfix = "", casing= KeyCasing.none, padding = {}} = {}) {
-		return (key) => {
-			let value = "";
-			if (![AttributeTypes.string, AttributeTypes.enum].includes(this.type) || typeof key !== "string") {
-				return key;
-			} else if (key.length > prefix.length) {
-				value = u.removeFixings({prefix, postfix, value: key});
-			} else {
-				value = key;
-			}
+  _makeDestructureKey({
+    prefix = "",
+    postfix = "",
+    casing = KeyCasing.none,
+    padding = {},
+  } = {}) {
+    return (key) => {
+      let value = "";
+      if (
+        ![AttributeTypes.string, AttributeTypes.enum].includes(this.type) ||
+        typeof key !== "string"
+      ) {
+        return key;
+      } else if (key.length > prefix.length) {
+        value = u.removeFixings({ prefix, postfix, value: key });
+      } else {
+        value = key;
+      }
 
-			// todo: if an attribute is also used as a pk or sk directly in one index, but a composite in another, then padding is going to be broken
-			// if (padding && padding.length) {
-			// 	value = u.removePadding({padding, value});
-			// }
+      // todo: if an attribute is also used as a pk or sk directly in one index, but a composite in another, then padding is going to be broken
+      // if (padding && padding.length) {
+      // 	value = u.removePadding({padding, value});
+      // }
 
-			return value;
-		};
-	}
+      return value;
+    };
+  }
 
-	acceptable(val) {
-		return val !== undefined;
-	}
+  acceptable(val) {
+    return val !== undefined;
+  }
 
-	getPathType(type, parentType) {
-		if (parentType === AttributeTypes.list || parentType === AttributeTypes.set) {
-			return PathTypes.item;
-		}
-		return type;
-	}
+  getPathType(type, parentType) {
+    if (
+      parentType === AttributeTypes.list ||
+      parentType === AttributeTypes.set
+    ) {
+      return PathTypes.item;
+    }
+    return type;
+  }
 
-	getAttribute(path) {
-		return this.traverser.getPath(path);
-	}
+  getAttribute(path) {
+    return this.traverser.getPath(path);
+  }
 
-	getChild(path) {
-		if (this.type === AttributeTypes.any) {
-			return this;
-		} else if (!isNaN(path) && (this.type === AttributeTypes.list || this.type === AttributeTypes.set)) {
-			// if they're asking for a number, and this is a list, children will be under "*"
-			return this.traverser.getChild("*");
-		} else {
-			return this.traverser.getChild(path);
-		}
-	}
+  getChild(path) {
+    if (this.type === AttributeTypes.any) {
+      return this;
+    } else if (
+      !isNaN(path) &&
+      (this.type === AttributeTypes.list || this.type === AttributeTypes.set)
+    ) {
+      // if they're asking for a number, and this is a list, children will be under "*"
+      return this.traverser.getChild("*");
+    } else {
+      return this.traverser.getChild(path);
+    }
+  }
 
-	_checkGetSet(val, type) {
-		if (typeof val !== "function" && val !== undefined) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidAttributeDefinition, `Invalid "${type}" property for attribute ${this.path}. Please ensure value is a function or undefined.`);
-		}
-	}
+  _checkGetSet(val, type) {
+    if (typeof val !== "function" && val !== undefined) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidAttributeDefinition,
+        `Invalid "${type}" property for attribute ${this.path}. Please ensure value is a function or undefined.`,
+      );
+    }
+  }
 
-	_makeCast(name, cast) {
-		if (cast !== undefined && !CastTypes.includes(cast)) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidAttributeDefinition, `Invalid "cast" property for attribute: "${name}". Acceptable types include ${CastTypes.join(", ")}`,
-		);
-		} else if (cast === AttributeTypes.string) {
-			return (val) => {
-				if (val === undefined) {
-					// todo: #electroerror
-					throw new Error(`Attribute ${name} is undefined and cannot be cast to type ${cast}`);
-				} else if (typeof val === "string") {
-					return val;
-				} else {
-					return JSON.stringify(val);
-				}
-			};
-		} else if (cast === AttributeTypes.number) {
-			return (val) => {
-				if (val === undefined) {
-					// todo: #electroerror
-					throw new Error(`Attribute ${name} is undefined and cannot be cast to type ${cast}`);
-				} else if (typeof val === "number") {
-					return val;
-				} else {
-					let results = Number(val);
-					if (isNaN(results)) {
-						// todo: #electroerror
-						throw new Error(`Attribute ${name} cannot be cast to type ${cast}. Doing so results in NaN`);
-					} else {
-						return results;
-					}
-				}
-			};
-		} else {
-			return (val) => val;
-		}
-	}
+  _makeCast(name, cast) {
+    if (cast !== undefined && !CastTypes.includes(cast)) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidAttributeDefinition,
+        `Invalid "cast" property for attribute: "${name}". Acceptable types include ${CastTypes.join(
+          ", ",
+        )}`,
+      );
+    } else if (cast === AttributeTypes.string) {
+      return (val) => {
+        if (val === undefined) {
+          // todo: #electroerror
+          throw new Error(
+            `Attribute ${name} is undefined and cannot be cast to type ${cast}`,
+          );
+        } else if (typeof val === "string") {
+          return val;
+        } else {
+          return JSON.stringify(val);
+        }
+      };
+    } else if (cast === AttributeTypes.number) {
+      return (val) => {
+        if (val === undefined) {
+          // todo: #electroerror
+          throw new Error(
+            `Attribute ${name} is undefined and cannot be cast to type ${cast}`,
+          );
+        } else if (typeof val === "number") {
+          return val;
+        } else {
+          let results = Number(val);
+          if (isNaN(results)) {
+            // todo: #electroerror
+            throw new Error(
+              `Attribute ${name} cannot be cast to type ${cast}. Doing so results in NaN`,
+            );
+          } else {
+            return results;
+          }
+        }
+      };
+    } else {
+      return (val) => val;
+    }
+  }
 
-	_makeValidate(definition) {
-		if (typeof definition === "function") {
-			return (val) => {
-				try {
-					let reason = definition(val);
-					const isValid = !reason;
-					if (isValid) {
-						return [isValid, []];
-					} else if (typeof reason === "boolean") {
-						return [isValid, [new e.ElectroUserValidationError(this.path, "Invalid value provided")]];
-					} else {
-						return [isValid, [new e.ElectroUserValidationError(this.path, reason)]];
-					}
-				} catch(err) {
-					return [false, [new e.ElectroUserValidationError(this.path, err)]];
-				}
-			};
-		} else if (definition instanceof RegExp) {
-			return (val) => {
-				if (val === undefined) {
-					return [true, []];
-				}
-				let isValid = definition.test(val);
-				let reason = [];
-				if (!isValid) {
-					reason.push(new e.ElectroUserValidationError(this.path, `Invalid value for attribute "${this.path}": Failed model defined regex`));
-				}
-				return [isValid, reason];
-			};
-		} else {
-			return () => [true, []];
-		}
-	}
+  _makeValidate(definition) {
+    if (typeof definition === "function") {
+      return (val) => {
+        try {
+          let reason = definition(val);
+          const isValid = !reason;
+          if (isValid) {
+            return [isValid, []];
+          } else if (typeof reason === "boolean") {
+            return [
+              isValid,
+              [
+                new e.ElectroUserValidationError(
+                  this.path,
+                  "Invalid value provided",
+                ),
+              ],
+            ];
+          } else {
+            return [
+              isValid,
+              [new e.ElectroUserValidationError(this.path, reason)],
+            ];
+          }
+        } catch (err) {
+          return [false, [new e.ElectroUserValidationError(this.path, err)]];
+        }
+      };
+    } else if (definition instanceof RegExp) {
+      return (val) => {
+        if (val === undefined) {
+          return [true, []];
+        }
+        let isValid = definition.test(val);
+        let reason = [];
+        if (!isValid) {
+          reason.push(
+            new e.ElectroUserValidationError(
+              this.path,
+              `Invalid value for attribute "${this.path}": Failed model defined regex`,
+            ),
+          );
+        }
+        return [isValid, reason];
+      };
+    } else {
+      return () => [true, []];
+    }
+  }
 
-	_makeDefault(definition) {
-		if (typeof definition === "function") {
-			return () => definition();
-		} else {
-			return () => definition;
-		}
-	}
+  _makeDefault(definition) {
+    if (typeof definition === "function") {
+      return () => definition();
+    } else {
+      return () => definition;
+    }
+  }
 
-	_makeType(name, definition) {
-		let type = "";
-		let enumArray = [];
-		if (Array.isArray(definition.type)) {
-			type = AttributeTypes.enum;
-			enumArray = [...definition.type];
-		// } else if (definition.type === AttributeTypes.set && Array.isArray(definition.items)) {
-			// type = AttributeTypes.enumSet;
-			// enumArray = [...definition.items];
-		} else {
-			type = definition.type || "string";
-		}
-		if (!AttributeTypeNames.includes(type)) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidAttributeDefinition, `Invalid "type" property for attribute: "${name}". Acceptable types include ${AttributeTypeNames.join(", ")}`);
-		}
-		return { type, enumArray };
-	}
+  _makeType(name, definition) {
+    let type = "";
+    let enumArray = [];
+    if (Array.isArray(definition.type)) {
+      type = AttributeTypes.enum;
+      enumArray = [...definition.type];
+      // } else if (definition.type === AttributeTypes.set && Array.isArray(definition.items)) {
+      // type = AttributeTypes.enumSet;
+      // enumArray = [...definition.items];
+    } else {
+      type = definition.type || "string";
+    }
+    if (!AttributeTypeNames.includes(type)) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidAttributeDefinition,
+        `Invalid "type" property for attribute: "${name}". Acceptable types include ${AttributeTypeNames.join(
+          ", ",
+        )}`,
+      );
+    }
+    return { type, enumArray };
+  }
 
-	isWatcher() {
-		return this._isWatcher;
-	}
+  isWatcher() {
+    return this._isWatcher;
+  }
 
-	isWatched() {
-		return this._isWatched;
-	}
+  isWatched() {
+    return this._isWatched;
+  }
 
-	isWatching(attribute) {
-		return this.watching[attribute] !== undefined;
-	}
+  isWatching(attribute) {
+    return this.watching[attribute] !== undefined;
+  }
 
-	isWatchedBy(attribute) {
-		return this.watchedBy[attribute] !== undefined;
-	}
+  isWatchedBy(attribute) {
+    return this.watchedBy[attribute] !== undefined;
+  }
 
-	_isType(value) {
-		if (value === undefined) {
-			let reason = [];
-			if (this.required) {
-				reason.push(new e.ElectroAttributeValidationError(this.path, `Invalid value type at entity path: "${this.path}". Value is required.`));
-			}
-			return [!this.required, reason];
-		}
-		let isTyped = false;
-		let reason = [];
-		switch (this.type) {
-			case AttributeTypes.enum:
-			// case AttributeTypes.enumSet:
-				// isTyped = this.enumArray.every(enumValue => {
-				// 	const val = Array.isArray(value) ? value : [value];
-				// 	return val.includes(enumValue);
-				// })
-				isTyped = this.enumArray.includes(value);
-				if (!isTyped) {
-					reason.push(new e.ElectroAttributeValidationError(this.path, `Invalid value type at entity path: "${this.path}". Value not found in set of acceptable values: ${u.commaSeparatedString(this.enumArray)}`));
-				}
-				break;
-			case AttributeTypes.any:
-			case AttributeTypes.static:
-			case AttributeTypes.custom:
-				isTyped = true;
-				break;
-			case AttributeTypes.string:
-			case AttributeTypes.number:
-			case AttributeTypes.boolean:
-			default:
-				isTyped = typeof value === this.type;
-				if (!isTyped) {
-					reason.push(new e.ElectroAttributeValidationError(this.path, `Invalid value type at entity path: "${this.path}". Received value of type "${typeof value}", expected value of type "${this.type}"`));
-				}
-				break;
-		}
-		return [isTyped, reason];
-	}
+  _isType(value) {
+    if (value === undefined) {
+      let reason = [];
+      if (this.required) {
+        reason.push(
+          new e.ElectroAttributeValidationError(
+            this.path,
+            `Invalid value type at entity path: "${this.path}". Value is required.`,
+          ),
+        );
+      }
+      return [!this.required, reason];
+    }
+    let isTyped = false;
+    let reason = [];
+    switch (this.type) {
+      case AttributeTypes.enum:
+        // case AttributeTypes.enumSet:
+        // isTyped = this.enumArray.every(enumValue => {
+        // 	const val = Array.isArray(value) ? value : [value];
+        // 	return val.includes(enumValue);
+        // })
+        isTyped = this.enumArray.includes(value);
+        if (!isTyped) {
+          reason.push(
+            new e.ElectroAttributeValidationError(
+              this.path,
+              `Invalid value type at entity path: "${
+                this.path
+              }". Value not found in set of acceptable values: ${u.commaSeparatedString(
+                this.enumArray,
+              )}`,
+            ),
+          );
+        }
+        break;
+      case AttributeTypes.any:
+      case AttributeTypes.static:
+      case AttributeTypes.custom:
+        isTyped = true;
+        break;
+      case AttributeTypes.string:
+      case AttributeTypes.number:
+      case AttributeTypes.boolean:
+      default:
+        isTyped = typeof value === this.type;
+        if (!isTyped) {
+          reason.push(
+            new e.ElectroAttributeValidationError(
+              this.path,
+              `Invalid value type at entity path: "${
+                this.path
+              }". Received value of type "${typeof value}", expected value of type "${
+                this.type
+              }"`,
+            ),
+          );
+        }
+        break;
+    }
+    return [isTyped, reason];
+  }
 
-	isValid(value) {
-		try {
-			let [isTyped, typeErrorReason] = this._isType(value);
-			let [isValid, validationError] = isTyped ? this.validate(value) : [false, []];
-			let errors = [...typeErrorReason, ...validationError].filter(value => value !== undefined);
-			return [isTyped && isValid, errors];
-		} catch (err) {
-			return [false, [err]];
-		}
-	}
+  isValid(value) {
+    try {
+      let [isTyped, typeErrorReason] = this._isType(value);
+      let [isValid, validationError] = isTyped
+        ? this.validate(value)
+        : [false, []];
+      let errors = [...typeErrorReason, ...validationError].filter(
+        (value) => value !== undefined,
+      );
+      return [isTyped && isValid, errors];
+    } catch (err) {
+      return [false, [err]];
+    }
+  }
 
-	val(value) {
-		value = this.cast(value);
-		if (value === undefined) {
-			value = this.default();
-		}
-		return value;
-	}
+  val(value) {
+    value = this.cast(value);
+    if (value === undefined) {
+      value = this.default();
+    }
+    return value;
+  }
 
-	getValidate(value) {
-		value = this.val(value);
-		let [isValid, validationErrors] = this.isValid(value);
-		if (!isValid) {
-			throw new e.ElectroValidationError(validationErrors);
-		}
-		return value;
-	}
+  getValidate(value) {
+    value = this.val(value);
+    let [isValid, validationErrors] = this.isValid(value);
+    if (!isValid) {
+      throw new e.ElectroValidationError(validationErrors);
+    }
+    return value;
+  }
 }
 
 class MapAttribute extends Attribute {
-	constructor(definition) {
-		super(definition);
-		const properties = Attribute.buildChildMapProperties(definition, {
-			parentType: this.type,
-			parentPath: this.path,
-			traverser: this.traverser
-		});
-		this.properties = properties;
-		this.isRoot = !!definition.isRoot;
-		this.get = this._makeGet(definition.get, properties);
-		this.set = this._makeSet(definition.set, properties);
-	}
+  constructor(definition) {
+    super(definition);
+    const properties = Attribute.buildChildMapProperties(definition, {
+      parentType: this.type,
+      parentPath: this.path,
+      traverser: this.traverser,
+    });
+    this.properties = properties;
+    this.isRoot = !!definition.isRoot;
+    this.get = this._makeGet(definition.get, properties);
+    this.set = this._makeSet(definition.set, properties);
+  }
 
-	_makeGet(get, properties) {
-		this._checkGetSet(get, "get");
-		const getter = get || ((val) => {
-			const isEmpty = !val || Object.keys(val).length === 0;
-			const isNotRequired = !this.required;
-			const doesNotHaveDefault = this.default === undefined;
-			const isRoot = this.isRoot;
-			if (isEmpty && isRoot && isNotRequired && doesNotHaveDefault) {
-				return undefined;
-			}
-			return val;
-		});
-		return (values, siblings) => {
-			const data = {};
+  _makeGet(get, properties) {
+    this._checkGetSet(get, "get");
+    const getter =
+      get ||
+      ((val) => {
+        const isEmpty = !val || Object.keys(val).length === 0;
+        const isNotRequired = !this.required;
+        const doesNotHaveDefault = this.default === undefined;
+        const isRoot = this.isRoot;
+        if (isEmpty && isRoot && isNotRequired && doesNotHaveDefault) {
+          return undefined;
+        }
+        return val;
+      });
+    return (values, siblings) => {
+      const data = {};
 
-			if (this.hidden) {
-				return;
-			}
+      if (this.hidden) {
+        return;
+      }
 
-			if (values === undefined) {
-				if (!get) {
-					return undefined;
-				}
-				return getter(data, siblings);
-			}
+      if (values === undefined) {
+        if (!get) {
+          return undefined;
+        }
+        return getter(data, siblings);
+      }
 
-			for (const name of Object.keys(properties.attributes)) {
-				const attribute = properties.attributes[name];
-				if (values[attribute.field] !== undefined) {
-					let results = attribute.get(values[attribute.field], {...values});
-					if (results !== undefined) {
-						data[name] = results;
-					}
-				}
-			}
+      for (const name of Object.keys(properties.attributes)) {
+        const attribute = properties.attributes[name];
+        if (values[attribute.field] !== undefined) {
+          let results = attribute.get(values[attribute.field], { ...values });
+          if (results !== undefined) {
+            data[name] = results;
+          }
+        }
+      }
 
+      return getter(data, siblings);
+    };
+  }
 
-			return getter(data, siblings);
-		}
-	}
+  _makeSet(set, properties) {
+    this._checkGetSet(set, "set");
+    const setter =
+      set ||
+      ((val) => {
+        const isEmpty = !val || Object.keys(val).length === 0;
+        const isNotRequired = !this.required;
+        const doesNotHaveDefault = this.default === undefined;
+        const defaultIsValue = this.default === val;
+        const isRoot = this.isRoot;
+        if (defaultIsValue) {
+          return val;
+        } else if (isEmpty && isRoot && isNotRequired && doesNotHaveDefault) {
+          return undefined;
+        } else {
+          return val;
+        }
+      });
 
-	_makeSet(set, properties) {
-		this._checkGetSet(set, "set");
-		const setter = set || ((val) => {
-			const isEmpty = !val || Object.keys(val).length === 0;
-			const isNotRequired = !this.required;
-			const doesNotHaveDefault = this.default === undefined;
-			const defaultIsValue = this.default === val;
-			const isRoot = this.isRoot;
-			if (defaultIsValue) {
-				return val;
-			} else if (isEmpty && isRoot && isNotRequired && doesNotHaveDefault) {
-				return undefined;
-			} else {
-				return val;
-			}
-		});
+    return (values, siblings) => {
+      const data = {};
+      if (values === undefined) {
+        if (!set) {
+          return undefined;
+        }
+        return setter(values, siblings);
+      }
+      for (const name of Object.keys(properties.attributes)) {
+        const attribute = properties.attributes[name];
+        if (values[name] !== undefined) {
+          const results = attribute.set(values[name], { ...values });
+          if (results !== undefined) {
+            data[attribute.field] = results;
+          }
+        }
+      }
+      return setter(data, siblings);
+    };
+  }
 
-		return (values, siblings) => {
-			const data = {};
-			if (values === undefined) {
-				if (!set) {
-					return undefined;
-				}
-				return setter(values, siblings);
-			}
-			for (const name of Object.keys(properties.attributes)) {
-				const attribute = properties.attributes[name];
-				if (values[name] !== undefined) {
-					const results = attribute.set(values[name], {...values});
-					if (results !== undefined) {
-						data[attribute.field] = results;
-					}
-				}
-			}
-			return setter(data, siblings);
-		}
-	}
+  _isType(value) {
+    if (value === undefined) {
+      let reason = [];
+      if (this.required) {
+        reason.push(
+          new e.ElectroAttributeValidationError(
+            this.path,
+            `Invalid value type at entity path: "${this.path}". Value is required.`,
+          ),
+        );
+      }
+      return [!this.required, reason];
+    }
+    const valueType = getValueType(value);
+    if (valueType !== ValueTypes.object) {
+      return [
+        false,
+        [
+          new e.ElectroAttributeValidationError(
+            this.path,
+            `Invalid value type at entity path "${this.path}. Received value of type "${valueType}", expected value of type "object"`,
+          ),
+        ],
+      ];
+    }
+    let reason = [];
+    const [childrenAreValid, childErrors] = this._validateChildren(value);
+    if (!childrenAreValid) {
+      reason = childErrors;
+    }
+    return [childrenAreValid, reason];
+  }
 
-	_isType(value) {
-		if (value === undefined) {
-			let reason = [];
-			if (this.required) {
-				reason.push(new e.ElectroAttributeValidationError(this.path, `Invalid value type at entity path: "${this.path}". Value is required.`));
-			}
-			return [!this.required, reason];
-		}
-		const valueType = getValueType(value);
-		if (valueType !== ValueTypes.object) {
-			return [false, [new e.ElectroAttributeValidationError(this.path, `Invalid value type at entity path "${this.path}. Received value of type "${valueType}", expected value of type "object"`)]];
-		}
-		let reason = [];
-		const [childrenAreValid, childErrors] = this._validateChildren(value);
-		if (!childrenAreValid) {
-			reason = childErrors;
-		}
-		return [childrenAreValid, reason]
-	}
+  _validateChildren(value) {
+    const valueType = getValueType(value);
+    const attributes = this.properties.attributes;
+    let errors = [];
+    if (valueType === ValueTypes.object) {
+      for (const child of Object.keys(attributes)) {
+        const [isValid, errorValues] = attributes[child].isValid(
+          value === undefined ? value : value[child],
+        );
+        if (!isValid) {
+          errors = [...errors, ...errorValues];
+        }
+      }
+    } else if (valueType !== ValueTypes.object) {
+      errors.push(
+        new e.ElectroAttributeValidationError(
+          this.path,
+          `Invalid value type at entity path: "${this.path}". Expected value to be an object to fulfill attribute type "${this.type}"`,
+        ),
+      );
+    } else if (this.properties.hasRequiredAttributes) {
+      errors.push(
+        new e.ElectroAttributeValidationError(
+          this.path,
+          `Invalid value type at entity path: "${
+            this.path
+          }". Map attribute requires at least the properties ${u.commaSeparatedString(
+            Object.keys(attributes),
+          )}`,
+        ),
+      );
+    }
+    return [errors.length === 0, errors];
+  }
 
-	_validateChildren(value) {
-		const valueType = getValueType(value);
-		const attributes = this.properties.attributes;
-		let errors = [];
-		if (valueType === ValueTypes.object) {
-			for (const child of Object.keys(attributes)) {
-				const [isValid, errorValues] = attributes[child].isValid(value === undefined ? value : value[child])
-				if (!isValid) {
-					errors = [...errors, ...errorValues]
-				}
-			}
-		} else if (valueType !== ValueTypes.object) {
-			errors.push(
-				new e.ElectroAttributeValidationError(this.path, `Invalid value type at entity path: "${this.path}". Expected value to be an object to fulfill attribute type "${this.type}"`)
-			);
-		} else if (this.properties.hasRequiredAttributes) {
-			errors.push(
-				new e.ElectroAttributeValidationError(this.path, `Invalid value type at entity path: "${this.path}". Map attribute requires at least the properties ${u.commaSeparatedString(Object.keys(attributes))}`)
-			);
-		}
-		return [errors.length === 0, errors];
-	}
+  val(value) {
+    const incomingIsEmpty = value === undefined;
+    let fromDefault = false;
+    let data;
+    if (value === undefined) {
+      data = this.default();
+      if (data !== undefined) {
+        fromDefault = true;
+      }
+    } else {
+      data = value;
+    }
 
-	val(value) {
-		const incomingIsEmpty = value === undefined;
-		let fromDefault = false;
-		let data;
-		if (value === undefined) {
-			data = this.default();
-			if (data !== undefined) {
-				fromDefault = true;
-			}
-		} else {
-			data = value;
-		}
+    const valueType = getValueType(data);
 
-		const valueType = getValueType(data);
+    if (data === undefined) {
+      return data;
+    } else if (valueType !== "object") {
+      throw new e.ElectroAttributeValidationError(
+        this.path,
+        `Invalid value type at entity path: "${this.path}". Expected value to be an object to fulfill attribute type "${this.type}"`,
+      );
+    }
 
-		if (data === undefined) {
-			return data;
-		} else if (valueType !== "object") {
-			throw new e.ElectroAttributeValidationError(this.path, `Invalid value type at entity path: "${this.path}". Expected value to be an object to fulfill attribute type "${this.type}"`);
-		}
+    const response = {};
 
-		const response = {};
+    for (const name of Object.keys(this.properties.attributes)) {
+      const attribute = this.properties.attributes[name];
+      const results = attribute.val(data[attribute.name]);
+      if (results !== undefined) {
+        response[name] = results;
+      }
+    }
 
-		for (const name of Object.keys(this.properties.attributes)) {
-			const attribute = this.properties.attributes[name];
-			const results = attribute.val(data[attribute.name]);
-			if (results !== undefined) {
-				response[name] = results;
-			}
-		}
+    if (
+      Object.keys(response).length === 0 &&
+      !fromDefault &&
+      this.isRoot &&
+      !this.required &&
+      incomingIsEmpty
+    ) {
+      return undefined;
+    }
 
-		if (Object.keys(response).length === 0 && !fromDefault && this.isRoot && !this.required && incomingIsEmpty) {
-			return undefined;
-		}
-
-		return response;
-	}
+    return response;
+  }
 }
 
 class ListAttribute extends Attribute {
-	constructor(definition) {
-		super(definition);
-		const items = Attribute.buildChildListItems(definition, {
-			parentType: this.type,
-			parentPath: this.path,
-			traverser: this.traverser
-		});
-		this.items = items;
-		this.get = this._makeGet(definition.get, items);
-		this.set = this._makeSet(definition.set, items);
-	}
+  constructor(definition) {
+    super(definition);
+    const items = Attribute.buildChildListItems(definition, {
+      parentType: this.type,
+      parentPath: this.path,
+      traverser: this.traverser,
+    });
+    this.items = items;
+    this.get = this._makeGet(definition.get, items);
+    this.set = this._makeSet(definition.set, items);
+  }
 
-	_makeGet(get, items) {
-		this._checkGetSet(get, "get");
+  _makeGet(get, items) {
+    this._checkGetSet(get, "get");
 
-		const getter = get || ((attr) => attr);
+    const getter = get || ((attr) => attr);
 
-		return (values, siblings) => {
-			const data = [];
+    return (values, siblings) => {
+      const data = [];
 
-			if (this.hidden) {
-				return;
-			}
+      if (this.hidden) {
+        return;
+      }
 
-			if (values === undefined) {
-				return getter(data, siblings);
-			}
+      if (values === undefined) {
+        return getter(data, siblings);
+      }
 
-			for (let value of values) {
-				const results = items.get(value, [...values]);
-				if (results !== undefined) {
-					data.push(results);
-				}
-			}
+      for (let value of values) {
+        const results = items.get(value, [...values]);
+        if (results !== undefined) {
+          data.push(results);
+        }
+      }
 
-			return getter(data, siblings);
-		}
-	}
+      return getter(data, siblings);
+    };
+  }
 
-	_makeSet(set, items) {
-		this._checkGetSet(set, "set");
-		const setter = set || ((attr) => attr);
-		return (values, siblings) => {
-			const data = [];
+  _makeSet(set, items) {
+    this._checkGetSet(set, "set");
+    const setter = set || ((attr) => attr);
+    return (values, siblings) => {
+      const data = [];
 
-			if (values === undefined) {
-				return setter(values, siblings);
-			}
+      if (values === undefined) {
+        return setter(values, siblings);
+      }
 
-			for (const value of values) {
-				const results = items.set(value, [...values]);
-				if (results !== undefined) {
-					data.push(results);
-				}
-			}
+      for (const value of values) {
+        const results = items.set(value, [...values]);
+        if (results !== undefined) {
+          data.push(results);
+        }
+      }
 
-			return setter(data, siblings);
-		}
-	}
+      return setter(data, siblings);
+    };
+  }
 
-	_validateArrayValue(value) {
-		const reason = [];
-		const valueType = getValueType(value);
-		if (value !== undefined && valueType !== ValueTypes.array) {
-			return [false, [new e.ElectroAttributeValidationError(this.path, `Invalid value type at entity path "${this.path}. Received value of type "${valueType}", expected value of type "array"`)]];
-		} else {
-			return [true, []];
-		}
-	}
+  _validateArrayValue(value) {
+    const reason = [];
+    const valueType = getValueType(value);
+    if (value !== undefined && valueType !== ValueTypes.array) {
+      return [
+        false,
+        [
+          new e.ElectroAttributeValidationError(
+            this.path,
+            `Invalid value type at entity path "${this.path}. Received value of type "${valueType}", expected value of type "array"`,
+          ),
+        ],
+      ];
+    } else {
+      return [true, []];
+    }
+  }
 
-	_isType(value) {
-		if (value === undefined) {
-			let reason = [];
-			if (this.required) {
-				reason.push(new e.ElectroAttributeValidationError(this.path, `Invalid value type at entity path: "${this.path}". Value is required.`));
-			}
-			return [!this.required, reason];
-		}
+  _isType(value) {
+    if (value === undefined) {
+      let reason = [];
+      if (this.required) {
+        reason.push(
+          new e.ElectroAttributeValidationError(
+            this.path,
+            `Invalid value type at entity path: "${this.path}". Value is required.`,
+          ),
+        );
+      }
+      return [!this.required, reason];
+    }
 
-		const [isValidArray, errors] = this._validateArrayValue(value);
-		if (!isValidArray) {
-			return [isValidArray, errors];
-		}
-		let reason = [];
-		const [childrenAreValid, childErrors] = this._validateChildren(value);
-		if (!childrenAreValid) {
-			reason = childErrors;
-		}
-		return [childrenAreValid, reason]
-	}
+    const [isValidArray, errors] = this._validateArrayValue(value);
+    if (!isValidArray) {
+      return [isValidArray, errors];
+    }
+    let reason = [];
+    const [childrenAreValid, childErrors] = this._validateChildren(value);
+    if (!childrenAreValid) {
+      reason = childErrors;
+    }
+    return [childrenAreValid, reason];
+  }
 
-	_validateChildren(value) {
-		const valueType = getValueType(value);
-		const errors = [];
-		if (valueType === ValueTypes.array) {
-			for (const i in value) {
-				const [isValid, errorValues] = this.items.isValid(value[i]);
-				if (!isValid) {
-					for (const err of errorValues) {
-						if (err instanceof e.ElectroAttributeValidationError || err instanceof e.ElectroUserValidationError) {
-							err.index = parseInt(i);
-						}
-						errors.push(err);
-					}
-				}
-			}
-		} else {
-			errors.push(
-				new e.ElectroAttributeValidationError(this.path, `Invalid value type at entity path: "${this.path}". Expected value to be an Array to fulfill attribute type "${this.type}"`)
-			);
-		}
-		return [errors.length === 0, errors];
-	}
+  _validateChildren(value) {
+    const valueType = getValueType(value);
+    const errors = [];
+    if (valueType === ValueTypes.array) {
+      for (const i in value) {
+        const [isValid, errorValues] = this.items.isValid(value[i]);
+        if (!isValid) {
+          for (const err of errorValues) {
+            if (
+              err instanceof e.ElectroAttributeValidationError ||
+              err instanceof e.ElectroUserValidationError
+            ) {
+              err.index = parseInt(i);
+            }
+            errors.push(err);
+          }
+        }
+      }
+    } else {
+      errors.push(
+        new e.ElectroAttributeValidationError(
+          this.path,
+          `Invalid value type at entity path: "${this.path}". Expected value to be an Array to fulfill attribute type "${this.type}"`,
+        ),
+      );
+    }
+    return [errors.length === 0, errors];
+  }
 
-	val(value) {
-		const getValue = (v) => {
-			v = this.cast(v);
-			if (v === undefined) {
-				v = this.default();
-			}
-			return v;
-		}
+  val(value) {
+    const getValue = (v) => {
+      v = this.cast(v);
+      if (v === undefined) {
+        v = this.default();
+      }
+      return v;
+    };
 
-		const data = value === undefined
-			? getValue(value)
-			: value;
+    const data = value === undefined ? getValue(value) : value;
 
-		if (data === undefined) {
-			return data;
-		} else if (!Array.isArray(data)) {
-			throw new e.ElectroAttributeValidationError(this.path, `Invalid value type at entity path "${this.path}. Received value of type "${getValueType(value)}", expected value of type "array"`);
-		}
+    if (data === undefined) {
+      return data;
+    } else if (!Array.isArray(data)) {
+      throw new e.ElectroAttributeValidationError(
+        this.path,
+        `Invalid value type at entity path "${
+          this.path
+        }. Received value of type "${getValueType(
+          value,
+        )}", expected value of type "array"`,
+      );
+    }
 
-		const response = [];
-		for (const d of data) {
-			const results = this.items.val(d);
-			if (results !== undefined) {
-				response.push(results);
-			}
-		}
+    const response = [];
+    for (const d of data) {
+      const results = this.items.val(d);
+      if (results !== undefined) {
+        response.push(results);
+      }
+    }
 
-		return response;
-	}
+    return response;
+  }
 }
 
 class SetAttribute extends Attribute {
-	constructor(definition) {
-		super(definition);
-		const items = Attribute.buildChildSetItems(definition, {
-			parentType: this.type,
-			parentPath: this.path,
-			traverser: this.traverser
-		});
-		this.items = items;
-		this.get = this._makeGet(definition.get, items);
-		this.set = this._makeSet(definition.set, items);
-		this.validate = this._makeSetValidate(definition);
-	}
+  constructor(definition) {
+    super(definition);
+    const items = Attribute.buildChildSetItems(definition, {
+      parentType: this.type,
+      parentPath: this.path,
+      traverser: this.traverser,
+    });
+    this.items = items;
+    this.get = this._makeGet(definition.get, items);
+    this.set = this._makeSet(definition.set, items);
+    this.validate = this._makeSetValidate(definition);
+  }
 
-	_makeSetValidate(definition) {
-		const validate = this._makeValidate(definition.validate);
-		return (value) => {
-			switch (getValueType(value)) {
-				case ValueTypes.array:
-					return validate([...value]);
-				case ValueTypes.aws_set:
-					return validate([...value.values]);
-				case ValueTypes.set:
-					return validate(Array.from(value));
-				default:
-					return validate(value);
-			}
-		}
-	}
+  _makeSetValidate(definition) {
+    const validate = this._makeValidate(definition.validate);
+    return (value) => {
+      switch (getValueType(value)) {
+        case ValueTypes.array:
+          return validate([...value]);
+        case ValueTypes.aws_set:
+          return validate([...value.values]);
+        case ValueTypes.set:
+          return validate(Array.from(value));
+        default:
+          return validate(value);
+      }
+    };
+  }
 
-	fromDDBSet(value) {
-		switch (getValueType(value)) {
-			case ValueTypes.aws_set:
-				return [...value.values];
-			case ValueTypes.set:
-				return Array.from(value);
-			default:
-				return value;
-		}
-	}
+  fromDDBSet(value) {
+    switch (getValueType(value)) {
+      case ValueTypes.aws_set:
+        return [...value.values];
+      case ValueTypes.set:
+        return Array.from(value);
+      default:
+        return value;
+    }
+  }
 
-	_createDDBSet(value) {
-		const client = this.getClient();
-		if (client && typeof client.createSet === "function") {
-			value = Array.isArray(value)
-				? Array.from(new Set(value))
-				: value;
-			return client.createSet(value, { validate: true });
-		} else {
-			return new DynamoDBSet(value, this.items.type);
-		}
-	}
+  _createDDBSet(value) {
+    const client = this.getClient();
+    if (client && typeof client.createSet === "function") {
+      value = Array.isArray(value) ? Array.from(new Set(value)) : value;
+      return client.createSet(value, { validate: true });
+    } else {
+      return new DynamoDBSet(value, this.items.type);
+    }
+  }
 
-	acceptable(val) {
-		return Array.isArray(val)
-			? val.length > 0
-			: this.items.acceptable(val);
-	}
+  acceptable(val) {
+    return Array.isArray(val) ? val.length > 0 : this.items.acceptable(val);
+  }
 
-	toDDBSet(value) {
-		const valueType = getValueType(value);
-		let array;
-		switch(valueType) {
-			case ValueTypes.set:
-				array = Array.from(value);
-				return this._createDDBSet(array);
-			case ValueTypes.aws_set:
-				return value;
-			case ValueTypes.array:
-				return this._createDDBSet(value);
-			case ValueTypes.string:
-			case ValueTypes.number: {
-				this.items.getValidate(value);
-				return this._createDDBSet(value);
-			}
-			default:
-				throw new e.ElectroAttributeValidationError(this.path, `Invalid attribute value supplied to "set" attribute "${this.path}". Received value of type "${valueType}". Set values must be supplied as either Arrays, native JavaScript Set objects, DocumentClient Set objects, strings, or numbers.`)
-		}
+  toDDBSet(value) {
+    const valueType = getValueType(value);
+    let array;
+    switch (valueType) {
+      case ValueTypes.set:
+        array = Array.from(value);
+        return this._createDDBSet(array);
+      case ValueTypes.aws_set:
+        return value;
+      case ValueTypes.array:
+        return this._createDDBSet(value);
+      case ValueTypes.string:
+      case ValueTypes.number: {
+        this.items.getValidate(value);
+        return this._createDDBSet(value);
+      }
+      default:
+        throw new e.ElectroAttributeValidationError(
+          this.path,
+          `Invalid attribute value supplied to "set" attribute "${this.path}". Received value of type "${valueType}". Set values must be supplied as either Arrays, native JavaScript Set objects, DocumentClient Set objects, strings, or numbers.`,
+        );
+    }
+  }
 
-	}
+  _makeGet(get, items) {
+    this._checkGetSet(get, "get");
+    const getter = get || ((attr) => attr);
+    return (values, siblings) => {
+      if (values !== undefined) {
+        const data = this.fromDDBSet(values);
+        return getter(data, siblings);
+      }
+      const data = this.fromDDBSet(values);
+      const results = getter(data, siblings);
+      if (results !== undefined) {
+        // if not undefined, try to convert, else no need to return
+        return this.fromDDBSet(results);
+      }
+    };
+  }
 
-	_makeGet(get, items) {
-		this._checkGetSet(get, "get");
-		const getter = get || ((attr) => attr);
-		return (values, siblings) => {
-			if (values !== undefined) {
-				const data = this.fromDDBSet(values);
-				return getter(data, siblings);
-			}
-			const data = this.fromDDBSet(values);
-			const results = getter(data, siblings);
-			if (results !== undefined) {
-				// if not undefined, try to convert, else no need to return
-				return this.fromDDBSet(results);
-			}
-		}
-	}
+  _makeSet(set, items) {
+    this._checkGetSet(set, "set");
+    const setter = set || ((attr) => attr);
+    return (values, siblings) => {
+      const results = setter(this.fromDDBSet(values), siblings);
+      if (results !== undefined) {
+        return this.toDDBSet(results);
+      }
+    };
+  }
 
-	_makeSet(set, items) {
-		this._checkGetSet(set, "set");
-		const setter = set || ((attr) => attr);
-		return (values, siblings) => {
-			const results = setter(this.fromDDBSet(values), siblings);
-			if (results !== undefined) {
-				return this.toDDBSet(results);
-			}
-		}
-	}
+  _isType(value) {
+    if (value === undefined) {
+      const reason = [];
+      if (this.required) {
+        reason.push(
+          new e.ElectroAttributeValidationError(
+            this.path,
+            `Invalid value type at entity path: "${this.path}". Value is required.`,
+          ),
+        );
+      }
+      return [!this.required, reason];
+    }
 
-	_isType(value) {
-		if (value === undefined) {
-			const reason = [];
-			if (this.required) {
-				reason.push(new e.ElectroAttributeValidationError(this.path, `Invalid value type at entity path: "${this.path}". Value is required.`));
-			}
-			return [!this.required, reason];
-		}
+    let reason = [];
+    const [childrenAreValid, childErrors] = this._validateChildren(value);
+    if (!childrenAreValid) {
+      reason = childErrors;
+    }
+    return [childrenAreValid, reason];
+  }
 
-		let reason = [];
-		const [childrenAreValid, childErrors] = this._validateChildren(value);
-		if (!childrenAreValid) {
-			reason = childErrors;
-		}
-		return [childrenAreValid, reason]
-	}
+  _validateChildren(value) {
+    const valueType = getValueType(value);
+    let errors = [];
+    let arr = [];
+    if (valueType === ValueTypes.array) {
+      arr = value;
+    } else if (valueType === ValueTypes.set) {
+      arr = Array.from(value);
+    } else if (valueType === ValueTypes.aws_set) {
+      arr = value.values;
+    } else {
+      errors.push(
+        new e.ElectroAttributeValidationError(
+          this.path,
+          `Invalid value type at attribute path: "${this.path}". Expected value to be an Expected value to be an Array, native JavaScript Set objects, or DocumentClient Set objects to fulfill attribute type "${this.type}"`,
+        ),
+      );
+    }
+    for (const item of arr) {
+      const [isValid, errorValues] = this.items.isValid(item);
+      if (!isValid) {
+        errors = [...errors, ...errorValues];
+      }
+    }
+    return [errors.length === 0, errors];
+  }
 
-	_validateChildren(value) {
-		const valueType = getValueType(value);
-		let errors = [];
-		let arr = [];
-		if (valueType === ValueTypes.array) {
-			arr = value;
-		} else if (valueType === ValueTypes.set) {
-			arr = Array.from(value);
-		} else if (valueType === ValueTypes.aws_set) {
-			arr = value.values;
-		} else {
-			errors.push(
-				new e.ElectroAttributeValidationError(this.path, `Invalid value type at attribute path: "${this.path}". Expected value to be an Expected value to be an Array, native JavaScript Set objects, or DocumentClient Set objects to fulfill attribute type "${this.type}"`)
-			);
-		}
-		for (const item of arr) {
-			const [isValid, errorValues] = this.items.isValid(item);
-			if (!isValid) {
-				errors = [...errors, ...errorValues];
-			}
-		}
-		return [errors.length === 0, errors];
-	}
+  val(value) {
+    if (value === undefined) {
+      value = this.default();
+    }
 
-	val(value) {
-		if (value === undefined) {
-			value = this.default();
-		}
-
-		if (value !== undefined) {
-			return this.toDDBSet(value);
-		}
-	}
+    if (value !== undefined) {
+      return this.toDDBSet(value);
+    }
+  }
 }
 
 class Schema {
-	constructor(properties = {}, facets = {}, {traverser = new AttributeTraverser(), getClient, parent, isRoot} = {}) {
-		this._validateProperties(properties, parent);
-		let schema = Schema.normalizeAttributes(properties, facets, {traverser, getClient, parent, isRoot});
-		this.getClient = getClient;
-		this.attributes = schema.attributes;
-		this.enums = schema.enums;
-		this.translationForTable = schema.translationForTable;
-		this.translationForRetrieval = schema.translationForRetrieval;
-		this.hiddenAttributes = schema.hiddenAttributes;
-		this.readOnlyAttributes = schema.readOnlyAttributes;
-		this.requiredAttributes = schema.requiredAttributes;
-		this.translationForWatching = this._formatWatchTranslations(this.attributes);
-		this.traverser = traverser;
-		this.isRoot = !!isRoot;
-	}
+  constructor(
+    properties = {},
+    facets = {},
+    { traverser = new AttributeTraverser(), getClient, parent, isRoot } = {},
+  ) {
+    this._validateProperties(properties, parent);
+    let schema = Schema.normalizeAttributes(properties, facets, {
+      traverser,
+      getClient,
+      parent,
+      isRoot,
+    });
+    this.getClient = getClient;
+    this.attributes = schema.attributes;
+    this.enums = schema.enums;
+    this.translationForTable = schema.translationForTable;
+    this.translationForRetrieval = schema.translationForRetrieval;
+    this.hiddenAttributes = schema.hiddenAttributes;
+    this.readOnlyAttributes = schema.readOnlyAttributes;
+    this.requiredAttributes = schema.requiredAttributes;
+    this.translationForWatching = this._formatWatchTranslations(
+      this.attributes,
+    );
+    this.traverser = traverser;
+    this.isRoot = !!isRoot;
+  }
 
-	static normalizeAttributes(attributes = {}, facets = {}, {traverser, getClient, parent, isRoot} = {}) {
-		const attributeHasParent = !!parent;
-		let invalidProperties = [];
-		let normalized = {};
-		let usedAttrs = {};
-		let enums = {};
-		let translationForTable = {};
-		let translationForRetrieval = {};
-		let watchedAttributes = {};
-		let requiredAttributes = new Set();
-		let hiddenAttributes = new Set();
-		let readOnlyAttributes = new Set();
-		let definitions = {};
-		for (let name in attributes) {
-			let attribute = attributes[name];
-			if (typeof attribute === AttributeTypes.string || Array.isArray(attribute)) {
-				attribute = {
-					type: attribute
-				};
-			}
-			const field = attribute.field || name;
-			let isKeyField = false;
-			let prefix = "";
-			let postfix = "";
-			let casing = KeyCasing.none;
-			if (facets.byField && facets.byField[field] !== undefined) {
-				for (const indexName of Object.keys(facets.byField[field])) {
-					let definition = facets.byField[field][indexName];
-					if (definition.facets.length > 1) {
-						throw new e.ElectroError(
-							e.ErrorCodes.InvalidIndexWithAttributeName,
-							`Invalid definition for "${definition.type}" field on index "${u.formatIndexNameForDisplay(indexName)}". The ${definition.type} field "${definition.field}" shares a field name with an attribute defined on the Entity, and therefore is not allowed to contain composite references to other attributes. Please either change the field name of the attribute, or redefine the index to use only the single attribute "${definition.field}".`
-						)
-					}
-					if (definition.isCustom) {
-						const keyFieldLabels = facets.labels[indexName][definition.type].labels;
-						// I am not sure how more than two would happen but it would mean either
-						// 1. Code prior has an unknown edge-case.
-						// 2. Method is being incorrectly used.
-						if (keyFieldLabels.length > 2) {
-							throw new e.ElectroError(
-								e.ErrorCodes.InvalidIndexWithAttributeName,
-								`Unexpected definition for "${definition.type}" field on index "${u.formatIndexNameForDisplay(indexName)}". The ${definition.type} field "${definition.field}" shares a field name with an attribute defined on the Entity, and therefore is not possible to have more than two labels as part of it's template. Please either change the field name of the attribute, or reformat the key template to reduce all pre-fixing or post-fixing text around the attribute reference to two.`
-							)
-						}
-						isKeyField = true;
-						casing = definition.casing;
-						// Walk through the labels, given the above exception handling, I'd expect the first element to
-						// be the prefix and the second element to be the postfix.
-						for (const value of keyFieldLabels) {
-							if (value.name === field) {
-								prefix = value.label || "";
-							} else {
-								postfix = value.label || "";
-							}
-						}
-						if (attribute.type !== AttributeTypes.string && !Array.isArray(attribute.type)) {
-							if (prefix.length > 0 || postfix.length > 0) {
-								throw new e.ElectroError(e.ErrorCodes.InvalidIndexWithAttributeName, `definition for "${definition.type}" field on index "${u.formatIndexNameForDisplay(indexName)}". Index templates may only have prefix or postfix values on "string" or "enum" type attributes. The ${definition.type} field "${field}" is type "${attribute.type}", and therefore cannot be used with prefixes or postfixes. Please either remove the prefixed or postfixed values from the template or change the field name of the attribute.`);
-							}
-						}
-					} else {
-						// Upstream middleware should have taken care of this. An error here would mean:
-						// 1. Code prior has an unknown edge-case.
-						// 2. Method is being incorrectly used.
-						throw new e.ElectroError(
-							e.ErrorCodes.InvalidIndexCompositeWithAttributeName,
-							`Unexpected definition for "${definition.type}" field on index "${u.formatIndexNameForDisplay(indexName)}". The ${definition.type} field "${definition.field}" shares a field name with an attribute defined on the Entity, and therefore must be defined with a template. Please either change the field name of the attribute, or add a key template to the "${definition.type}" field on index "${u.formatIndexNameForDisplay(indexName)}" with the value: "\${${definition.field}}"`
-						)
-					}
+  static normalizeAttributes(
+    attributes = {},
+    facets = {},
+    { traverser, getClient, parent, isRoot } = {},
+  ) {
+    const attributeHasParent = !!parent;
+    let invalidProperties = [];
+    let normalized = {};
+    let usedAttrs = {};
+    let enums = {};
+    let translationForTable = {};
+    let translationForRetrieval = {};
+    let watchedAttributes = {};
+    let requiredAttributes = new Set();
+    let hiddenAttributes = new Set();
+    let readOnlyAttributes = new Set();
+    let definitions = {};
+    for (let name in attributes) {
+      let attribute = attributes[name];
+      if (
+        typeof attribute === AttributeTypes.string ||
+        Array.isArray(attribute)
+      ) {
+        attribute = {
+          type: attribute,
+        };
+      }
+      const field = attribute.field || name;
+      let isKeyField = false;
+      let prefix = "";
+      let postfix = "";
+      let casing = KeyCasing.none;
+      if (facets.byField && facets.byField[field] !== undefined) {
+        for (const indexName of Object.keys(facets.byField[field])) {
+          let definition = facets.byField[field][indexName];
+          if (definition.facets.length > 1) {
+            throw new e.ElectroError(
+              e.ErrorCodes.InvalidIndexWithAttributeName,
+              `Invalid definition for "${
+                definition.type
+              }" field on index "${u.formatIndexNameForDisplay(
+                indexName,
+              )}". The ${definition.type} field "${
+                definition.field
+              }" shares a field name with an attribute defined on the Entity, and therefore is not allowed to contain composite references to other attributes. Please either change the field name of the attribute, or redefine the index to use only the single attribute "${
+                definition.field
+              }".`,
+            );
+          }
+          if (definition.isCustom) {
+            const keyFieldLabels =
+              facets.labels[indexName][definition.type].labels;
+            // I am not sure how more than two would happen but it would mean either
+            // 1. Code prior has an unknown edge-case.
+            // 2. Method is being incorrectly used.
+            if (keyFieldLabels.length > 2) {
+              throw new e.ElectroError(
+                e.ErrorCodes.InvalidIndexWithAttributeName,
+                `Unexpected definition for "${
+                  definition.type
+                }" field on index "${u.formatIndexNameForDisplay(
+                  indexName,
+                )}". The ${definition.type} field "${
+                  definition.field
+                }" shares a field name with an attribute defined on the Entity, and therefore is not possible to have more than two labels as part of it's template. Please either change the field name of the attribute, or reformat the key template to reduce all pre-fixing or post-fixing text around the attribute reference to two.`,
+              );
+            }
+            isKeyField = true;
+            casing = definition.casing;
+            // Walk through the labels, given the above exception handling, I'd expect the first element to
+            // be the prefix and the second element to be the postfix.
+            for (const value of keyFieldLabels) {
+              if (value.name === field) {
+                prefix = value.label || "";
+              } else {
+                postfix = value.label || "";
+              }
+            }
+            if (
+              attribute.type !== AttributeTypes.string &&
+              !Array.isArray(attribute.type)
+            ) {
+              if (prefix.length > 0 || postfix.length > 0) {
+                throw new e.ElectroError(
+                  e.ErrorCodes.InvalidIndexWithAttributeName,
+                  `definition for "${
+                    definition.type
+                  }" field on index "${u.formatIndexNameForDisplay(
+                    indexName,
+                  )}". Index templates may only have prefix or postfix values on "string" or "enum" type attributes. The ${
+                    definition.type
+                  } field "${field}" is type "${
+                    attribute.type
+                  }", and therefore cannot be used with prefixes or postfixes. Please either remove the prefixed or postfixed values from the template or change the field name of the attribute.`,
+                );
+              }
+            }
+          } else {
+            // Upstream middleware should have taken care of this. An error here would mean:
+            // 1. Code prior has an unknown edge-case.
+            // 2. Method is being incorrectly used.
+            throw new e.ElectroError(
+              e.ErrorCodes.InvalidIndexCompositeWithAttributeName,
+              `Unexpected definition for "${
+                definition.type
+              }" field on index "${u.formatIndexNameForDisplay(
+                indexName,
+              )}". The ${definition.type} field "${
+                definition.field
+              }" shares a field name with an attribute defined on the Entity, and therefore must be defined with a template. Please either change the field name of the attribute, or add a key template to the "${
+                definition.type
+              }" field on index "${u.formatIndexNameForDisplay(
+                indexName,
+              )}" with the value: "\${${definition.field}}"`,
+            );
+          }
 
-					if (definition.inCollection) {
-						throw new e.ElectroError(
-							e.ErrorCodes.InvalidCollectionOnIndexWithAttributeFieldNames,
-							`Invalid use of a collection on index "${u.formatIndexNameForDisplay(indexName)}". The ${definition.type} field "${definition.field}" shares a field name with an attribute defined on the Entity, and therefore the index is not allowed to participate in a Collection. Please either change the field name of the attribute, or remove all collection(s) from the index.`
-						)
-					}
+          if (definition.inCollection) {
+            throw new e.ElectroError(
+              e.ErrorCodes.InvalidCollectionOnIndexWithAttributeFieldNames,
+              `Invalid use of a collection on index "${u.formatIndexNameForDisplay(
+                indexName,
+              )}". The ${definition.type} field "${
+                definition.field
+              }" shares a field name with an attribute defined on the Entity, and therefore the index is not allowed to participate in a Collection. Please either change the field name of the attribute, or remove all collection(s) from the index.`,
+            );
+          }
 
-					if (definition.field === field) {
-						if (attribute.padding !== undefined) {
-							throw new e.ElectroError(
-								e.ErrorCodes.InvalidAttributeDefinition,
-								`Invalid padding definition for the attribute "${name}". Padding is not currently supported for attributes that are also defined as table indexes.`
-							);
-						}
-					}
-				}
-			}
+          if (definition.field === field) {
+            if (attribute.padding !== undefined) {
+              throw new e.ElectroError(
+                e.ErrorCodes.InvalidAttributeDefinition,
+                `Invalid padding definition for the attribute "${name}". Padding is not currently supported for attributes that are also defined as table indexes.`,
+              );
+            }
+          }
+        }
+      }
 
-			let isKey = !!facets.byIndex && facets.byIndex[TableIndex].all.find((facet) => facet.name === name);
-			let definition = {
-				name,
-				field,
-				getClient,
-				casing,
-				prefix,
-				postfix,
-				traverser,
-				isKeyField: isKeyField || isKey,
-				isRoot: !!isRoot,
-				label: attribute.label,
-				required: !!attribute.required,
-				default: attribute.default,
-				validate: attribute.validate,
-				readOnly: !!attribute.readOnly || isKey,
-				hidden: !!attribute.hidden,
-				indexes: (facets.byAttr && facets.byAttr[name]) || [],
-				type: attribute.type,
-				get: attribute.get,
-				set: attribute.set,
-				watching: Array.isArray(attribute.watch) ? attribute.watch : [],
-				items: attribute.items,
-				properties: attribute.properties,
-				parentPath: attribute.parentPath,
-				parentType: attribute.parentType,
-				padding: attribute.padding,
-			};
+      let isKey =
+        !!facets.byIndex &&
+        facets.byIndex[TableIndex].all.find((facet) => facet.name === name);
+      let definition = {
+        name,
+        field,
+        getClient,
+        casing,
+        prefix,
+        postfix,
+        traverser,
+        isKeyField: isKeyField || isKey,
+        isRoot: !!isRoot,
+        label: attribute.label,
+        required: !!attribute.required,
+        default: attribute.default,
+        validate: attribute.validate,
+        readOnly: !!attribute.readOnly || isKey,
+        hidden: !!attribute.hidden,
+        indexes: (facets.byAttr && facets.byAttr[name]) || [],
+        type: attribute.type,
+        get: attribute.get,
+        set: attribute.set,
+        watching: Array.isArray(attribute.watch) ? attribute.watch : [],
+        items: attribute.items,
+        properties: attribute.properties,
+        parentPath: attribute.parentPath,
+        parentType: attribute.parentType,
+        padding: attribute.padding,
+      };
 
-			if (definition.type === AttributeTypes.custom) {
-				definition.type = AttributeTypes.any;
-			}
+      if (definition.type === AttributeTypes.custom) {
+        definition.type = AttributeTypes.any;
+      }
 
-			if (attribute.watch !== undefined) {
-				if (attribute.watch === AttributeWildCard) {
-					definition.watchAll = true;
-					definition.watching = [];
-				} else if (Array.isArray(attribute.watch)) {
-					definition.watching = attribute.watch;
-				} else {
-					throw new e.ElectroError(e.ErrorCodes.InvalidAttributeWatchDefinition, `Attribute Validation Error. The attribute '${name}' is defined to "watch" an invalid value of: '${attribute.watch}'. The watch property must either be a an array of attribute names, or the single string value of "${WatchAll}".`);
-				}
-			} else {
-				definition.watching = [];
-			}
+      if (attribute.watch !== undefined) {
+        if (attribute.watch === AttributeWildCard) {
+          definition.watchAll = true;
+          definition.watching = [];
+        } else if (Array.isArray(attribute.watch)) {
+          definition.watching = attribute.watch;
+        } else {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidAttributeWatchDefinition,
+            `Attribute Validation Error. The attribute '${name}' is defined to "watch" an invalid value of: '${attribute.watch}'. The watch property must either be a an array of attribute names, or the single string value of "${WatchAll}".`,
+          );
+        }
+      } else {
+        definition.watching = [];
+      }
 
-			if (definition.readOnly) {
-				readOnlyAttributes.add(name);
-			}
+      if (definition.readOnly) {
+        readOnlyAttributes.add(name);
+      }
 
-			if (definition.hidden) {
-				hiddenAttributes.add(name);
-			}
+      if (definition.hidden) {
+        hiddenAttributes.add(name);
+      }
 
-			if (definition.required) {
-				requiredAttributes.add(name);
-			}
+      if (definition.required) {
+        requiredAttributes.add(name);
+      }
 
-			if (facets.byAttr && facets.byAttr[definition.name] !== undefined && (!ValidFacetTypes.includes(definition.type) && !Array.isArray(definition.type))) {
-				let assignedIndexes = facets.byAttr[name].map(assigned => assigned.index === "" ? "Table Index" : assigned.index);
-				throw new e.ElectroError(e.ErrorCodes.InvalidAttributeDefinition, `Invalid composite attribute definition: Composite attributes must be one of the following: ${ValidFacetTypes.join(", ")}. The attribute "${name}" is defined as being type "${attribute.type}" but is a composite attribute of the following indexes: ${assignedIndexes.join(", ")}`);
-			}
+      if (
+        facets.byAttr &&
+        facets.byAttr[definition.name] !== undefined &&
+        !ValidFacetTypes.includes(definition.type) &&
+        !Array.isArray(definition.type)
+      ) {
+        let assignedIndexes = facets.byAttr[name].map((assigned) =>
+          assigned.index === "" ? "Table Index" : assigned.index,
+        );
+        throw new e.ElectroError(
+          e.ErrorCodes.InvalidAttributeDefinition,
+          `Invalid composite attribute definition: Composite attributes must be one of the following: ${ValidFacetTypes.join(
+            ", ",
+          )}. The attribute "${name}" is defined as being type "${
+            attribute.type
+          }" but is a composite attribute of the following indexes: ${assignedIndexes.join(
+            ", ",
+          )}`,
+        );
+      }
 
-			if (usedAttrs[definition.field] || usedAttrs[name]) {
-				invalidProperties.push({
-					name,
-					property: "field",
-					value: definition.field,
-					expected: `Unique field property, already used by attribute ${
-						usedAttrs[definition.field]
-					}`,
-				});
-			} else {
-				usedAttrs[definition.field] = definition.name;
-			}
+      if (usedAttrs[definition.field] || usedAttrs[name]) {
+        invalidProperties.push({
+          name,
+          property: "field",
+          value: definition.field,
+          expected: `Unique field property, already used by attribute ${
+            usedAttrs[definition.field]
+          }`,
+        });
+      } else {
+        usedAttrs[definition.field] = definition.name;
+      }
 
-			translationForTable[definition.name] = definition.field;
-			translationForRetrieval[definition.field] = definition.name;
+      translationForTable[definition.name] = definition.field;
+      translationForRetrieval[definition.field] = definition.name;
 
-			for (let watched of definition.watching) {
-				watchedAttributes[watched] = watchedAttributes[watched] || [];
-				watchedAttributes[watched].push(name);
-			}
+      for (let watched of definition.watching) {
+        watchedAttributes[watched] = watchedAttributes[watched] || [];
+        watchedAttributes[watched].push(name);
+      }
 
-			definitions[name] = definition;
-		}
+      definitions[name] = definition;
+    }
 
-		for (let name of Object.keys(definitions)) {
-			const definition = definitions[name];
+    for (let name of Object.keys(definitions)) {
+      const definition = definitions[name];
 
-			definition.watchedBy = Array.isArray(watchedAttributes[name])
-				? watchedAttributes[name]
-				: [];
+      definition.watchedBy = Array.isArray(watchedAttributes[name])
+        ? watchedAttributes[name]
+        : [];
 
-			switch(definition.type) {
-				case AttributeTypes.map:
-					normalized[name] = new MapAttribute(definition);
-					break;
-				case AttributeTypes.list:
-					normalized[name] = new ListAttribute(definition);
-					break;
-				case AttributeTypes.set:
-					normalized[name] = new SetAttribute(definition);
-					break;
-				case AttributeTypes.any:
-					if (attributeHasParent) {
-						throw new e.ElectroError(e.ErrorCodes.InvalidAttributeDefinition, `Invalid attribute "${definition.name}" defined within "${parent.parentPath}". Attributes with type ${u.commaSeparatedString([AttributeTypes.any, AttributeTypes.custom])} are only supported as root level attributes.`);
-					}
-				default:
-					normalized[name] = new Attribute(definition);
-			}
-		}
+      switch (definition.type) {
+        case AttributeTypes.map:
+          normalized[name] = new MapAttribute(definition);
+          break;
+        case AttributeTypes.list:
+          normalized[name] = new ListAttribute(definition);
+          break;
+        case AttributeTypes.set:
+          normalized[name] = new SetAttribute(definition);
+          break;
+        case AttributeTypes.any:
+          if (attributeHasParent) {
+            throw new e.ElectroError(
+              e.ErrorCodes.InvalidAttributeDefinition,
+              `Invalid attribute "${definition.name}" defined within "${
+                parent.parentPath
+              }". Attributes with type ${u.commaSeparatedString([
+                AttributeTypes.any,
+                AttributeTypes.custom,
+              ])} are only supported as root level attributes.`,
+            );
+          }
+        default:
+          normalized[name] = new Attribute(definition);
+      }
+    }
 
-		let watchedWatchers = [];
-		let watchingUnknownAttributes = [];
-		for (let watched of Object.keys(watchedAttributes)) {
-			if (normalized[watched] === undefined) {
-				for (let attribute of watchedAttributes[watched]) {
-					watchingUnknownAttributes.push({attribute, watched});
-				}
-			} else if (normalized[watched].isWatcher()) {
-				for (let attribute of watchedAttributes[watched]) {
-					watchedWatchers.push({attribute, watched});
-				}
-			}
-		}
+    let watchedWatchers = [];
+    let watchingUnknownAttributes = [];
+    for (let watched of Object.keys(watchedAttributes)) {
+      if (normalized[watched] === undefined) {
+        for (let attribute of watchedAttributes[watched]) {
+          watchingUnknownAttributes.push({ attribute, watched });
+        }
+      } else if (normalized[watched].isWatcher()) {
+        for (let attribute of watchedAttributes[watched]) {
+          watchedWatchers.push({ attribute, watched });
+        }
+      }
+    }
 
-		if (watchingUnknownAttributes.length > 0) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidAttributeWatchDefinition, `Attribute Validation Error. The following attributes are defined to "watch" invalid/unknown attributes: ${watchingUnknownAttributes.map(({watched, attribute}) => `"${attribute}"->"${watched}"`).join(", ")}.`);
-		}
+    if (watchingUnknownAttributes.length > 0) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidAttributeWatchDefinition,
+        `Attribute Validation Error. The following attributes are defined to "watch" invalid/unknown attributes: ${watchingUnknownAttributes
+          .map(({ watched, attribute }) => `"${attribute}"->"${watched}"`)
+          .join(", ")}.`,
+      );
+    }
 
-		if (watchedWatchers.length > 0) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidAttributeWatchDefinition, `Attribute Validation Error. Attributes may only "watch" other attributes also watch attributes. The following attributes are defined with ineligible attributes to watch: ${watchedWatchers.map(({attribute, watched}) => `"${attribute}"->"${watched}"`).join(", ")}.`)
-		}
+    if (watchedWatchers.length > 0) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidAttributeWatchDefinition,
+        `Attribute Validation Error. Attributes may only "watch" other attributes also watch attributes. The following attributes are defined with ineligible attributes to watch: ${watchedWatchers
+          .map(({ attribute, watched }) => `"${attribute}"->"${watched}"`)
+          .join(", ")}.`,
+      );
+    }
 
-		let missingFacetAttributes = Array.isArray(facets.attributes)
-			? facets.attributes
-				.filter(({ name }) => !normalized[name])
-				.map((facet) => `"${facet.type}: ${facet.name}"`)
-			: []
-		if (missingFacetAttributes.length > 0) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidKeyCompositeAttributeTemplate, `Invalid key composite attribute template. The following composite attribute attributes were described in the key composite attribute template but were not included model's attributes: ${missingFacetAttributes.join(", ")}`);
-		}
-		if (invalidProperties.length > 0) {
-			let message = invalidProperties.map((prop) => `Schema Validation Error. Attribute "${prop.name}" property "${prop.property}". Received: "${prop.value}", Expected: "${prop.expected}"`);
-			throw new e.ElectroError(e.ErrorCodes.InvalidAttributeDefinition, message);
-		} else {
-			return {
-				enums,
-				hiddenAttributes,
-				readOnlyAttributes,
-				requiredAttributes,
-				translationForTable,
-				translationForRetrieval,
-				attributes: normalized,
-			};
-		}
-	}
+    let missingFacetAttributes = Array.isArray(facets.attributes)
+      ? facets.attributes
+          .filter(({ name }) => !normalized[name])
+          .map((facet) => `"${facet.type}: ${facet.name}"`)
+      : [];
+    if (missingFacetAttributes.length > 0) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidKeyCompositeAttributeTemplate,
+        `Invalid key composite attribute template. The following composite attribute attributes were described in the key composite attribute template but were not included model's attributes: ${missingFacetAttributes.join(
+          ", ",
+        )}`,
+      );
+    }
+    if (invalidProperties.length > 0) {
+      let message = invalidProperties.map(
+        (prop) =>
+          `Schema Validation Error. Attribute "${prop.name}" property "${prop.property}". Received: "${prop.value}", Expected: "${prop.expected}"`,
+      );
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidAttributeDefinition,
+        message,
+      );
+    } else {
+      return {
+        enums,
+        hiddenAttributes,
+        readOnlyAttributes,
+        requiredAttributes,
+        translationForTable,
+        translationForRetrieval,
+        attributes: normalized,
+      };
+    }
+  }
 
-	_validateProperties() {}
+  _validateProperties() {}
 
-	_formatWatchTranslations(attributes) {
-		let watchersToAttributes = {};
-		let attributesToWatchers = {};
-		let watchAllAttributes = {};
-		let hasWatchers = false;
-		for (let name of Object.keys(attributes)) {
-			if (attributes[name].isWatcher()) {
-				hasWatchers = true;
-				watchersToAttributes[name] = attributes[name].watching;
-			} else if (attributes[name].watchAll) {
-				hasWatchers = true;
-				watchAllAttributes[name] = name;
-			} else {
-				attributesToWatchers[name] = attributesToWatchers[name] || {};
-				attributesToWatchers[name] = attributes[name].watchedBy;
-			}
-		}
-		return {
-			hasWatchers,
-			watchAllAttributes,
-			watchersToAttributes,
-			attributesToWatchers
-		};
-	}
+  _formatWatchTranslations(attributes) {
+    let watchersToAttributes = {};
+    let attributesToWatchers = {};
+    let watchAllAttributes = {};
+    let hasWatchers = false;
+    for (let name of Object.keys(attributes)) {
+      if (attributes[name].isWatcher()) {
+        hasWatchers = true;
+        watchersToAttributes[name] = attributes[name].watching;
+      } else if (attributes[name].watchAll) {
+        hasWatchers = true;
+        watchAllAttributes[name] = name;
+      } else {
+        attributesToWatchers[name] = attributesToWatchers[name] || {};
+        attributesToWatchers[name] = attributes[name].watchedBy;
+      }
+    }
+    return {
+      hasWatchers,
+      watchAllAttributes,
+      watchersToAttributes,
+      attributesToWatchers,
+    };
+  }
 
-	getAttribute(path) {
-		return this.traverser.getPath(path);
-	}
+  getAttribute(path) {
+    return this.traverser.getPath(path);
+  }
 
-	getLabels() {
-		let labels = {};
-		for (let name of Object.keys(this.attributes)) {
-			let label = this.attributes[name].label;
-			if (label !== undefined) {
-				labels[name] = label;
-			}
-		}
-		return labels;
-	};
+  getLabels() {
+    let labels = {};
+    for (let name of Object.keys(this.attributes)) {
+      let label = this.attributes[name].label;
+      if (label !== undefined) {
+        labels[name] = label;
+      }
+    }
+    return labels;
+  }
 
-	getLabels() {
-		let labels = {};
-		for (let name of Object.keys(this.attributes)) {
-			let label = this.attributes[name].label;
-			if (label !== undefined) {
-				labels[name] = label;
-			}
-		}
-		return labels;
-	};
+  getLabels() {
+    let labels = {};
+    for (let name of Object.keys(this.attributes)) {
+      let label = this.attributes[name].label;
+      if (label !== undefined) {
+        labels[name] = label;
+      }
+    }
+    return labels;
+  }
 
-	_applyAttributeMutation(method, include, avoid, payload) {
-		let data = { ...payload };
-		for (let path of Object.keys(include)) {
-			// this.attributes[attribute] !== undefined | Attribute exists as actual attribute. If `includeKeys` is turned on for example this will include values that do not have a presence in the model and therefore will not have a `.get()` method
-			// avoid[attribute] === undefined           | Attribute shouldn't be in the avoided
-			const attribute = this.getAttribute(path);
-			if (attribute !== undefined && avoid[path] === undefined) {
-				data[path] = attribute[method](payload[path], {...payload});
-			}
-		}
-		return data;
-	}
+  _applyAttributeMutation(method, include, avoid, payload) {
+    let data = { ...payload };
+    for (let path of Object.keys(include)) {
+      // this.attributes[attribute] !== undefined | Attribute exists as actual attribute. If `includeKeys` is turned on for example this will include values that do not have a presence in the model and therefore will not have a `.get()` method
+      // avoid[attribute] === undefined           | Attribute shouldn't be in the avoided
+      const attribute = this.getAttribute(path);
+      if (attribute !== undefined && avoid[path] === undefined) {
+        data[path] = attribute[method](payload[path], { ...payload });
+      }
+    }
+    return data;
+  }
 
-	_fulfillAttributeMutationMethod(method, payload) {
-		let watchersToTrigger = {};
-		// include: payload               | We want to hit the getters/setters for any attributes coming in to be changed
-		// avoid: watchersToAttributes    | We want to avoid anything that is a watcher, even if it was included
-		let avoid = {...this.translationForWatching.watchersToAttributes, ...this.translationForWatching.watchAllAttributes};
-		let data = this._applyAttributeMutation(method, payload, avoid, payload);
-		// `data` here will include all the original payload values, but with the mutations applied to on non-watchers
-		if (!this.translationForWatching.hasWatchers) {
-			// exit early, why not
-			return data;
-		}
-		for (let attribute of Object.keys(data)) {
-			let watchers = this.translationForWatching.attributesToWatchers[attribute];
-			// Any of the attributes on data have a watcher?
-			if (watchers !== undefined) {
-				watchersToTrigger = {...watchersToTrigger, ...watchers}
-			}
-		}
+  _fulfillAttributeMutationMethod(method, payload) {
+    let watchersToTrigger = {};
+    // include: payload               | We want to hit the getters/setters for any attributes coming in to be changed
+    // avoid: watchersToAttributes    | We want to avoid anything that is a watcher, even if it was included
+    let avoid = {
+      ...this.translationForWatching.watchersToAttributes,
+      ...this.translationForWatching.watchAllAttributes,
+    };
+    let data = this._applyAttributeMutation(method, payload, avoid, payload);
+    // `data` here will include all the original payload values, but with the mutations applied to on non-watchers
+    if (!this.translationForWatching.hasWatchers) {
+      // exit early, why not
+      return data;
+    }
+    for (let attribute of Object.keys(data)) {
+      let watchers =
+        this.translationForWatching.attributesToWatchers[attribute];
+      // Any of the attributes on data have a watcher?
+      if (watchers !== undefined) {
+        watchersToTrigger = { ...watchersToTrigger, ...watchers };
+      }
+    }
 
-		// include: ...data, ...watchersToTrigger | We want to hit attributes that were watching an attribute included in data, and include an properties that were skipped because they were a watcher
-		// avoid: attributesToWatchers            | We want to avoid hit anything that was not a watcher because they were already hit once above
-		let include = {...data, ...watchersToTrigger, ...this.translationForWatching.watchAllAttributes};
-		return this._applyAttributeMutation(method, include, this.translationForWatching.attributesToWatchers, data);
-	}
+    // include: ...data, ...watchersToTrigger | We want to hit attributes that were watching an attribute included in data, and include an properties that were skipped because they were a watcher
+    // avoid: attributesToWatchers            | We want to avoid hit anything that was not a watcher because they were already hit once above
+    let include = {
+      ...data,
+      ...watchersToTrigger,
+      ...this.translationForWatching.watchAllAttributes,
+    };
+    return this._applyAttributeMutation(
+      method,
+      include,
+      this.translationForWatching.attributesToWatchers,
+      data,
+    );
+  }
 
-	applyAttributeGetters(payload = {}) {
-		return this._fulfillAttributeMutationMethod(AttributeMutationMethods.get, payload);
-	}
+  applyAttributeGetters(payload = {}) {
+    return this._fulfillAttributeMutationMethod(
+      AttributeMutationMethods.get,
+      payload,
+    );
+  }
 
-	applyAttributeSetters(payload = {}) {
-		return this._fulfillAttributeMutationMethod(AttributeMutationMethods.set, payload);
-	}
+  applyAttributeSetters(payload = {}) {
+    return this._fulfillAttributeMutationMethod(
+      AttributeMutationMethods.set,
+      payload,
+    );
+  }
 
-	translateFromFields(item = {}, options = {}) {
-		let { includeKeys } = options;
-		let data = {};
-		let names = this.translationForRetrieval;
-		for (let [attr, value] of Object.entries(item)) {
-			let name = names[attr];
-			if (name) {
-				data[name] = value;
-			} else if (includeKeys) {
-				data[attr] = value;
-			}
-		}
-		return data;
-	}
+  translateFromFields(item = {}, options = {}) {
+    let { includeKeys } = options;
+    let data = {};
+    let names = this.translationForRetrieval;
+    for (let [attr, value] of Object.entries(item)) {
+      let name = names[attr];
+      if (name) {
+        data[name] = value;
+      } else if (includeKeys) {
+        data[attr] = value;
+      }
+    }
+    return data;
+  }
 
-	translateToFields(payload = {}) {
-		let record = {};
-		for (let [name, value] of Object.entries(payload)) {
-			let field = this.getFieldName(name);
-			if (value !== undefined) {
-				record[field] = value;
-			}
-		}
-		return record;
-	}
+  translateToFields(payload = {}) {
+    let record = {};
+    for (let [name, value] of Object.entries(payload)) {
+      let field = this.getFieldName(name);
+      if (value !== undefined) {
+        record[field] = value;
+      }
+    }
+    return record;
+  }
 
-	getFieldName(name) {
-		if (typeof name === 'string') {
-			return this.translationForTable[name];
-		}
-	}
+  getFieldName(name) {
+    if (typeof name === "string") {
+      return this.translationForTable[name];
+    }
+  }
 
-	checkCreate(payload = {}) {
-		let record = {};
-		for (let attribute of Object.values(this.attributes)) {
-			let value = payload[attribute.name];
-			record[attribute.name] = attribute.getValidate(value);
-		}
-		return record;
-	}
+  checkCreate(payload = {}) {
+    let record = {};
+    for (let attribute of Object.values(this.attributes)) {
+      let value = payload[attribute.name];
+      record[attribute.name] = attribute.getValidate(value);
+    }
+    return record;
+  }
 
-	checkRemove(paths = []) {
-		for (const path of paths) {
-			const attribute = this.traverser.getPath(path);
-			if (!attribute) {
-				throw new e.ElectroAttributeValidationError(path, `Attribute "${path}" does not exist on model.`);
-			} else if (attribute.readOnly) {
-				throw new e.ElectroAttributeValidationError(attribute.path, `Attribute "${attribute.path}" is Read-Only and cannot be removed`);
-			} else if (attribute.required) {
-				throw new e.ElectroAttributeValidationError(attribute.path, `Attribute "${attribute.path}" is Required and cannot be removed`);
-			}
-		}
-		return paths;
-	}
+  checkRemove(paths = []) {
+    for (const path of paths) {
+      const attribute = this.traverser.getPath(path);
+      if (!attribute) {
+        throw new e.ElectroAttributeValidationError(
+          path,
+          `Attribute "${path}" does not exist on model.`,
+        );
+      } else if (attribute.readOnly) {
+        throw new e.ElectroAttributeValidationError(
+          attribute.path,
+          `Attribute "${attribute.path}" is Read-Only and cannot be removed`,
+        );
+      } else if (attribute.required) {
+        throw new e.ElectroAttributeValidationError(
+          attribute.path,
+          `Attribute "${attribute.path}" is Required and cannot be removed`,
+        );
+      }
+    }
+    return paths;
+  }
 
-	checkOperation(attribute, operation, value) {
-		if (attribute.required && operation === ItemOperations.remove) {
-			throw new e.ElectroAttributeValidationError(attribute.path, `Attribute "${attribute.path}" is Required and cannot be removed`);
-		} else if (attribute.readOnly) {
-			throw new e.ElectroAttributeValidationError(attribute.path, `Attribute "${attribute.path}" is Read-Only and cannot be updated`);
-		}
+  checkOperation(attribute, operation, value) {
+    if (attribute.required && operation === ItemOperations.remove) {
+      throw new e.ElectroAttributeValidationError(
+        attribute.path,
+        `Attribute "${attribute.path}" is Required and cannot be removed`,
+      );
+    } else if (attribute.readOnly) {
+      throw new e.ElectroAttributeValidationError(
+        attribute.path,
+        `Attribute "${attribute.path}" is Read-Only and cannot be updated`,
+      );
+    }
 
-		return value === undefined
-			? undefined
-			: attribute.getValidate(value);
-	}
+    return value === undefined ? undefined : attribute.getValidate(value);
+  }
 
-	checkUpdate(payload = {}, { allowReadOnly } = {}) {
-		let record = {};
-		for (let [path, value] of Object.entries(payload)) {
-			let attribute = this.traverser.paths.get(path);
-			if (attribute === undefined) {
-				continue;
-			}
-			if (attribute.readOnly && !allowReadOnly) {
-				throw new e.ElectroAttributeValidationError(attribute.path, `Attribute "${attribute.path}" is Read-Only and cannot be updated`);
-			} else {
-				record[path] = attribute.getValidate(value);
-			}
-		}
-		return record;
-	}
+  checkUpdate(payload = {}, { allowReadOnly } = {}) {
+    let record = {};
+    for (let [path, value] of Object.entries(payload)) {
+      let attribute = this.traverser.paths.get(path);
+      if (attribute === undefined) {
+        continue;
+      }
+      if (attribute.readOnly && !allowReadOnly) {
+        throw new e.ElectroAttributeValidationError(
+          attribute.path,
+          `Attribute "${attribute.path}" is Read-Only and cannot be updated`,
+        );
+      } else {
+        record[path] = attribute.getValidate(value);
+      }
+    }
+    return record;
+  }
 
-	getReadOnly() {
-		return Array.from(this.readOnlyAttributes);
-	}
+  getReadOnly() {
+    return Array.from(this.readOnlyAttributes);
+  }
 
-	getRequired() {
-		return Array.from(this.requiredAttributes);
-	}
+  getRequired() {
+    return Array.from(this.requiredAttributes);
+  }
 
-	formatItemForRetrieval(item, config) {
-		let returnAttributes = new Set(config.attributes || []);
-		let hasUserSpecifiedReturnAttributes = returnAttributes.size > 0;
-		let remapped = this.translateFromFields(item, config);
-		let data = this._fulfillAttributeMutationMethod("get", remapped);
-		if (this.hiddenAttributes.size > 0 || hasUserSpecifiedReturnAttributes) {
-			for (let attribute of Object.keys(data)) {
-				if (this.hiddenAttributes.has(attribute)) {
-					delete data[attribute];
-				}
-				if (hasUserSpecifiedReturnAttributes && !returnAttributes.has(attribute)) {
-					delete data[attribute];
-				}
-			}
-		}
-		return data;
-	}
+  formatItemForRetrieval(item, config) {
+    let returnAttributes = new Set(config.attributes || []);
+    let hasUserSpecifiedReturnAttributes = returnAttributes.size > 0;
+    let remapped = this.translateFromFields(item, config);
+    let data = this._fulfillAttributeMutationMethod("get", remapped);
+    if (this.hiddenAttributes.size > 0 || hasUserSpecifiedReturnAttributes) {
+      for (let attribute of Object.keys(data)) {
+        if (this.hiddenAttributes.has(attribute)) {
+          delete data[attribute];
+        }
+        if (
+          hasUserSpecifiedReturnAttributes &&
+          !returnAttributes.has(attribute)
+        ) {
+          delete data[attribute];
+        }
+      }
+    }
+    return data;
+  }
 }
 
 function createCustomAttribute(definition = {}) {
-	return {
-		...definition,
-		type: 'custom'
-	};
+  return {
+    ...definition,
+    type: "custom",
+  };
 }
 
 function CustomAttributeType(base) {
-	const supported = ['string', 'number', 'boolean', 'any'];
-	if (!supported.includes(base)) {
-		throw new Error(`OpaquePrimitiveType only supports base types: ${u.commaSeparatedString(supported)}`);
-	}
-	return base;
+  const supported = ["string", "number", "boolean", "any"];
+  if (!supported.includes(base)) {
+    throw new Error(
+      `OpaquePrimitiveType only supports base types: ${u.commaSeparatedString(
+        supported,
+      )}`,
+    );
+  }
+  return base;
 }
 
 function createSchema(schema) {
-	v.model(schema);
-	return schema;
+  v.model(schema);
+  return schema;
 }
 
 module.exports = {
-	Schema,
-	Attribute,
-	CastTypes,
-	SetAttribute,
-	createSchema,
-	CustomAttributeType,
-	createCustomAttribute,
+  Schema,
+  Attribute,
+  CastTypes,
+  SetAttribute,
+  createSchema,
+  CustomAttributeType,
+  createCustomAttribute,
 };
 
 },{"./errors":20,"./set":27,"./types":29,"./util":32,"./validations":33}],26:[function(require,module,exports){
-const { Entity, getEntityIdentifiers, matchToEntityAlias } = require("./entity");
+const {
+  Entity,
+  getEntityIdentifiers,
+  matchToEntityAlias,
+} = require("./entity");
 const { clauses } = require("./clauses");
-const { TableIndex, TransactionMethods, KeyCasing, ServiceVersions, Pager, ElectroInstance, ElectroInstanceTypes, ModelVersions, IndexTypes } = require("./types");
+const {
+  TableIndex,
+  TransactionMethods,
+  KeyCasing,
+  ServiceVersions,
+  Pager,
+  ElectroInstance,
+  ElectroInstanceTypes,
+  ModelVersions,
+  IndexTypes,
+} = require("./types");
 const { FilterFactory } = require("./filters");
 const { FilterOperations } = require("./operations");
 const { WhereFactory } = require("./where");
 const v = require("./validations");
-const c = require('./client');
+const c = require("./client");
 const e = require("./errors");
 const u = require("./util");
 const txn = require("./transaction");
-const { getInstanceType, getModelVersion, applyBetaModelOverrides } = require("./util");
+const {
+  getInstanceType,
+  getModelVersion,
+  applyBetaModelOverrides,
+} = require("./util");
 
 const ConstructorTypes = {
-	beta: "beta",
-	v1: "v1",
-	v1Map: "v1Map",
-	unknown: "unknown"
+  beta: "beta",
+  v1: "v1",
+  v1Map: "v1Map",
+  unknown: "unknown",
 };
 
 function inferConstructorType(service) {
-	if (v.isNameEntityRecordType(service) || v.isNameModelRecordType(service)) {
-		return ConstructorTypes.v1Map;
-	} else if (v.isBetaServiceConfig(service)) {
-		return ConstructorTypes.beta;
-	} else if (v.isStringHasLength(service)) {
-		return ConstructorTypes.v1;
-	} else {
-		return ConstructorTypes.unknown;
-	}
+  if (v.isNameEntityRecordType(service) || v.isNameModelRecordType(service)) {
+    return ConstructorTypes.v1Map;
+  } else if (v.isBetaServiceConfig(service)) {
+    return ConstructorTypes.beta;
+  } else if (v.isStringHasLength(service)) {
+    return ConstructorTypes.v1;
+  } else {
+    return ConstructorTypes.unknown;
+  }
 }
 
 function inferJoinValues(alias, instance, config) {
-	let hasAlias = true;
-	let args = {alias, instance, config, hasAlias};
-	if (typeof alias !== "string") {
-		args.config = instance;
-		args.instance = alias;
-		args.hasAlias = false;
-	}
-	return args;
+  let hasAlias = true;
+  let args = { alias, instance, config, hasAlias };
+  if (typeof alias !== "string") {
+    args.config = instance;
+    args.instance = alias;
+    args.hasAlias = false;
+  }
+  return args;
 }
 
 class Service {
-	_betaConstructor(service, config) {
-		this.service = {};
-		this._modelOverrides = {};
-
-		// Unique to Beta
-		this._modelVersion = ModelVersions.beta;
-		this._modelOverrides = {
-			table: service.table,
-			service: service.service,
-			version: service.version,
-		};
-		this.service.name = service.name || service.service;
-		this.service.table = service.table;
-		this.service.version = service.version;
-		// Unique to Beta
-
-		this.config = config;
-		this.client = config.client;
-		if (v.isFunction(config.logger)) {
-			this.logger = config.logger;
-		}
-		this.entities = {};
-		this.find = {};
-		this.collectionSchema = {};
-		this.compositeAttributes = {};
-		this.collections = {};
-		this.identifiers = {};
-		this.transaction = {
-			get: (fn) => {
-				return txn.createTransaction({
-					fn,
-					getEntities: () => this.entities,
-					method: TransactionMethods.transactGet,
-				});
-			},
-			write: (fn) => {
-				return txn.createTransaction({
-					fn,
-					getEntities: () => this.entities,
-					method: TransactionMethods.transactWrite,
-				});
-			}
-		};
-		this._instance = ElectroInstance.service;
-		this._instanceType = ElectroInstanceTypes.service;
-	}
-
-	_v1Constructor(service, config) {
-		this.service = {};
-		this._modelOverrides = {};
-
-		// Unique to V1
-		this._modelVersion = ModelVersions.v1;
-		this.service.name = service;
-		this.service.table = config.table;
-		this._modelOverrides.table = config.table;
-		// Unique to V1
-
-		this.config = config;
-		this.client = config.client;
-		if (v.isFunction(config.logger)) {
-			this.logger = config.logger;
-		}
-		this.entities = {};
-		this.find = {};
-		this.collectionSchema = {};
-		this.compositeAttributes = {};
-		this.collections = {};
-		this.identifiers = {};
-		this.transaction = {
-			get: (fn) => {
-				return txn.createTransaction({
-					fn,
-					getEntities: () => this.entities,
-					method: TransactionMethods.transactGet,
-				});
-			},
-			write: (fn) => {
-				return txn.createTransaction({
-					fn,
-					getEntities: () => this.entities,
-					method: TransactionMethods.transactWrite,
-				});
-			}
-		};
-		this._instance = ElectroInstance.service;
-		this._instanceType = ElectroInstanceTypes.service;
-	}
-
-	_v1MapConstructor(service, config) {
-		let entityNames = Object.keys(service);
-		let serviceName = this._inferServiceNameFromEntityMap(service);
-		this._v1Constructor(serviceName, config);
-		for (let name of entityNames) {
-			let entity = service[name];
-			this.join(name, entity, config);
-		}
-	}
-
-	constructor(service = "", config = {}) {
-		config = c.normalizeConfig(config);
-		this.version = ServiceVersions.v1;
-		let type = inferConstructorType(service);
-		switch(type) {
-			case ConstructorTypes.v1Map:
-				this._v1MapConstructor(service, config);
-				break;
-			case ConstructorTypes.beta:
-				this._betaConstructor(service, config);
-				break;
-			case ConstructorTypes.v1:
-				this._v1Constructor(service, config);
-				break;
-			default:
-				throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Invalid service name: ${JSON.stringify(service)}. Service name must have length greater than zero`);
-		}
-	}
-
-	_inferServiceNameFromEntityMap(service) {
-		let names = Object.keys(service);
-		let entity = names
-			.map(name => service[name])
-			.map(instance => this._inferJoinEntity(instance))
-			.find(entity => entity && entity.model && entity.model.service)
-
-		if (!entity || !entity.model || !entity.model.service) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Invalid service name: Entities/Models provided do not contain property for Service Name`);
-		}
-
-		return entity.model.service;
-	}
-
-	_inferJoinEntity(instance, options) {
-		let entity = {};
-		let type = getInstanceType(instance);
-		let modelVersion = getModelVersion(instance);
-		switch(type) {
-			case ElectroInstanceTypes.model:
-				entity = new Entity(instance, options);
-				break;
-			case ElectroInstanceTypes.entity:
-				entity = instance;
-				break;
-			default:
-				/** start beta/v1 condition **/
-				if (modelVersion !== this._modelVersion) {
-					throw new e.ElectroError(e.ErrorCodes.InvalidJoin, "Invalid instance: Valid instances to join include Models and Entity instances.");
-				} else if (modelVersion === ModelVersions.beta) {
-					instance = applyBetaModelOverrides(instance, this._modelOverrides);
-				} else {
-					throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Invalid instance: Valid instances to join include Models and Entity instances.`);
-				}
-				entity = new Entity(instance, options);
-				/** end beta/v1 condition **/
-				break;
-		}
-		return entity;
-	}
-
-	/**
-	 * Join
-	 * @param {string} alias
-	 * @param instance
-	 * @param config
-	 * @returns {Service}
-	 */
-	join(...args) {
-		let {alias, instance, config, hasAlias} = inferJoinValues(...args);
-		let options = { ...config, ...this.config };
-
-		let entity = this._inferJoinEntity(instance, options);
-
-		let name = hasAlias ? alias : entity.getName();
-
-		if (this.service.name.toLowerCase() !== entity.model.service.toLowerCase()) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Service name defined on joined instance, ${entity.model.service}, does not match the name of this Service: ${this.service.name}. Verify or update the service name on the Entity/Model to match the name defined on this service.`);
-		}
-
-		if (this.getTableName()) {
-			entity.setTableName(this.getTableName());
-		}
-
-		if (options.client) {
-			entity.setClient(options.client);
-		}
-
-		if (options.logger) {
-			entity._addLogger(options.logger);
-		}
-
-		if (options.listeners) {
-			entity.addListeners(options.listeners);
-		}
-
-		if (this._modelVersion === ModelVersions.beta && this.service.version) {
-			entity.model.version = this.service.version;
-		}
-
-		this.entities[name] = entity;
-		for (let collection of this.entities[name].model.collections) {
-			// todo: this used to be inside the collection callback, it does not do well being ran multiple times
-			// this forlook adds the entity filters multiple times
-			this._addCollectionEntity(collection, name, this.entities[name]);
-			this.collections[collection] = (...facets) => {
-				return this._makeCollectionChain({
-					name: collection,
-					initialClauses: clauses,
-				}, ...facets);
-			};
-		}
-		for (const collection in this.collectionSchema) {
-			const collectionSchema = this.collectionSchema[collection];
-			this.compositeAttributes[collection] = this._collectionSchemaToCompositeAttributes(collectionSchema);
-		}
-		this.find = { ...this.entities, ...this.collections };
-		return this;
-	}
-
-	_collectionSchemaToCompositeAttributes(schema) {
-		const keys = schema.keys;
-		return {
-			hasSortKeys: keys.hasSk,
-			customFacets: {
-				pk: keys.pk.isCustom,
-				sk: keys.sk.isCustom,
-			},
-			pk: keys.pk.facets,
-			sk: keys.sk.facets,
-			all: [
-				...keys.pk.facets.map(name => {
-					return {
-						name,
-						index: keys.index,
-						type: 'pk',
-					};
-				}),
-				...keys.sk.facets.map(name => {
-					return {
-						name,
-						index: keys.index,
-						type: 'sk',
-					};
-				})
-			],
-			collection: keys.collection,
-			hasSubCollections: schema.hasSubCollections,
-			casing: {
-				pk: keys.pk.casing,
-				sk: keys.sk.casing,
-			},
-		}
-	}
-
-	setClient(client) {
-		if (client !== undefined) {
-			for (let entity of Object.values(this.entities)) {
-				entity.setClient(client);
-			}
-		}
-	}
-
-	cleanseRetrievedData(index = TableIndex, entities, data = {}, config = {}) {
-		if (config.raw) {
-			return data;
-		}
-		const identifiers = getEntityIdentifiers(entities);
-
-		data.Items = data.Items || [];
-
-		const results = {};
-		for (let {alias} of identifiers) {
-			results[alias] = [];
-		}
-
-		for (let i = 0; i < data.Items.length; i++) {
-			const record = data.Items[i];
-
-			if (!record) {
-				continue;
-			}
-
-			const entityAlias = matchToEntityAlias({identifiers, record, entities: this.entities, allowMatchOnKeys: config.ignoreOwnership });
-
-			if (!entityAlias) {
-				continue;
-			}
-
-			// pager=false because we don't want the entity trying to parse the lastEvaluatedKey
-			let formatted;
-			if (config.hydrate) {
-				formatted = {
-					data: record // entities[entityAlias]._formatKeysToItem(index, record),
-				};
-			} else {
-				formatted = entities[entityAlias].formatResponse({Item: record}, index, {
-					...config,
-					pager: false,
-					parse: undefined,
-				});
-			}
-
-			results[entityAlias].push(formatted.data);
-		}
-		return results;
-	}
-
-	findKeyOwner(lastEvaluatedKey) {
-		return Object.values(this.entities)[0];
-		// return Object.values(this.entities)
-		// 	.find((entity) => entity.ownsLastEvaluatedKey(lastEvaluatedKey));
-	}
-
-	expectKeyOwner(lastEvaluatedKey) {
-		const owner = this.findKeyOwner(lastEvaluatedKey);
-		if (owner === undefined) {
-			throw new e.ElectroError(e.ErrorCodes.NoOwnerForCursor, `Supplied cursor does not resolve to Entity within the Service ${this.service.name}`);
-		}
-		return owner;
-	}
-
-	findCursorOwner(cursor) {
-		return Object.values(this.entities)[0];
-		// return Object.values(this.entities)
-		// 	.find(entity => entity.ownsCursor(cursor));
-	}
-
-	expectCursorOwner(cursor) {
-		const owner = this.findCursorOwner(cursor);
-		if (owner === undefined) {
-			throw new e.ElectroError(e.ErrorCodes.NoOwnerForCursor, `Supplied cursor does not resolve to Entity within the Service ${this.service.name}`);
-		}
-		return owner;
-	}
-
-	getTableName() {
-		return this.service.table;
-	}
-
-	setTableName(table) {
-		this.service.table = table;
-		for (let entity of Object.values(this.entities)) {
-			entity.setTableName(table);
-		}
-	}
-
-	_makeCollectionChain({
-		name = "",
-		initialClauses = {},
-	}, facets = {}) {
-		const { entities, attributes, identifiers, indexType, index } = this.collectionSchema[name];
-		const compositeAttributes = this.compositeAttributes[name];
-		const allEntities = Object.values(entities);
-		const entity = allEntities[0];
-
-		let filterBuilder = new FilterFactory(attributes, FilterOperations);
-		let whereBuilder = new WhereFactory(attributes, FilterOperations);
-		let clauses = {...initialClauses};
-
-		clauses = filterBuilder.injectFilterClauses(clauses);
-		clauses = whereBuilder.injectWhereClauses(clauses);
-
-		const expression = identifiers.expression || "";
-
-		let options = {
-			// expressions, // DynamoDB doesnt return what I expect it would when provided with these entity filters
-			parse: (options, data) => {
-				if (options.raw) {
-					return data;
-				}
-				return this.cleanseRetrievedData(index, entities, data, options);
-			},
-			formatCursor: {
-				serialize: (key) => {
-					return this.expectKeyOwner(key).serializeCursor(key);
-				},
-				deserialize: (cursor) => {
-					return this.expectCursorOwner(cursor).deserializeCursor(cursor);
-				}
-			},
-			identifiers: {
-				names: identifiers.names || {},
-				values: identifiers.values || {},
-				expression: allEntities.length > 1
-					? `(${expression})`
-					: expression
-			},
-			expressions: {
-				names: {},
-				values: {},
-				expression: '',
-			},
-			attributes,
-			entities,
-			indexType,
-			compositeAttributes,
-			hydrator: async (entity, index, items, config) => {
-				if (entity && entities[entity]) {
-					return entities[entity].hydrate(index, items, {
-						...config,
-						parse: undefined,
-						hydrator: undefined,
-						_isCollectionQuery: false,
-						ignoreOwnership: config._providedIgnoreOwnership,
-					});
-				}
-
-				// let itemLookup = [];
-				let entityItemRefs = {};
-				// let entityResultRefs = {};
-				for (let i = 0; i < items.length; i++) {
-					const item = items[i];
-					for (let entityName in entities) {
-						entityItemRefs[entityName] = entityItemRefs[entityName] || [];
-						const entity = entities[entityName];
-						// if (entity.ownsKeys({ keys: item })) {
-						if (entity.ownsKeys(item)) {
-							// const entityItemRefsIndex =
-							entityItemRefs[entityName].push({
-								item,
-								itemSlot: i,
-							});
-							// itemLookup[i] = {
-							// 	entityName,
-							// 	entityItemRefsIndex,
-							// 	originalItem: item,
-							// }
-						}
-					}
-				}
-
-				let unprocessed = [];
-				let data = new Array(items.length).fill(null);
-				for (const entityName in entityItemRefs) {
-					const itemRefs = entityItemRefs[entityName];
-					const items = itemRefs.map(ref => ref.item);
-					const results = await entities[entity].hydrate(index, items, {
-						...config,
-						parse: undefined,
-						hydrate: false,
-						hydrator: undefined,
-						_isCollectionQuery: false,
-						ignoreOwnership: config._providedIgnoreOwnership,
-					});
-					unprocessed = unprocessed.concat(results.unprocessed);
-					if (results.data.length !== itemRefs.length) {
-						throw new Error('Temporary: something wrong');
-					}
-					for (let r = 0; r < itemRefs.length; r++) {
-						const itemRef = itemRefs[r];
-						const hydrated = results.data[r];
-						data[itemRef.itemSlot] = hydrated;
-					}
-				}
-
-				return {
-					data,
-					unprocessed,
-				}
-			}
-		};
-
-		return entity.collection(name, clauses, facets, options);
-	}
-
-	_validateIndexCasingMatch(definition = {}, providedIndex = {}) {
-		const definitionSk = definition.sk || {};
-		const providedSk = providedIndex.sk || {};
-		const pkCasingMatch = v.isMatchingCasing(definition.pk.casing, providedIndex.pk.casing);
-		const skCasingMatch = v.isMatchingCasing(definitionSk.casing, providedSk.casing);
-		return {
-			pk: pkCasingMatch,
-			sk: skCasingMatch
-		};
-	}
-
-	_validateCollectionDefinition(definition = {}, providedIndex = {}) {
-		let isCustomMatchPK = definition.pk.isCustom === providedIndex.pk.isCustom;
-		let isCustomMatchSK = !!(definition.sk && definition.sk.isCustom) === !!(providedIndex.sk && providedIndex.sk.isCustom);
-		let indexMatch = definition.index === providedIndex.index;
-		let pkFieldMatch = definition.pk.field === providedIndex.pk.field;
-		let pkFacetLengthMatch = definition.pk.facets.length === providedIndex.pk.facets.length;
-		let mismatchedFacetLabels = [];
-		let collectionDifferences = [];
-		let definitionIndexName = u.formatIndexNameForDisplay(definition.index);
-		let providedIndexName = u.formatIndexNameForDisplay(providedIndex.index);
-		let matchingKeyCasing = this._validateIndexCasingMatch(definition, providedIndex);
-
-		for (let i = 0; i < Math.max(definition.pk.labels.length, providedIndex.pk.labels.length); i++) {
-			let definitionFacet = definition.pk.labels[i] && definition.pk.labels[i].name;
-			let definitionLabel = definition.pk.labels[i] && definition.pk.labels[i].label;
-			let providedFacet = providedIndex.pk.labels[i] && providedIndex.pk.labels[i].name;
-			let providedLabel = providedIndex.pk.labels[i] && providedIndex.pk.labels[i].label;
-			let noLabels = definitionLabel === definitionFacet && providedLabel === providedFacet;
-			if (definitionLabel !== providedLabel) {
-				mismatchedFacetLabels.push({
-					definitionFacet,
-					definitionLabel,
-					providedFacet,
-					providedLabel,
-					kind: "Partition",
-					type: noLabels ? "facet" : "label"
-				});
-				break;
-			} else if (definitionFacet !== providedFacet) {
-				mismatchedFacetLabels.push({
-					definitionFacet,
-					definitionLabel,
-					providedFacet,
-					providedLabel,
-					kind: "Partition",
-					type: "facet"
-				});
-				break;
-			}
-		}
-
-		if (!isCustomMatchPK) {
-			collectionDifferences.push(`The usage of key templates the partition key on index ${definitionIndexName} must be consistent across all Entities, some entities provided use template while others do not`);
-		}
-
-		if (!isCustomMatchSK) {
-			collectionDifferences.push(`The usage of key templates the sort key on index ${definitionIndexName} must be consistent across all Entities, some entities provided use template while others do not`);
-		}
-
-		if (definition.type === "clustered") {
-			for (let i = 0; i < Math.min(definition.sk.labels.length, providedIndex.sk.labels.length); i++) {
-				let definitionFacet = definition.sk.labels[i] && definition.sk.labels[i].name;
-				let definitionLabel = definition.sk.labels[i] && definition.sk.labels[i].label;
-				let providedFacet = providedIndex.sk.labels[i] && providedIndex.sk.labels[i].name;
-				let providedLabel = providedIndex.sk.labels[i] && providedIndex.sk.labels[i].label;
-				let noLabels = definitionLabel === definitionFacet && providedLabel === providedFacet;
-				if (definitionFacet === providedFacet) {
-					if (definitionLabel !== providedLabel) {
-						mismatchedFacetLabels.push({
-							definitionFacet,
-							definitionLabel,
-							providedFacet,
-							providedLabel,
-							kind: "Sort",
-							type: noLabels ? "facet" : "label"
-						});
-					}
-				} else {
-					break;
-				}
-			}
-		}
-
-		if (!matchingKeyCasing.pk) {
-			collectionDifferences.push(
-				`The pk property "casing" provided "${providedIndex.pk.casing || KeyCasing.default}" does not match established casing "${definition.pk.casing || KeyCasing.default}" on index "${providedIndexName}". Index casing options must match across all entities participating in a collection`
-			);
-		}
-
-		if (!matchingKeyCasing.sk) {
-			const definedSk = definition.sk || {};
-			const providedSk = providedIndex.sk || {};
-			collectionDifferences.push(
-				`The sk property "casing" provided "${definedSk.casing || KeyCasing.default}" does not match established casing "${providedSk.casing || KeyCasing.default}" on index "${providedIndexName}". Index casing options must match across all entities participating in a collection`
-			);
-		}
-
-		if (!indexMatch) {
-			collectionDifferences.push(
-				`Collection defined on provided index "${providedIndexName}" does not match collection established index "${definitionIndexName}". Collections must be defined on the same index across all entities within a service.`,
-			);
-		} else if (!pkFieldMatch) {
-			collectionDifferences.push(
-				`Partition Key composite attributes provided "${providedIndex.pk.field}" for index "${providedIndexName}" do not match established field "${definition.pk.field}" on established index "${definitionIndexName}"`,
-			);
-		}
-
-		if (!pkFacetLengthMatch) {
-			collectionDifferences.push(
-				`Partition Key composite attributes provided [${providedIndex.pk.facets.map(val => `"${val}"`).join(", ")}] for index "${providedIndexName}" do not match established composite attributes [${definition.pk.facets.map(val => `"${val}"`).join(", ")}] on established index "${definitionIndexName}"`,
-			);
-		// Else if used here because if they don't even have the same facet length then the data collected for the mismatched facets would include undefined values
-		// which would make the error messages even more confusing.
-		} else if (mismatchedFacetLabels.length > 0) {
-			for (let mismatch of mismatchedFacetLabels) {
-				if (mismatch.type === "facet") {
-					collectionDifferences.push(
-						`${mismatch.kind} Key composite attributes provided for index "${providedIndexName}" do not match established composite attribute "${mismatch.definitionFacet}" on established index "${definitionIndexName}": "${mismatch.definitionLabel}" != "${mismatch.providedLabel}"; Composite attribute definitions must match between all members of a collection to ensure key structures will resolve to identical Partition Keys. Please ensure these composite attribute definitions are identical for all entities associated with this service.`
-					);
-				} else {
-					collectionDifferences.push(
-						`${mismatch.kind} Key composite attributes provided for index "${providedIndexName}" contain conflicting composite attribute labels for established composite attribute "${mismatch.definitionFacet || ""}" on established index "${definitionIndexName}". Established composite attribute "${mismatch.definitionFacet || ""}" on established index "${definitionIndexName}" was defined with label "${mismatch.definitionLabel}" while provided composite attribute "${mismatch.providedFacet || ""}" on provided index "${providedIndexName}" is defined with label "${mismatch.providedLabel}". Composite attribute labels definitions must match between all members of a collection to ensure key structures will resolve to identical Partition Keys. Please ensure these labels definitions are identical for all entities associated with this service.`
-					);
-				}
-
-			}
-		}
-		return [!!collectionDifferences.length, collectionDifferences];
-	}
-
-	_compareEntityAttributes(entityName, definition = {}, providedAttributes = {}, keys) {
-		let results = {
-			additions: {},
-			invalid: [],
-		};
-		for (let [name, detail] of Object.entries(providedAttributes)) {
-			let defined = definition[name];
-			if (defined === undefined) {
-				results.additions[name] = detail;
-			} else if (defined.field !== detail.field) {
-				results.invalid.push(
-					`The attribute "${name}" with Table Field "${detail.field}" does not match established Table Field "${defined.field}"`,
-				);
-			}
-			if (defined && detail && (defined.padding || detail.padding)) {
-				const definedPadding = defined.padding || {};
-				const detailPadding = detail.padding || {};
-				if (keys.pk.facets.includes(name) &&
-					(definedPadding.length !== detailPadding.length ||
-					definedPadding.char !== detailPadding.char)
-				) {
-					results.invalid.push(
-						`The attribute "${name}" contains inconsistent padding definitions that impact how keys are formed`,
-					);
-				}
-			}
-		}
-		return [!!results.invalid.length, results];
-	}
-
-	_processEntityAttributes(entityName, definition = {}, providedAttributes = {}, keys) {
-		let [attributesAreIncompatible, attributeResults] = this._compareEntityAttributes(entityName, definition, providedAttributes, keys);
-		if (attributesAreIncompatible) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Inconsistent attribute(s) on the entity "${entityName}". The following attribute(s) are defined with incompatible or conflicting definitions across participating entities: ${attributeResults.invalid.join(", ")}. These attribute definitions must match among all members of the collection.`);
-		} else {
-			return {
-				...definition,
-				...attributeResults.additions,
-			};
-		}
-	}
-
-	_processEntityKeys(name, definition = {}, providedIndex = {}) {
-		if (!Object.keys(definition).length) {
-			definition = providedIndex;
-		}
-		const [invalidDefinition, invalidIndexMessages] = this._validateCollectionDefinition(definition, providedIndex);
-		if (invalidDefinition) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Validation Error while joining entity, "${name}". ${invalidIndexMessages.join("; ")}`);
-		}
-		const sharedSortKeyAttributes = [];
-		const sharedSortKeyCompositeAttributeLabels = [];
-		const sharedSortKeyLabels = [];
-		if (providedIndex.hasSk && definition.hasSk && Array.isArray(definition.sk.labels)) {
-			for (let i = 0; i < definition.sk.labels.length; i++) {
-				const providedLabels = providedIndex.sk.labels[i];
-				const definedLabels = definition.sk.labels[i];
-
-				const namesMatch = providedLabels && providedLabels.name === definedLabels.name;
-				const labelsMatch = providedLabels && providedLabels.label === definedLabels.label;
-				if (!namesMatch || !labelsMatch) {
-					break;
-				}
-				sharedSortKeyLabels.push({...definedLabels});
-				sharedSortKeyCompositeAttributeLabels.push({...definition.sk.facetLabels[i]})
-				sharedSortKeyAttributes.push(definition.sk.facets[i]);
-			}
-		}
-		return {
-			...definition,
-			sk: {
-				...definition.sk,
-				facets: sharedSortKeyAttributes,
-				facetLabels: sharedSortKeyCompositeAttributeLabels,
-				labels: sharedSortKeyLabels,
-			}
-		};
-	}
-
-	_getEntityIndexFromCollectionName(collection, entity) {
-		for (let index of Object.values(entity.model.indexes)) {
-			let names = [];
-			if (v.isArrayHasLength(index.collection)) {
-				names = index.collection;
-			} else {
-				names.push(index.collection);
-			}
-
-			for (let name of names) {
-				if (v.isStringHasLength(name) && name === collection) {
-					return index;
-				}
-			}
-		}
-		return Object.values(entity.model.indexes).find(
-			(index) => {
-				if (v.isStringHasLength(index.collection)) {
-					return index.collection === collection;
-				} else if (v.isArrayHasLength(index.collection)) {
-					return index.collection.indexOf(collection) > 0;
-				}
-			},
-		);
-	}
-
-	_processSubCollections(providedType, existing, provided, entityName, collectionName) {
-		let existingSubCollections;
-		let providedSubCollections;
-		if (v.isArrayHasLength(existing)) {
-			existingSubCollections = existing;
-		} else {
-			existingSubCollections = [existing];
-		}
-		if (v.isArrayHasLength(provided)) {
-			providedSubCollections = provided
-		} else {
-			providedSubCollections = [provided];
-		}
-
-		if (providedSubCollections.length > 1 && providedType === IndexTypes.clustered) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Clustered indexes do not support sub-collections. The sub-collection "${collectionName}", on Entity "${entityName}" must be defined as either an individual collection name or the index must be redefined as an isolated cluster`);
-		}
-		const existingRequiredIndex = existingSubCollections.indexOf(collectionName);
-		const providedRequiredIndex = providedSubCollections.indexOf(collectionName);
-		if (providedRequiredIndex < 0) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `The collection definition for Collection "${collectionName}" does not exist on Entity "${entityName}".`);
-		}
-		if (existingRequiredIndex >= 0 && existingRequiredIndex !== providedRequiredIndex) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `The collection definition for Collection "${collectionName}", on Entity "${entityName}", does not match the established sub-collection order for this service. The collection name provided in slot ${providedRequiredIndex + 1}, ${providedSubCollections[existingRequiredIndex] === undefined ? '(not found)' : `"${providedSubCollections[existingRequiredIndex]}"`}, on Entity "${entityName}", does not match the established collection name in slot ${existingRequiredIndex + 1}, "${collectionName}". When using sub-collections, all Entities within a Service must must implement the same order for all preceding sub-collections.`);
-		}
-		let length = Math.max(existingRequiredIndex, providedRequiredIndex);
-
-		for (let i = 0; i <= length; i++) {
-			let existingCollection = existingSubCollections[i];
-			let providedCollection = providedSubCollections[i];
-			if (v.isStringHasLength(existingCollection)) {
-				if (existingCollection === providedCollection && providedCollection === collectionName) {
-					return i;
-				}
-				if (existingCollection !== providedCollection) {
-					throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `The collection definition for Collection "${collectionName}", on Entity "${entityName}", does not match the established sub-collection order for this service. The collection name provided in slot ${i+1}, "${providedCollection}", on Entity "${entityName}", does not match the established collection name in slot ${i + 1}, "${existingCollection}". When using sub-collections, all Entities within a Service must must implement the same order for all preceding sub-collections.`);
-				}
-			} else if (v.isStringHasLength(providedCollection)) {
-				if (providedCollection === collectionName) {
-					return i;
-				}
-			}
-		}
-	}
-
-	_addCollectionEntity(collection = "", name = "", entity = {}) {
-		let providedIndex = this._getEntityIndexFromCollectionName(
-			collection,
-			entity,
-		);
-
-		this.collectionSchema[collection] = this.collectionSchema[collection] || {
-			entities: {},
-			keys: {},
-			attributes: {},
-			identifiers: {
-				names: {},
-				values: {},
-				expression: ""
-			},
-			index: undefined,
-			table: "",
-			collection: [],
-			indexType: undefined,
-			hasSubCollections: undefined,
-		};
-		const providedType = providedIndex.type || IndexTypes.isolated;
-		if (this.collectionSchema[collection].indexType === undefined) {
-			this.collectionSchema[collection].indexType = providedType;
-		} else if (this.collectionSchema[collection].indexType !== providedType) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Index type mismatch on collection ${collection}. The entity ${name} defines the index as type ${providedType} while the established type for that index is ${this.collectionSchema[collection].indexType}. Note that when omitted, indexes default to the type "${IndexTypes.isolated}"`);
-		}
-		if (this.collectionSchema[collection].entities[name] !== undefined) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Entity with name '${name}' has already been joined to this service.`);
-		}
-
-		if (this.collectionSchema[collection].table !== "") {
-			if (this.collectionSchema[collection].table !== entity.getTableName()) {
-				throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Entity with name '${name}' is defined to use a different Table than what is defined on other Service Entities and/or the Service itself. Entity '${name}' is defined with table name '${entity.getTableName()}' but the Service has been defined to use table name '${this.collectionSchema[collection].table}'. All Entities in a Service must reference the same DynamoDB table. To ensure all Entities will use the same DynamoDB table, it is possible to apply the property 'table' to the Service constructor's configuration parameter.`);
-			}
-		} else {
-			this.collectionSchema[collection].table = entity.getTableName();
-		}
-
-		this.collectionSchema[collection].keys = this._processEntityKeys(name, this.collectionSchema[collection].keys, providedIndex);
-		this.collectionSchema[collection].attributes = this._processEntityAttributes(name, this.collectionSchema[collection].attributes, entity.model.schema.attributes, this.collectionSchema[collection].keys);
-		this.collectionSchema[collection].entities[name] = entity;
-		this.collectionSchema[collection].identifiers = this._processEntityIdentifiers(this.collectionSchema[collection].identifiers, entity.getIdentifierExpressions(name));
-		this.collectionSchema[collection].index = this._processEntityCollectionIndex(this.collectionSchema[collection].index, providedIndex.index, name, collection);
-		let collectionIndex = this._processSubCollections(
-			providedType,
-			this.collectionSchema[collection].collection,
-			providedIndex.collection,
-			name,
-			collection
-		);
-		this.collectionSchema[collection].collection[collectionIndex] = collection;
-		this.collectionSchema[collection].hasSubCollections = this.collectionSchema[collection].hasSubCollections || Array.isArray(providedIndex.collection);
-		return this.collectionSchema[collection];
-	}
-
-	_processEntityCollectionIndex(existing, provided, name, collection) {
-		if (typeof provided !== "string") {
-			throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Entity with name '${name}' does not have collection ${collection} defined on it's model`);
-		} else if (existing === undefined) {
-			return provided;
-		} else if (provided !== existing) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidJoin, `Entity with name '${name}' defines collection ${collection} on index `);
-		} else {
-			return existing;
-		}
-	}
-
-	_processEntityIdentifiers(existing = {}, {names, values, expression} = {}) {
-		let identifiers = {};
-		if (names) {
-			identifiers.names = Object.assign({}, existing.names, names);
-		}
-		if (values) {
-			identifiers.values = Object.assign({}, existing.values, values);
-		}
-		if (expression) {
-			identifiers.expression = [existing.expression, expression].filter(Boolean).join(" OR ");
-		}
-		return identifiers;
-	}
+  _betaConstructor(service, config) {
+    this.service = {};
+    this._modelOverrides = {};
+
+    // Unique to Beta
+    this._modelVersion = ModelVersions.beta;
+    this._modelOverrides = {
+      table: service.table,
+      service: service.service,
+      version: service.version,
+    };
+    this.service.name = service.name || service.service;
+    this.service.table = service.table;
+    this.service.version = service.version;
+    // Unique to Beta
+
+    this.config = config;
+    this.client = config.client;
+    if (v.isFunction(config.logger)) {
+      this.logger = config.logger;
+    }
+    this.entities = {};
+    this.find = {};
+    this.collectionSchema = {};
+    this.compositeAttributes = {};
+    this.collections = {};
+    this.identifiers = {};
+    this.transaction = {
+      get: (fn) => {
+        return txn.createTransaction({
+          fn,
+          getEntities: () => this.entities,
+          method: TransactionMethods.transactGet,
+        });
+      },
+      write: (fn) => {
+        return txn.createTransaction({
+          fn,
+          getEntities: () => this.entities,
+          method: TransactionMethods.transactWrite,
+        });
+      },
+    };
+    this._instance = ElectroInstance.service;
+    this._instanceType = ElectroInstanceTypes.service;
+  }
+
+  _v1Constructor(service, config) {
+    this.service = {};
+    this._modelOverrides = {};
+
+    // Unique to V1
+    this._modelVersion = ModelVersions.v1;
+    this.service.name = service;
+    this.service.table = config.table;
+    this._modelOverrides.table = config.table;
+    // Unique to V1
+
+    this.config = config;
+    this.client = config.client;
+    if (v.isFunction(config.logger)) {
+      this.logger = config.logger;
+    }
+    this.entities = {};
+    this.find = {};
+    this.collectionSchema = {};
+    this.compositeAttributes = {};
+    this.collections = {};
+    this.identifiers = {};
+    this.transaction = {
+      get: (fn) => {
+        return txn.createTransaction({
+          fn,
+          getEntities: () => this.entities,
+          method: TransactionMethods.transactGet,
+        });
+      },
+      write: (fn) => {
+        return txn.createTransaction({
+          fn,
+          getEntities: () => this.entities,
+          method: TransactionMethods.transactWrite,
+        });
+      },
+    };
+    this._instance = ElectroInstance.service;
+    this._instanceType = ElectroInstanceTypes.service;
+  }
+
+  _v1MapConstructor(service, config) {
+    let entityNames = Object.keys(service);
+    let serviceName = this._inferServiceNameFromEntityMap(service);
+    this._v1Constructor(serviceName, config);
+    for (let name of entityNames) {
+      let entity = service[name];
+      this.join(name, entity, config);
+    }
+  }
+
+  constructor(service = "", config = {}) {
+    config = c.normalizeConfig(config);
+    this.version = ServiceVersions.v1;
+    let type = inferConstructorType(service);
+    switch (type) {
+      case ConstructorTypes.v1Map:
+        this._v1MapConstructor(service, config);
+        break;
+      case ConstructorTypes.beta:
+        this._betaConstructor(service, config);
+        break;
+      case ConstructorTypes.v1:
+        this._v1Constructor(service, config);
+        break;
+      default:
+        throw new e.ElectroError(
+          e.ErrorCodes.InvalidJoin,
+          `Invalid service name: ${JSON.stringify(
+            service,
+          )}. Service name must have length greater than zero`,
+        );
+    }
+  }
+
+  _inferServiceNameFromEntityMap(service) {
+    let names = Object.keys(service);
+    let entity = names
+      .map((name) => service[name])
+      .map((instance) => this._inferJoinEntity(instance))
+      .find((entity) => entity && entity.model && entity.model.service);
+
+    if (!entity || !entity.model || !entity.model.service) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidJoin,
+        `Invalid service name: Entities/Models provided do not contain property for Service Name`,
+      );
+    }
+
+    return entity.model.service;
+  }
+
+  _inferJoinEntity(instance, options) {
+    let entity = {};
+    let type = getInstanceType(instance);
+    let modelVersion = getModelVersion(instance);
+    switch (type) {
+      case ElectroInstanceTypes.model:
+        entity = new Entity(instance, options);
+        break;
+      case ElectroInstanceTypes.entity:
+        entity = instance;
+        break;
+      default:
+        /** start beta/v1 condition **/
+        if (modelVersion !== this._modelVersion) {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidJoin,
+            "Invalid instance: Valid instances to join include Models and Entity instances.",
+          );
+        } else if (modelVersion === ModelVersions.beta) {
+          instance = applyBetaModelOverrides(instance, this._modelOverrides);
+        } else {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidJoin,
+            `Invalid instance: Valid instances to join include Models and Entity instances.`,
+          );
+        }
+        entity = new Entity(instance, options);
+        /** end beta/v1 condition **/
+        break;
+    }
+    return entity;
+  }
+
+  /**
+   * Join
+   * @param {string} alias
+   * @param instance
+   * @param config
+   * @returns {Service}
+   */
+  join(...args) {
+    let { alias, instance, config, hasAlias } = inferJoinValues(...args);
+    let options = { ...config, ...this.config };
+
+    let entity = this._inferJoinEntity(instance, options);
+
+    let name = hasAlias ? alias : entity.getName();
+
+    if (
+      this.service.name.toLowerCase() !== entity.model.service.toLowerCase()
+    ) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidJoin,
+        `Service name defined on joined instance, ${entity.model.service}, does not match the name of this Service: ${this.service.name}. Verify or update the service name on the Entity/Model to match the name defined on this service.`,
+      );
+    }
+
+    if (this.getTableName()) {
+      entity.setTableName(this.getTableName());
+    }
+
+    if (options.client) {
+      entity.setClient(options.client);
+    }
+
+    if (options.logger) {
+      entity._addLogger(options.logger);
+    }
+
+    if (options.listeners) {
+      entity.addListeners(options.listeners);
+    }
+
+    if (this._modelVersion === ModelVersions.beta && this.service.version) {
+      entity.model.version = this.service.version;
+    }
+
+    this.entities[name] = entity;
+    for (let collection of this.entities[name].model.collections) {
+      // todo: this used to be inside the collection callback, it does not do well being ran multiple times
+      // this forlook adds the entity filters multiple times
+      this._addCollectionEntity(collection, name, this.entities[name]);
+      this.collections[collection] = (...facets) => {
+        return this._makeCollectionChain(
+          {
+            name: collection,
+            initialClauses: clauses,
+          },
+          ...facets,
+        );
+      };
+    }
+    for (const collection in this.collectionSchema) {
+      const collectionSchema = this.collectionSchema[collection];
+      this.compositeAttributes[collection] =
+        this._collectionSchemaToCompositeAttributes(collectionSchema);
+    }
+    this.find = { ...this.entities, ...this.collections };
+    return this;
+  }
+
+  _collectionSchemaToCompositeAttributes(schema) {
+    const keys = schema.keys;
+    return {
+      hasSortKeys: keys.hasSk,
+      customFacets: {
+        pk: keys.pk.isCustom,
+        sk: keys.sk.isCustom,
+      },
+      pk: keys.pk.facets,
+      sk: keys.sk.facets,
+      all: [
+        ...keys.pk.facets.map((name) => {
+          return {
+            name,
+            index: keys.index,
+            type: "pk",
+          };
+        }),
+        ...keys.sk.facets.map((name) => {
+          return {
+            name,
+            index: keys.index,
+            type: "sk",
+          };
+        }),
+      ],
+      collection: keys.collection,
+      hasSubCollections: schema.hasSubCollections,
+      casing: {
+        pk: keys.pk.casing,
+        sk: keys.sk.casing,
+      },
+    };
+  }
+
+  setClient(client) {
+    if (client !== undefined) {
+      for (let entity of Object.values(this.entities)) {
+        entity.setClient(client);
+      }
+    }
+  }
+
+  cleanseRetrievedData(index = TableIndex, entities, data = {}, config = {}) {
+    if (config.raw) {
+      return data;
+    }
+    const identifiers = getEntityIdentifiers(entities);
+
+    data.Items = data.Items || [];
+
+    const results = {};
+    for (let { alias } of identifiers) {
+      results[alias] = [];
+    }
+
+    for (let i = 0; i < data.Items.length; i++) {
+      const record = data.Items[i];
+
+      if (!record) {
+        continue;
+      }
+
+      const entityAlias = matchToEntityAlias({
+        identifiers,
+        record,
+        entities: this.entities,
+        allowMatchOnKeys: config.ignoreOwnership,
+      });
+
+      if (!entityAlias) {
+        continue;
+      }
+
+      // pager=false because we don't want the entity trying to parse the lastEvaluatedKey
+      let formatted;
+      if (config.hydrate) {
+        formatted = {
+          data: record, // entities[entityAlias]._formatKeysToItem(index, record),
+        };
+      } else {
+        formatted = entities[entityAlias].formatResponse(
+          { Item: record },
+          index,
+          {
+            ...config,
+            pager: false,
+            parse: undefined,
+          },
+        );
+      }
+
+      results[entityAlias].push(formatted.data);
+    }
+    return results;
+  }
+
+  findKeyOwner(lastEvaluatedKey) {
+    return Object.values(this.entities)[0];
+    // return Object.values(this.entities)
+    // 	.find((entity) => entity.ownsLastEvaluatedKey(lastEvaluatedKey));
+  }
+
+  expectKeyOwner(lastEvaluatedKey) {
+    const owner = this.findKeyOwner(lastEvaluatedKey);
+    if (owner === undefined) {
+      throw new e.ElectroError(
+        e.ErrorCodes.NoOwnerForCursor,
+        `Supplied cursor does not resolve to Entity within the Service ${this.service.name}`,
+      );
+    }
+    return owner;
+  }
+
+  findCursorOwner(cursor) {
+    return Object.values(this.entities)[0];
+    // return Object.values(this.entities)
+    // 	.find(entity => entity.ownsCursor(cursor));
+  }
+
+  expectCursorOwner(cursor) {
+    const owner = this.findCursorOwner(cursor);
+    if (owner === undefined) {
+      throw new e.ElectroError(
+        e.ErrorCodes.NoOwnerForCursor,
+        `Supplied cursor does not resolve to Entity within the Service ${this.service.name}`,
+      );
+    }
+    return owner;
+  }
+
+  getTableName() {
+    return this.service.table;
+  }
+
+  setTableName(table) {
+    this.service.table = table;
+    for (let entity of Object.values(this.entities)) {
+      entity.setTableName(table);
+    }
+  }
+
+  _makeCollectionChain({ name = "", initialClauses = {} }, facets = {}) {
+    const { entities, attributes, identifiers, indexType, index } =
+      this.collectionSchema[name];
+    const compositeAttributes = this.compositeAttributes[name];
+    const allEntities = Object.values(entities);
+    const entity = allEntities[0];
+
+    let filterBuilder = new FilterFactory(attributes, FilterOperations);
+    let whereBuilder = new WhereFactory(attributes, FilterOperations);
+    let clauses = { ...initialClauses };
+
+    clauses = filterBuilder.injectFilterClauses(clauses);
+    clauses = whereBuilder.injectWhereClauses(clauses);
+
+    const expression = identifiers.expression || "";
+
+    let options = {
+      // expressions, // DynamoDB doesnt return what I expect it would when provided with these entity filters
+      parse: (options, data) => {
+        if (options.raw) {
+          return data;
+        }
+        return this.cleanseRetrievedData(index, entities, data, options);
+      },
+      formatCursor: {
+        serialize: (key) => {
+          return this.expectKeyOwner(key).serializeCursor(key);
+        },
+        deserialize: (cursor) => {
+          return this.expectCursorOwner(cursor).deserializeCursor(cursor);
+        },
+      },
+      identifiers: {
+        names: identifiers.names || {},
+        values: identifiers.values || {},
+        expression: allEntities.length > 1 ? `(${expression})` : expression,
+      },
+      expressions: {
+        names: {},
+        values: {},
+        expression: "",
+      },
+      attributes,
+      entities,
+      indexType,
+      compositeAttributes,
+      hydrator: async (entity, index, items, config) => {
+        if (entity && entities[entity]) {
+          return entities[entity].hydrate(index, items, {
+            ...config,
+            parse: undefined,
+            hydrator: undefined,
+            _isCollectionQuery: false,
+            ignoreOwnership: config._providedIgnoreOwnership,
+          });
+        }
+
+        // let itemLookup = [];
+        let entityItemRefs = {};
+        // let entityResultRefs = {};
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          for (let entityName in entities) {
+            entityItemRefs[entityName] = entityItemRefs[entityName] || [];
+            const entity = entities[entityName];
+            // if (entity.ownsKeys({ keys: item })) {
+            if (entity.ownsKeys(item)) {
+              // const entityItemRefsIndex =
+              entityItemRefs[entityName].push({
+                item,
+                itemSlot: i,
+              });
+              // itemLookup[i] = {
+              // 	entityName,
+              // 	entityItemRefsIndex,
+              // 	originalItem: item,
+              // }
+            }
+          }
+        }
+
+        let unprocessed = [];
+        let data = new Array(items.length).fill(null);
+        for (const entityName in entityItemRefs) {
+          const itemRefs = entityItemRefs[entityName];
+          const items = itemRefs.map((ref) => ref.item);
+          const results = await entities[entity].hydrate(index, items, {
+            ...config,
+            parse: undefined,
+            hydrate: false,
+            hydrator: undefined,
+            _isCollectionQuery: false,
+            ignoreOwnership: config._providedIgnoreOwnership,
+          });
+          unprocessed = unprocessed.concat(results.unprocessed);
+          if (results.data.length !== itemRefs.length) {
+            throw new Error("Temporary: something wrong");
+          }
+          for (let r = 0; r < itemRefs.length; r++) {
+            const itemRef = itemRefs[r];
+            const hydrated = results.data[r];
+            data[itemRef.itemSlot] = hydrated;
+          }
+        }
+
+        return {
+          data,
+          unprocessed,
+        };
+      },
+    };
+
+    return entity.collection(name, clauses, facets, options);
+  }
+
+  _validateIndexCasingMatch(definition = {}, providedIndex = {}) {
+    const definitionSk = definition.sk || {};
+    const providedSk = providedIndex.sk || {};
+    const pkCasingMatch = v.isMatchingCasing(
+      definition.pk.casing,
+      providedIndex.pk.casing,
+    );
+    const skCasingMatch = v.isMatchingCasing(
+      definitionSk.casing,
+      providedSk.casing,
+    );
+    return {
+      pk: pkCasingMatch,
+      sk: skCasingMatch,
+    };
+  }
+
+  _validateCollectionDefinition(definition = {}, providedIndex = {}) {
+    let isCustomMatchPK = definition.pk.isCustom === providedIndex.pk.isCustom;
+    let isCustomMatchSK =
+      !!(definition.sk && definition.sk.isCustom) ===
+      !!(providedIndex.sk && providedIndex.sk.isCustom);
+    let indexMatch = definition.index === providedIndex.index;
+    let pkFieldMatch = definition.pk.field === providedIndex.pk.field;
+    let pkFacetLengthMatch =
+      definition.pk.facets.length === providedIndex.pk.facets.length;
+    let mismatchedFacetLabels = [];
+    let collectionDifferences = [];
+    let definitionIndexName = u.formatIndexNameForDisplay(definition.index);
+    let providedIndexName = u.formatIndexNameForDisplay(providedIndex.index);
+    let matchingKeyCasing = this._validateIndexCasingMatch(
+      definition,
+      providedIndex,
+    );
+
+    for (
+      let i = 0;
+      i < Math.max(definition.pk.labels.length, providedIndex.pk.labels.length);
+      i++
+    ) {
+      let definitionFacet =
+        definition.pk.labels[i] && definition.pk.labels[i].name;
+      let definitionLabel =
+        definition.pk.labels[i] && definition.pk.labels[i].label;
+      let providedFacet =
+        providedIndex.pk.labels[i] && providedIndex.pk.labels[i].name;
+      let providedLabel =
+        providedIndex.pk.labels[i] && providedIndex.pk.labels[i].label;
+      let noLabels =
+        definitionLabel === definitionFacet && providedLabel === providedFacet;
+      if (definitionLabel !== providedLabel) {
+        mismatchedFacetLabels.push({
+          definitionFacet,
+          definitionLabel,
+          providedFacet,
+          providedLabel,
+          kind: "Partition",
+          type: noLabels ? "facet" : "label",
+        });
+        break;
+      } else if (definitionFacet !== providedFacet) {
+        mismatchedFacetLabels.push({
+          definitionFacet,
+          definitionLabel,
+          providedFacet,
+          providedLabel,
+          kind: "Partition",
+          type: "facet",
+        });
+        break;
+      }
+    }
+
+    if (!isCustomMatchPK) {
+      collectionDifferences.push(
+        `The usage of key templates the partition key on index ${definitionIndexName} must be consistent across all Entities, some entities provided use template while others do not`,
+      );
+    }
+
+    if (!isCustomMatchSK) {
+      collectionDifferences.push(
+        `The usage of key templates the sort key on index ${definitionIndexName} must be consistent across all Entities, some entities provided use template while others do not`,
+      );
+    }
+
+    if (definition.type === "clustered") {
+      for (
+        let i = 0;
+        i <
+        Math.min(definition.sk.labels.length, providedIndex.sk.labels.length);
+        i++
+      ) {
+        let definitionFacet =
+          definition.sk.labels[i] && definition.sk.labels[i].name;
+        let definitionLabel =
+          definition.sk.labels[i] && definition.sk.labels[i].label;
+        let providedFacet =
+          providedIndex.sk.labels[i] && providedIndex.sk.labels[i].name;
+        let providedLabel =
+          providedIndex.sk.labels[i] && providedIndex.sk.labels[i].label;
+        let noLabels =
+          definitionLabel === definitionFacet &&
+          providedLabel === providedFacet;
+        if (definitionFacet === providedFacet) {
+          if (definitionLabel !== providedLabel) {
+            mismatchedFacetLabels.push({
+              definitionFacet,
+              definitionLabel,
+              providedFacet,
+              providedLabel,
+              kind: "Sort",
+              type: noLabels ? "facet" : "label",
+            });
+          }
+        } else {
+          break;
+        }
+      }
+    }
+
+    if (!matchingKeyCasing.pk) {
+      collectionDifferences.push(
+        `The pk property "casing" provided "${
+          providedIndex.pk.casing || KeyCasing.default
+        }" does not match established casing "${
+          definition.pk.casing || KeyCasing.default
+        }" on index "${providedIndexName}". Index casing options must match across all entities participating in a collection`,
+      );
+    }
+
+    if (!matchingKeyCasing.sk) {
+      const definedSk = definition.sk || {};
+      const providedSk = providedIndex.sk || {};
+      collectionDifferences.push(
+        `The sk property "casing" provided "${
+          definedSk.casing || KeyCasing.default
+        }" does not match established casing "${
+          providedSk.casing || KeyCasing.default
+        }" on index "${providedIndexName}". Index casing options must match across all entities participating in a collection`,
+      );
+    }
+
+    if (!indexMatch) {
+      collectionDifferences.push(
+        `Collection defined on provided index "${providedIndexName}" does not match collection established index "${definitionIndexName}". Collections must be defined on the same index across all entities within a service.`,
+      );
+    } else if (!pkFieldMatch) {
+      collectionDifferences.push(
+        `Partition Key composite attributes provided "${providedIndex.pk.field}" for index "${providedIndexName}" do not match established field "${definition.pk.field}" on established index "${definitionIndexName}"`,
+      );
+    }
+
+    if (!pkFacetLengthMatch) {
+      collectionDifferences.push(
+        `Partition Key composite attributes provided [${providedIndex.pk.facets
+          .map((val) => `"${val}"`)
+          .join(
+            ", ",
+          )}] for index "${providedIndexName}" do not match established composite attributes [${definition.pk.facets
+          .map((val) => `"${val}"`)
+          .join(", ")}] on established index "${definitionIndexName}"`,
+      );
+      // Else if used here because if they don't even have the same facet length then the data collected for the mismatched facets would include undefined values
+      // which would make the error messages even more confusing.
+    } else if (mismatchedFacetLabels.length > 0) {
+      for (let mismatch of mismatchedFacetLabels) {
+        if (mismatch.type === "facet") {
+          collectionDifferences.push(
+            `${mismatch.kind} Key composite attributes provided for index "${providedIndexName}" do not match established composite attribute "${mismatch.definitionFacet}" on established index "${definitionIndexName}": "${mismatch.definitionLabel}" != "${mismatch.providedLabel}"; Composite attribute definitions must match between all members of a collection to ensure key structures will resolve to identical Partition Keys. Please ensure these composite attribute definitions are identical for all entities associated with this service.`,
+          );
+        } else {
+          collectionDifferences.push(
+            `${
+              mismatch.kind
+            } Key composite attributes provided for index "${providedIndexName}" contain conflicting composite attribute labels for established composite attribute "${
+              mismatch.definitionFacet || ""
+            }" on established index "${definitionIndexName}". Established composite attribute "${
+              mismatch.definitionFacet || ""
+            }" on established index "${definitionIndexName}" was defined with label "${
+              mismatch.definitionLabel
+            }" while provided composite attribute "${
+              mismatch.providedFacet || ""
+            }" on provided index "${providedIndexName}" is defined with label "${
+              mismatch.providedLabel
+            }". Composite attribute labels definitions must match between all members of a collection to ensure key structures will resolve to identical Partition Keys. Please ensure these labels definitions are identical for all entities associated with this service.`,
+          );
+        }
+      }
+    }
+    return [!!collectionDifferences.length, collectionDifferences];
+  }
+
+  _compareEntityAttributes(
+    entityName,
+    definition = {},
+    providedAttributes = {},
+    keys,
+  ) {
+    let results = {
+      additions: {},
+      invalid: [],
+    };
+    for (let [name, detail] of Object.entries(providedAttributes)) {
+      let defined = definition[name];
+      if (defined === undefined) {
+        results.additions[name] = detail;
+      } else if (defined.field !== detail.field) {
+        results.invalid.push(
+          `The attribute "${name}" with Table Field "${detail.field}" does not match established Table Field "${defined.field}"`,
+        );
+      }
+      if (defined && detail && (defined.padding || detail.padding)) {
+        const definedPadding = defined.padding || {};
+        const detailPadding = detail.padding || {};
+        if (
+          keys.pk.facets.includes(name) &&
+          (definedPadding.length !== detailPadding.length ||
+            definedPadding.char !== detailPadding.char)
+        ) {
+          results.invalid.push(
+            `The attribute "${name}" contains inconsistent padding definitions that impact how keys are formed`,
+          );
+        }
+      }
+    }
+    return [!!results.invalid.length, results];
+  }
+
+  _processEntityAttributes(
+    entityName,
+    definition = {},
+    providedAttributes = {},
+    keys,
+  ) {
+    let [attributesAreIncompatible, attributeResults] =
+      this._compareEntityAttributes(
+        entityName,
+        definition,
+        providedAttributes,
+        keys,
+      );
+    if (attributesAreIncompatible) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidJoin,
+        `Inconsistent attribute(s) on the entity "${entityName}". The following attribute(s) are defined with incompatible or conflicting definitions across participating entities: ${attributeResults.invalid.join(
+          ", ",
+        )}. These attribute definitions must match among all members of the collection.`,
+      );
+    } else {
+      return {
+        ...definition,
+        ...attributeResults.additions,
+      };
+    }
+  }
+
+  _processEntityKeys(name, definition = {}, providedIndex = {}) {
+    if (!Object.keys(definition).length) {
+      definition = providedIndex;
+    }
+    const [invalidDefinition, invalidIndexMessages] =
+      this._validateCollectionDefinition(definition, providedIndex);
+    if (invalidDefinition) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidJoin,
+        `Validation Error while joining entity, "${name}". ${invalidIndexMessages.join(
+          "; ",
+        )}`,
+      );
+    }
+    const sharedSortKeyAttributes = [];
+    const sharedSortKeyCompositeAttributeLabels = [];
+    const sharedSortKeyLabels = [];
+    if (
+      providedIndex.hasSk &&
+      definition.hasSk &&
+      Array.isArray(definition.sk.labels)
+    ) {
+      for (let i = 0; i < definition.sk.labels.length; i++) {
+        const providedLabels = providedIndex.sk.labels[i];
+        const definedLabels = definition.sk.labels[i];
+
+        const namesMatch =
+          providedLabels && providedLabels.name === definedLabels.name;
+        const labelsMatch =
+          providedLabels && providedLabels.label === definedLabels.label;
+        if (!namesMatch || !labelsMatch) {
+          break;
+        }
+        sharedSortKeyLabels.push({ ...definedLabels });
+        sharedSortKeyCompositeAttributeLabels.push({
+          ...definition.sk.facetLabels[i],
+        });
+        sharedSortKeyAttributes.push(definition.sk.facets[i]);
+      }
+    }
+    return {
+      ...definition,
+      sk: {
+        ...definition.sk,
+        facets: sharedSortKeyAttributes,
+        facetLabels: sharedSortKeyCompositeAttributeLabels,
+        labels: sharedSortKeyLabels,
+      },
+    };
+  }
+
+  _getEntityIndexFromCollectionName(collection, entity) {
+    for (let index of Object.values(entity.model.indexes)) {
+      let names = [];
+      if (v.isArrayHasLength(index.collection)) {
+        names = index.collection;
+      } else {
+        names.push(index.collection);
+      }
+
+      for (let name of names) {
+        if (v.isStringHasLength(name) && name === collection) {
+          return index;
+        }
+      }
+    }
+    return Object.values(entity.model.indexes).find((index) => {
+      if (v.isStringHasLength(index.collection)) {
+        return index.collection === collection;
+      } else if (v.isArrayHasLength(index.collection)) {
+        return index.collection.indexOf(collection) > 0;
+      }
+    });
+  }
+
+  _processSubCollections(
+    providedType,
+    existing,
+    provided,
+    entityName,
+    collectionName,
+  ) {
+    let existingSubCollections;
+    let providedSubCollections;
+    if (v.isArrayHasLength(existing)) {
+      existingSubCollections = existing;
+    } else {
+      existingSubCollections = [existing];
+    }
+    if (v.isArrayHasLength(provided)) {
+      providedSubCollections = provided;
+    } else {
+      providedSubCollections = [provided];
+    }
+
+    if (
+      providedSubCollections.length > 1 &&
+      providedType === IndexTypes.clustered
+    ) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidJoin,
+        `Clustered indexes do not support sub-collections. The sub-collection "${collectionName}", on Entity "${entityName}" must be defined as either an individual collection name or the index must be redefined as an isolated cluster`,
+      );
+    }
+    const existingRequiredIndex =
+      existingSubCollections.indexOf(collectionName);
+    const providedRequiredIndex =
+      providedSubCollections.indexOf(collectionName);
+    if (providedRequiredIndex < 0) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidJoin,
+        `The collection definition for Collection "${collectionName}" does not exist on Entity "${entityName}".`,
+      );
+    }
+    if (
+      existingRequiredIndex >= 0 &&
+      existingRequiredIndex !== providedRequiredIndex
+    ) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidJoin,
+        `The collection definition for Collection "${collectionName}", on Entity "${entityName}", does not match the established sub-collection order for this service. The collection name provided in slot ${
+          providedRequiredIndex + 1
+        }, ${
+          providedSubCollections[existingRequiredIndex] === undefined
+            ? "(not found)"
+            : `"${providedSubCollections[existingRequiredIndex]}"`
+        }, on Entity "${entityName}", does not match the established collection name in slot ${
+          existingRequiredIndex + 1
+        }, "${collectionName}". When using sub-collections, all Entities within a Service must must implement the same order for all preceding sub-collections.`,
+      );
+    }
+    let length = Math.max(existingRequiredIndex, providedRequiredIndex);
+
+    for (let i = 0; i <= length; i++) {
+      let existingCollection = existingSubCollections[i];
+      let providedCollection = providedSubCollections[i];
+      if (v.isStringHasLength(existingCollection)) {
+        if (
+          existingCollection === providedCollection &&
+          providedCollection === collectionName
+        ) {
+          return i;
+        }
+        if (existingCollection !== providedCollection) {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidJoin,
+            `The collection definition for Collection "${collectionName}", on Entity "${entityName}", does not match the established sub-collection order for this service. The collection name provided in slot ${
+              i + 1
+            }, "${providedCollection}", on Entity "${entityName}", does not match the established collection name in slot ${
+              i + 1
+            }, "${existingCollection}". When using sub-collections, all Entities within a Service must must implement the same order for all preceding sub-collections.`,
+          );
+        }
+      } else if (v.isStringHasLength(providedCollection)) {
+        if (providedCollection === collectionName) {
+          return i;
+        }
+      }
+    }
+  }
+
+  _addCollectionEntity(collection = "", name = "", entity = {}) {
+    let providedIndex = this._getEntityIndexFromCollectionName(
+      collection,
+      entity,
+    );
+
+    this.collectionSchema[collection] = this.collectionSchema[collection] || {
+      entities: {},
+      keys: {},
+      attributes: {},
+      identifiers: {
+        names: {},
+        values: {},
+        expression: "",
+      },
+      index: undefined,
+      table: "",
+      collection: [],
+      indexType: undefined,
+      hasSubCollections: undefined,
+    };
+    const providedType = providedIndex.type || IndexTypes.isolated;
+    if (this.collectionSchema[collection].indexType === undefined) {
+      this.collectionSchema[collection].indexType = providedType;
+    } else if (this.collectionSchema[collection].indexType !== providedType) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidJoin,
+        `Index type mismatch on collection ${collection}. The entity ${name} defines the index as type ${providedType} while the established type for that index is ${this.collectionSchema[collection].indexType}. Note that when omitted, indexes default to the type "${IndexTypes.isolated}"`,
+      );
+    }
+    if (this.collectionSchema[collection].entities[name] !== undefined) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidJoin,
+        `Entity with name '${name}' has already been joined to this service.`,
+      );
+    }
+
+    if (this.collectionSchema[collection].table !== "") {
+      if (this.collectionSchema[collection].table !== entity.getTableName()) {
+        throw new e.ElectroError(
+          e.ErrorCodes.InvalidJoin,
+          `Entity with name '${name}' is defined to use a different Table than what is defined on other Service Entities and/or the Service itself. Entity '${name}' is defined with table name '${entity.getTableName()}' but the Service has been defined to use table name '${
+            this.collectionSchema[collection].table
+          }'. All Entities in a Service must reference the same DynamoDB table. To ensure all Entities will use the same DynamoDB table, it is possible to apply the property 'table' to the Service constructor's configuration parameter.`,
+        );
+      }
+    } else {
+      this.collectionSchema[collection].table = entity.getTableName();
+    }
+
+    this.collectionSchema[collection].keys = this._processEntityKeys(
+      name,
+      this.collectionSchema[collection].keys,
+      providedIndex,
+    );
+    this.collectionSchema[collection].attributes =
+      this._processEntityAttributes(
+        name,
+        this.collectionSchema[collection].attributes,
+        entity.model.schema.attributes,
+        this.collectionSchema[collection].keys,
+      );
+    this.collectionSchema[collection].entities[name] = entity;
+    this.collectionSchema[collection].identifiers =
+      this._processEntityIdentifiers(
+        this.collectionSchema[collection].identifiers,
+        entity.getIdentifierExpressions(name),
+      );
+    this.collectionSchema[collection].index =
+      this._processEntityCollectionIndex(
+        this.collectionSchema[collection].index,
+        providedIndex.index,
+        name,
+        collection,
+      );
+    let collectionIndex = this._processSubCollections(
+      providedType,
+      this.collectionSchema[collection].collection,
+      providedIndex.collection,
+      name,
+      collection,
+    );
+    this.collectionSchema[collection].collection[collectionIndex] = collection;
+    this.collectionSchema[collection].hasSubCollections =
+      this.collectionSchema[collection].hasSubCollections ||
+      Array.isArray(providedIndex.collection);
+    return this.collectionSchema[collection];
+  }
+
+  _processEntityCollectionIndex(existing, provided, name, collection) {
+    if (typeof provided !== "string") {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidJoin,
+        `Entity with name '${name}' does not have collection ${collection} defined on it's model`,
+      );
+    } else if (existing === undefined) {
+      return provided;
+    } else if (provided !== existing) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidJoin,
+        `Entity with name '${name}' defines collection ${collection} on index `,
+      );
+    } else {
+      return existing;
+    }
+  }
+
+  _processEntityIdentifiers(existing = {}, { names, values, expression } = {}) {
+    let identifiers = {};
+    if (names) {
+      identifiers.names = Object.assign({}, existing.names, names);
+    }
+    if (values) {
+      identifiers.values = Object.assign({}, existing.values, values);
+    }
+    if (expression) {
+      identifiers.expression = [existing.expression, expression]
+        .filter(Boolean)
+        .join(" OR ");
+    }
+    return identifiers;
+  }
 }
 
 module.exports = {
-	Service,
+  Service,
 };
 
 },{"./clauses":17,"./client":18,"./entity":19,"./errors":20,"./filters":23,"./operations":24,"./transaction":28,"./types":29,"./util":32,"./validations":33,"./where":34}],27:[function(require,module,exports){
 const memberTypeToSetType = {
-    'String': 'String',
-    'Number': 'Number',
-    'NumberValue': 'Number',
-    'Binary': 'Binary',
-    'string': 'String',
-    'number': 'Number'
+  String: "String",
+  Number: "Number",
+  NumberValue: "Number",
+  Binary: "Binary",
+  string: "String",
+  number: "Number",
 };
 
 class DynamoDBSet {
-    constructor(list, type) {
-        this.wrapperName = 'Set';
-        this.type = memberTypeToSetType[type];
-        if (this.type === undefined) {
-            new Error(`Invalid Set type: ${type}`);
-        }
-        this.values = Array.from(new Set([].concat(list)));
+  constructor(list, type) {
+    this.wrapperName = "Set";
+    this.type = memberTypeToSetType[type];
+    if (this.type === undefined) {
+      new Error(`Invalid Set type: ${type}`);
     }
+    this.values = Array.from(new Set([].concat(list)));
+  }
 
-    initialize(list, validate) {
+  initialize(list, validate) {}
 
-    }
+  detectType() {
+    return memberTypeToSetType[typeof this.values[0]];
+  }
 
-    detectType() {
-        return memberTypeToSetType[typeof (this.values[0])];
-    }
+  validate() {}
 
-    validate() {
-
-    }
-
-    toJSON() {
-        return this.values;
-    }
+  toJSON() {
+    return this.values;
+  }
 }
 
-module.exports = {DynamoDBSet};
+module.exports = { DynamoDBSet };
 
 },{}],28:[function(require,module,exports){
-const { TableIndex, TransactionMethods } = require('./types');
-const { getEntityIdentifiers, matchToEntityAlias } = require('./entity');
+const { TableIndex, TransactionMethods } = require("./types");
+const { getEntityIdentifiers, matchToEntityAlias } = require("./entity");
 
-function cleanseCanceledData(index = TableIndex, entities, data = {}, config = {}) {
-    if (config.raw) {
-        return data;
+function cleanseCanceledData(
+  index = TableIndex,
+  entities,
+  data = {},
+  config = {},
+) {
+  if (config.raw) {
+    return data;
+  }
+  const identifiers = getEntityIdentifiers(entities);
+  const canceled = data.canceled || [];
+  const paramItems = config._paramItems || [];
+  const results = [];
+  for (let i = 0; i < canceled.length; i++) {
+    const { Item, Code, Message } = canceled[i] || {};
+    const paramItem = paramItems[i];
+    const code = Code || "None";
+    const rejected = code !== "None";
+    const result = {
+      rejected,
+      code,
+      message: Message,
+    };
+
+    if (Item) {
+      const entityAlias = matchToEntityAlias({
+        record: Item,
+        paramItem,
+        identifiers,
+      });
+      result.item = entities[entityAlias].formatResponse({ Item }, index, {
+        ...config,
+        pager: false,
+        parse: undefined,
+      }).data;
+    } else {
+      result.item = null;
     }
-    const identifiers = getEntityIdentifiers(entities);
-    const canceled = data.canceled || [];
-    const paramItems = config._paramItems || [];
-    const results = [];
-    for (let i = 0; i < canceled.length; i++) {
-        const { Item, Code, Message } = canceled[i] || {};
-        const paramItem = paramItems[i];
-        const code = Code || 'None';
-        const rejected = code !== 'None';
-        const result = {
-            rejected,
-            code,
-            message: Message,
-        }
 
-        if (Item) {
-            const entityAlias = matchToEntityAlias({
-                record: Item,
-                paramItem,
-                identifiers
-            });
-            result.item = entities[entityAlias].formatResponse({Item}, index, {
-                ...config,
-                pager: false,
-                parse: undefined,
-            }).data;
-        } else {
-            result.item = null;
-        }
+    results.push(result);
+  }
 
-        results.push(result);
-    }
-
-    return results;
+  return results;
 }
 
-function cleanseTransactionData(index = TableIndex, entities, data = {}, config = {}) {
-    if (config.raw) {
-        return data;
-    }
-    const identifiers = getEntityIdentifiers(entities);
-    data.Items = data.Items || [];
-    const paramItems = config._paramItems || [];
-    const results = [];
-    for (let i = 0; i < data.Items.length; i++) {
-        const record = data.Items[i];
-        if (!record) {
-            results.push(null);
-            continue;
-        }
-
-        const paramItem = paramItems[i];
-        const entityAlias = matchToEntityAlias({paramItem, identifiers, record});
-        if (!entityAlias) {
-            continue;
-        }
-
-        // pager=false because we don't want the entity trying to parse the lastEvaluatedKey
-        let formatted = entities[entityAlias].formatResponse({ Item: record }, index, {
-            ...config,
-            pager: false,
-            parse: undefined
-        });
-
-        results.push(formatted.data);
+function cleanseTransactionData(
+  index = TableIndex,
+  entities,
+  data = {},
+  config = {},
+) {
+  if (config.raw) {
+    return data;
+  }
+  const identifiers = getEntityIdentifiers(entities);
+  data.Items = data.Items || [];
+  const paramItems = config._paramItems || [];
+  const results = [];
+  for (let i = 0; i < data.Items.length; i++) {
+    const record = data.Items[i];
+    if (!record) {
+      results.push(null);
+      continue;
     }
 
-    return results.map(item => ({
-        rejected: false,
-        item,
-    }));
+    const paramItem = paramItems[i];
+    const entityAlias = matchToEntityAlias({ paramItem, identifiers, record });
+    if (!entityAlias) {
+      continue;
+    }
+
+    // pager=false because we don't want the entity trying to parse the lastEvaluatedKey
+    let formatted = entities[entityAlias].formatResponse(
+      { Item: record },
+      index,
+      {
+        ...config,
+        pager: false,
+        parse: undefined,
+      },
+    );
+
+    results.push(formatted.data);
+  }
+
+  return results.map((item) => ({
+    rejected: false,
+    item,
+  }));
 }
 
 function createTransaction(options) {
-    const { fn, method, getEntities } = options;
-    const operations = {
-        params: (options = {}) => {
-            const paramItems = fn(getEntities());
-            const params = {
-                TransactItems: paramItems,
-            };
+  const { fn, method, getEntities } = options;
+  const operations = {
+    params: (options = {}) => {
+      const paramItems = fn(getEntities());
+      const params = {
+        TransactItems: paramItems,
+      };
 
-            if (typeof options.token === 'string' && options.token.length) {
-                params['ClientRequestToken'] = options.token;
-            }
-            if (options._returnParamItems) {
-                return { params, paramItems };
-            }
-            return params;
-        },
-        go: async (options) => {
-            const driver = Object.values(getEntities())[0];
+      if (typeof options.token === "string" && options.token.length) {
+        params["ClientRequestToken"] = options.token;
+      }
+      if (options._returnParamItems) {
+        return { params, paramItems };
+      }
+      return params;
+    },
+    go: async (options) => {
+      const driver = Object.values(getEntities())[0];
 
-            if (!driver) {
-                throw new Error('At least one entity must exist to perform a transaction');
-            }
+      if (!driver) {
+        throw new Error(
+          "At least one entity must exist to perform a transaction",
+        );
+      }
 
-            const { params, paramItems } = operations.params({
-                ...options,
-                _returnParamItems: true
-            });
+      const { params, paramItems } = operations.params({
+        ...options,
+        _returnParamItems: true,
+      });
 
-            let canceled = false;
-            if (paramItems.length === 0) {
-                return {
-                    canceled,
-                    data: [],
-                }
-            }
-
-            const response = await driver.go(method, params, {
-                ...options,
-                parse: (options, data) => {
-                    if (options.raw) {
-                        return data;
-                    } else if (data.canceled) {
-                        canceled = true;
-                        return cleanseCanceledData(TableIndex, getEntities(), data, {
-                            ...options,
-                            _isTransaction: true,
-                            _paramItems: paramItems,
-                        });
-                    } else if (data.Responses) {
-                        return cleanseTransactionData(TableIndex, getEntities(), {
-                            Items: data.Responses.map(response => response.Item)
-                        }, {
-                            ...options,
-                            _isTransaction: true,
-                            _paramItems: paramItems,
-                        });
-                    } else {
-                        return new Array(paramItems ? paramItems.length : 0).fill({
-                            item: null,
-                            code: 'None',
-                            rejected: false,
-                            message: undefined,
-                        });
-                    }
-                }
-            });
-
-            return {
-                ...response,
-                canceled,
-            }
+      let canceled = false;
+      if (paramItems.length === 0) {
+        return {
+          canceled,
+          data: [],
+        };
+      }
+      if (options && options.logger) {
+        if (!options.listeners) {
+          options.listeners = [];
         }
-    }
+        options.listeners.push(options.logger);
+      }
+      const response = await driver.go(method, params, {
+        ...options,
+        parse: (options, data) => {
+          if (options.raw) {
+            return data;
+          } else if (data.canceled) {
+            canceled = true;
+            return cleanseCanceledData(TableIndex, getEntities(), data, {
+              ...options,
+              _isTransaction: true,
+              _paramItems: paramItems,
+            });
+          } else if (data.Responses) {
+            return cleanseTransactionData(
+              TableIndex,
+              getEntities(),
+              {
+                Items: data.Responses.map((response) => response.Item),
+              },
+              {
+                ...options,
+                _isTransaction: true,
+                _paramItems: paramItems,
+              },
+            );
+          } else {
+            return new Array(paramItems ? paramItems.length : 0).fill({
+              item: null,
+              code: "None",
+              rejected: false,
+              message: undefined,
+            });
+          }
+        },
+      });
 
-    return operations;
+      return {
+        ...response,
+        canceled,
+      };
+    },
+  };
+
+  return operations;
 }
 
 function createWriteTransaction(entities, fn) {
-    return createTransaction({
-        fn,
-        method: TransactionMethods.transactWrite,
-        getEntities: () => entities,
-    });
+  return createTransaction({
+    fn,
+    method: TransactionMethods.transactWrite,
+    getEntities: () => entities,
+  });
 }
 
 function createGetTransaction(entities, fn) {
-    return createTransaction({
-        fn,
-        method: TransactionMethods.transactGet,
-        getEntities: () => entities,
-    });
+  return createTransaction({
+    fn,
+    method: TransactionMethods.transactGet,
+    getEntities: () => entities,
+  });
 }
 
 module.exports = {
-    createTransaction,
-    createWriteTransaction,
-    createGetTransaction,
-}
+  createTransaction,
+  createWriteTransaction,
+  createGetTransaction,
+};
+
 },{"./entity":19,"./types":29}],29:[function(require,module,exports){
 const KeyTypes = {
-	pk: "pk",
-	sk: "sk",
+  pk: "pk",
+  sk: "sk",
 };
 
 const BatchWriteTypes = {
-	batch: "batch",
-	concurrent: "concurrent"
-}
+  batch: "batch",
+  concurrent: "concurrent",
+};
 
 const QueryTypes = {
-	and: "and",
-	gte: "gte",
-	gt: "gt",
-	lte: "lte",
-	lt: "lt",
-	eq: "eq",
-	begins: "begins",
-	between: "between",
-	collection: "collection",
-	clustered_collection: 'clustered_collection',
-	is: "is"
+  and: "and",
+  gte: "gte",
+  gt: "gt",
+  lte: "lte",
+  lt: "lt",
+  eq: "eq",
+  begins: "begins",
+  between: "between",
+  collection: "collection",
+  clustered_collection: "clustered_collection",
+  is: "is",
 };
 
 const MethodTypes = {
-	check: "check",
-	put: "put",
-	get: "get",
-	query: "query",
-	scan: "scan",
-	update: "update",
-	delete: "delete",
-	remove: "remove",
-	patch: "patch",
-	create: "create",
-	batchGet: "batchGet",
-	batchWrite: "batchWrite",
-	upsert: "upsert",
-	transactWrite: "transactWrite",
-	transactGet: "transactGet",
+  check: "check",
+  put: "put",
+  get: "get",
+  query: "query",
+  scan: "scan",
+  update: "update",
+  delete: "delete",
+  remove: "remove",
+  patch: "patch",
+  create: "create",
+  batchGet: "batchGet",
+  batchWrite: "batchWrite",
+  upsert: "upsert",
+  transactWrite: "transactWrite",
+  transactGet: "transactGet",
 };
 
 const TransactionMethods = {
-	transactWrite: MethodTypes.transactWrite,
-	transactGet: MethodTypes.transactGet,
-}
+  transactWrite: MethodTypes.transactWrite,
+  transactGet: MethodTypes.transactGet,
+};
 
 const TransactionOperations = {
-	[MethodTypes.get]: "Get",
-	[MethodTypes.check]: "ConditionCheck",
-	[MethodTypes.put]: "Put",
-	[MethodTypes.create]: "Put",
-	[MethodTypes.upsert]: "Update",
-	[MethodTypes.update]: "Update",
-	[MethodTypes.patch]: "Update",
-	[MethodTypes.remove]: "Delete",
-	[MethodTypes.delete]: "Delete",
-}
+  [MethodTypes.get]: "Get",
+  [MethodTypes.check]: "ConditionCheck",
+  [MethodTypes.put]: "Put",
+  [MethodTypes.create]: "Put",
+  [MethodTypes.upsert]: "Update",
+  [MethodTypes.update]: "Update",
+  [MethodTypes.patch]: "Update",
+  [MethodTypes.remove]: "Delete",
+  [MethodTypes.delete]: "Delete",
+};
 
 const MethodTypeTranslation = {
-	put: "put",
-	get: "get",
-	query: "query",
-	scan: "scan",
-	update: "update",
-	delete: "delete",
-	remove: "delete",
-	patch: "update",
-	create: "put",
-	batchGet: "batchGet",
-	batchWrite: "batchWrite",
-	upsert: "update",
-	transactWrite: 'transactWrite',
-	transactGet: 'transactGet',
-}
+  put: "put",
+  get: "get",
+  query: "query",
+  scan: "scan",
+  update: "update",
+  delete: "delete",
+  remove: "delete",
+  patch: "update",
+  create: "put",
+  batchGet: "batchGet",
+  batchWrite: "batchWrite",
+  upsert: "update",
+  transactWrite: "transactWrite",
+  transactGet: "transactGet",
+};
 
 const IndexTypes = {
-	isolated: 'isolated',
-	clustered: 'clustered',
-}
+  isolated: "isolated",
+  clustered: "clustered",
+};
 
 const Comparisons = {
-	lte: '<=',
-	lt: "<",
-	gte: ">=",
-	gt: '>'
-}
+  lte: "<=",
+  lt: "<",
+  gte: ">=",
+  gt: ">",
+};
 
 const PartialComparisons = {
-	lt: "<",
-	gte: ">=",
+  lt: "<",
+  gte: ">=",
 
-	/**
-	 * gt becomes gte and last character of incoming value is shifted up one character code
-	 * example:
-	 * sk > '2020-09-05'
-	 *   expected
-	 *     - 2020-09-06@05:05_hero
-	 *     - 2020-10-05@05:05_hero
-	 *     - 2022-02-05@05:05_villian
-	 *     - 2022-06-05@05:05_clown
-	 *     - 2022-09-06@05:05_clown
-	 *   actual (bad - includes all 2020-09-05 records)
-	 *     - 2020-09-05@05:05_hero
-	 *     - 2020-09-06@05:05_hero
-	 *     - 2020-10-05@05:05_hero
-	 *     - 2022-02-05@05:05_villian
-	 *     - 2022-06-05@05:05_clown
-	 */
-	gt: ">=",
+  /**
+   * gt becomes gte and last character of incoming value is shifted up one character code
+   * example:
+   * sk > '2020-09-05'
+   *   expected
+   *     - 2020-09-06@05:05_hero
+   *     - 2020-10-05@05:05_hero
+   *     - 2022-02-05@05:05_villian
+   *     - 2022-06-05@05:05_clown
+   *     - 2022-09-06@05:05_clown
+   *   actual (bad - includes all 2020-09-05 records)
+   *     - 2020-09-05@05:05_hero
+   *     - 2020-09-06@05:05_hero
+   *     - 2020-10-05@05:05_hero
+   *     - 2022-02-05@05:05_villian
+   *     - 2022-06-05@05:05_clown
+   */
+  gt: ">=",
 
-	/**
-	 * lte becomes lt and last character of incoming value is shifted up one character code
-	 * example:
-	 * sk >= '2020-09-05'
-	 *   expected
-	 *     - 2012-02-05@05:05_clown
-	 *     - 2015-10-05@05:05_hero
-	 *     - 2017-02-05@05:05_clown
-	 *     - 2017-02-05@05:05_villian
-	 *     - 2020-02-05@05:05_clown
-	 *     - 2020-02-25@05:05_clown
-	 *     - 2020-09-05@05:05_hero
-	 *   actual (bad - missing all 2020-09-05 records)
-	 *     - 2012-02-05@05:05_clown
-	 *     - 2015-10-05@05:05_hero
-	 *     - 2017-02-05@05:05_clown
-	 *     - 2017-02-05@05:05_villian
-	 *     - 2020-02-05@05:05_clown
-	 *     - 2020-02-25@05:05_clown
-	 */
-	lte: "<",
+  /**
+   * lte becomes lt and last character of incoming value is shifted up one character code
+   * example:
+   * sk >= '2020-09-05'
+   *   expected
+   *     - 2012-02-05@05:05_clown
+   *     - 2015-10-05@05:05_hero
+   *     - 2017-02-05@05:05_clown
+   *     - 2017-02-05@05:05_villian
+   *     - 2020-02-05@05:05_clown
+   *     - 2020-02-25@05:05_clown
+   *     - 2020-09-05@05:05_hero
+   *   actual (bad - missing all 2020-09-05 records)
+   *     - 2012-02-05@05:05_clown
+   *     - 2015-10-05@05:05_hero
+   *     - 2017-02-05@05:05_clown
+   *     - 2017-02-05@05:05_villian
+   *     - 2020-02-05@05:05_clown
+   *     - 2020-02-25@05:05_clown
+   */
+  lte: "<",
 };
 
 const CastTypes = ["string", "number"];
 
 const AttributeTypes = {
-	string: "string",
-	number: "number",
-	boolean: "boolean",
-	enum: "enum",
-	map: "map",
-	set: "set",
-	// enumSet: "enumSet",
-	list: "list",
-	any: "any",
-	custom: "custom",
-	static: "static",
+  string: "string",
+  number: "number",
+  boolean: "boolean",
+  enum: "enum",
+  map: "map",
+  set: "set",
+  // enumSet: "enumSet",
+  list: "list",
+  any: "any",
+  custom: "custom",
+  static: "static",
 };
 
 const PathTypes = {
-	...AttributeTypes,
-	item: "item"
+  ...AttributeTypes,
+  item: "item",
 };
 
-
 const ExpressionTypes = {
-	ConditionExpression: "ConditionExpression",
-	FilterExpression: "FilterExpression"
+  ConditionExpression: "ConditionExpression",
+  FilterExpression: "FilterExpression",
 };
 
 const ElectroInstance = {
-	entity: Symbol("entity"),
-	service: Symbol("service"),
-	electro: Symbol("electro"),
+  entity: Symbol("entity"),
+  service: Symbol("service"),
+  electro: Symbol("electro"),
 };
 
 const ElectroInstanceTypes = {
-	electro: "electro",
-	service: "service",
-	entity: "entity",
-	model: "model"
+  electro: "electro",
+  service: "service",
+  entity: "entity",
+  model: "model",
 };
 
 const ModelVersions = {
-	beta: "beta",
-	v1: "v1",
-	v2: "v2"
+  beta: "beta",
+  v1: "v1",
+  v2: "v2",
 };
 
 const EntityVersions = {
-	v1: "v1"
+  v1: "v1",
 };
 
 const ServiceVersions = {
-	v1: "v1"
+  v1: "v1",
 };
 
 const MaxBatchItems = {
-	[MethodTypes.batchGet]: 100,
-	[MethodTypes.batchWrite]: 25
+  [MethodTypes.batchGet]: 100,
+  [MethodTypes.batchWrite]: 25,
 };
 
 const AttributeMutationMethods = {
-	get: "get",
-	set: "set"
+  get: "get",
+  set: "set",
 };
 
 const Pager = {
-	raw: "raw",
-	named: "named",
-	item: "item",
-	cursor: "cursor"
-}
+  raw: "raw",
+  named: "named",
+  item: "item",
+  cursor: "cursor",
+};
 
 const UnprocessedTypes = {
-	raw: "raw",
-	item: "item"
+  raw: "raw",
+  item: "item",
 };
 
 const AttributeWildCard = "*";
 
 const ItemOperations = {
-	"set": "set",
-	"delete": "delete",
-	"remove": "remove",
-	"add": "add",
-	"subtract": "subtract",
-	"append": "append",
-	"ifNotExists": "ifNotExists"
+  set: "set",
+  delete: "delete",
+  remove: "remove",
+  add: "add",
+  subtract: "subtract",
+  append: "append",
+  ifNotExists: "ifNotExists",
 };
 
 const UpsertOperations = {
-	"set": "set",
-	"add": "add",
-	"subtract": "subtract",
-	"append": "append",
-	"ifNotExists": "ifNotExists"
+  set: "set",
+  add: "add",
+  subtract: "subtract",
+  append: "append",
+  ifNotExists: "ifNotExists",
 };
 
 const AttributeProxySymbol = Symbol("attribute_proxy");
-const TransactionCommitSymbol = Symbol('transaction_commit');
+const TransactionCommitSymbol = Symbol("transaction_commit");
 
 const BuilderTypes = {
-	update: "update",
-	filter: "filter"
+  update: "update",
+  filter: "filter",
 };
 
 const ValueTypes = {
-	string: "string",
-	boolean: "boolean",
-	number: "number",
-	array: "array",
-	set: "set",
-	aws_set: "aws_set",
-	object: "object",
-	map: "map",
-	null: "null",
-	undefined: "undefined",
-	unknown: "unknown",
+  string: "string",
+  boolean: "boolean",
+  number: "number",
+  array: "array",
+  set: "set",
+  aws_set: "aws_set",
+  object: "object",
+  map: "map",
+  null: "null",
+  undefined: "undefined",
+  unknown: "unknown",
 };
 
 const TraverserIndexes = {
-	readonly: "readonly",
-	required: "required",
-	getters: "getters",
-	setters: "setters"
-}
+  readonly: "readonly",
+  required: "required",
+  getters: "getters",
+  setters: "setters",
+};
 
 const ReturnValues = {
-	'default': 'default',
-	'none': 'none',
-	'all_old': 'all_old',
-	'updated_old': 'updated_old',
-	'all_new': 'all_new',
-	'updated_new': 'updated_new',
+  default: "default",
+  none: "none",
+  all_old: "all_old",
+  updated_old: "updated_old",
+  all_new: "all_new",
+  updated_new: "updated_new",
 };
 
 const FormatToReturnValues = {
-	'none': 'NONE',
-	'default': 'NONE',
-	'all_old': 'ALL_OLD',
-	'updated_old': 'UPDATED_OLD',
-	'all_new': 'ALL_NEW',
-	'updated_new': 'UPDATED_NEW'
+  none: "NONE",
+  default: "NONE",
+  all_old: "ALL_OLD",
+  updated_old: "UPDATED_OLD",
+  all_new: "ALL_NEW",
+  updated_new: "UPDATED_NEW",
 };
 
 const TableIndex = "";
 
 const KeyCasing = {
-	none: "none",
-	upper: "upper",
-	lower: "lower",
-	default: "default",
+  none: "none",
+  upper: "upper",
+  lower: "lower",
+  default: "default",
 };
 
-const EventSubscriptionTypes = [
-	"query",
-	"results"
-];
+const EventSubscriptionTypes = ["query", "results"];
 
 const TerminalOperation = {
-	go: 'go',
-	page: 'page',
-}
-
-const AllPages = 'all';
-
-const ResultOrderOption = {
-	'asc': true,
-	'desc': false
+  go: "go",
+  page: "page",
 };
 
-const ResultOrderParam = 'ScanIndexForward';
+const AllPages = "all";
+
+const ResultOrderOption = {
+  asc: true,
+  desc: false,
+};
+
+const ResultOrderParam = "ScanIndexForward";
 
 const DynamoDBAttributeTypes = Object.entries({
-	string: 'S',
-	stringSet: 'SS',
-	number: 'N',
-	numberSet: 'NS',
-	binary: 'B',
-	binarySet: 'BS',
-	boolean: 'BOOL',
-	null: 'NULL',
-	list: 'L',
-	map: 'M',
+  string: "S",
+  stringSet: "SS",
+  number: "N",
+  numberSet: "NS",
+  binary: "B",
+  binarySet: "BS",
+  boolean: "BOOL",
+  null: "NULL",
+  list: "L",
+  map: "M",
 }).reduce((obj, [name, type]) => {
-	obj[name] = type;
-	obj[type] = type;
-	return obj;
+  obj[name] = type;
+  obj[type] = type;
+  return obj;
 }, {});
 
 const CastKeyOptions = {
-	string: 'string',
-	number: 'number',
-}
+  string: "string",
+  number: "number",
+};
 
 module.exports = {
-	Pager,
-	KeyTypes,
-	CastTypes,
-	KeyCasing,
-	PathTypes,
-	IndexTypes,
-	QueryTypes,
-	ValueTypes,
-	TableIndex,
-	MethodTypes,
-	Comparisons,
-	BuilderTypes,
-	ReturnValues,
-	MaxBatchItems,
-	ModelVersions,
-	ItemOperations,
-	AttributeTypes,
-	EntityVersions,
-	CastKeyOptions,
-	ServiceVersions,
-	ExpressionTypes,
-	ElectroInstance,
-	TraverserIndexes,
-	UnprocessedTypes,
-	AttributeWildCard,
-	TerminalOperation,
-	PartialComparisons,
-	FormatToReturnValues,
-	AttributeProxySymbol,
-	ElectroInstanceTypes,
-	MethodTypeTranslation,
-	EventSubscriptionTypes,
-	DynamoDBAttributeTypes,
-	AttributeMutationMethods,
-	AllPages,
-	ResultOrderOption,
-	ResultOrderParam,
-	TransactionCommitSymbol,
-	TransactionOperations,
-	TransactionMethods,
-	UpsertOperations,
+  Pager,
+  KeyTypes,
+  CastTypes,
+  KeyCasing,
+  PathTypes,
+  IndexTypes,
+  QueryTypes,
+  ValueTypes,
+  TableIndex,
+  MethodTypes,
+  Comparisons,
+  BuilderTypes,
+  ReturnValues,
+  MaxBatchItems,
+  ModelVersions,
+  ItemOperations,
+  AttributeTypes,
+  EntityVersions,
+  CastKeyOptions,
+  ServiceVersions,
+  ExpressionTypes,
+  ElectroInstance,
+  TraverserIndexes,
+  UnprocessedTypes,
+  AttributeWildCard,
+  TerminalOperation,
+  PartialComparisons,
+  FormatToReturnValues,
+  AttributeProxySymbol,
+  ElectroInstanceTypes,
+  MethodTypeTranslation,
+  EventSubscriptionTypes,
+  DynamoDBAttributeTypes,
+  AttributeMutationMethods,
+  AllPages,
+  ResultOrderOption,
+  ResultOrderParam,
+  TransactionCommitSymbol,
+  TransactionOperations,
+  TransactionMethods,
+  UpsertOperations,
 };
 
 },{}],30:[function(require,module,exports){
-const { UpdateOperations } = require('./updateOperations');
-const {AttributeOperationProxy, ExpressionState} = require("./operations");
-const {ItemOperations, BuilderTypes} = require("./types");
+const { UpdateOperations } = require("./updateOperations");
+const { AttributeOperationProxy, ExpressionState } = require("./operations");
+const { ItemOperations, BuilderTypes } = require("./types");
 
 class UpdateExpression extends ExpressionState {
-    constructor(props = {}) {
-        super({...props});
-        this.operations = {
-            set: new Set(),
-            remove: new Set(),
-            add: new Set(),
-            subtract: new Set(),
-            delete: new Set(),
-        };
-        this.composites = {};
-        this.seen = new Map();
-        this.type = BuilderTypes.update;
+  constructor(props = {}) {
+    super({ ...props });
+    this.operations = {
+      set: new Set(),
+      remove: new Set(),
+      add: new Set(),
+      subtract: new Set(),
+      delete: new Set(),
+    };
+    this.composites = {};
+    this.seen = new Map();
+    this.type = BuilderTypes.update;
+  }
+  addComposite(attrName, value) {
+    if (value !== undefined) {
+      if (
+        this.composites[attrName] === undefined ||
+        this.composites[attrName] === value
+      ) {
+        this.composites[attrName] = value;
+        return true;
+      }
     }
-    addComposite(attrName, value) {
-        if (value !== undefined) {
-            if (this.composites[attrName] === undefined || this.composites[attrName] === value) {
-                this.composites[attrName] = value;
-                return true;
-            }
-        }
-        return false;
-    }
+    return false;
+  }
 
-    add(type, expression) {
-        this.operations[type].add(expression);
-    }
+  add(type, expression) {
+    this.operations[type].add(expression);
+  }
 
-    unadd(type, expression) {
-        this.operations[type].delete(expression);
-    }
+  unadd(type, expression) {
+    this.operations[type].delete(expression);
+  }
 
-    set(name, value, operation = ItemOperations.set, attribute) {
-        let operationToApply = operation;
-        if (operation === ItemOperations.ifNotExists) {
-            operationToApply = ItemOperations.set;
-        }
-        const seen = this.seen.get(name);
-        let n;
-        let v;
-        if (seen) {
-            n = seen.name;
-            v = seen.value;
-            this.unadd(operationToApply, seen.expression);
-
-        } else {
-            n = this.setName({}, name, name);
-            v = this.setValue(name, value);
-        }
-        let expression = `${n.prop} = ${v}`;
-        if (operation === ItemOperations.ifNotExists) {
-            expression = `${n.prop} = if_not_exists(${n.prop}, ${v})`;
-        }
-        this.seen.set(name, {
-            name: n,
-            value: v,
-            expression,
-        });
-        this.add(operationToApply, expression);
+  set(name, value, operation = ItemOperations.set, attribute) {
+    let operationToApply = operation;
+    if (operation === ItemOperations.ifNotExists) {
+      operationToApply = ItemOperations.set;
     }
-
-    remove(name) {
-        const n = this.setName({}, name, name);
-        this.add(ItemOperations.remove, `${n.prop}`);
+    const seen = this.seen.get(name);
+    let n;
+    let v;
+    if (seen) {
+      n = seen.name;
+      v = seen.value;
+      this.unadd(operationToApply, seen.expression);
+    } else {
+      n = this.setName({}, name, name);
+      v = this.setValue(name, value);
     }
-
-    build() {
-        let expressions = [];
-        for (const type of Object.keys(this.operations)) {
-            const operations = this.operations[type];
-            if (operations.size > 0) {
-                expressions.push(`${type.toUpperCase()} ${Array.from(operations).join(", ")}`);
-            }
-        }
-        return expressions.join(" ");
+    let expression = `${n.prop} = ${v}`;
+    if (operation === ItemOperations.ifNotExists) {
+      expression = `${n.prop} = if_not_exists(${n.prop}, ${v})`;
     }
+    this.seen.set(name, {
+      name: n,
+      value: v,
+      expression,
+    });
+    this.add(operationToApply, expression);
+  }
+
+  remove(name) {
+    const n = this.setName({}, name, name);
+    this.add(ItemOperations.remove, `${n.prop}`);
+  }
+
+  build() {
+    let expressions = [];
+    for (const type of Object.keys(this.operations)) {
+      const operations = this.operations[type];
+      if (operations.size > 0) {
+        expressions.push(
+          `${type.toUpperCase()} ${Array.from(operations).join(", ")}`,
+        );
+      }
+    }
+    return expressions.join(" ");
+  }
 }
 
 class UpdateEntity {
-    constructor(attributes = {}, operations = {}) {
-        this.attributes = {...attributes};
-        this.operations = {...operations};
-    }
+  constructor(attributes = {}, operations = {}) {
+    this.attributes = { ...attributes };
+    this.operations = { ...operations };
+  }
 
-    buildCallbackHandler(entity, state) {
-        const proxy = new AttributeOperationProxy({
-            builder: state.query.update,
-            attributes: this.attributes,
-            operations: this.operations,
-        });
+  buildCallbackHandler(entity, state) {
+    const proxy = new AttributeOperationProxy({
+      builder: state.query.update,
+      attributes: this.attributes,
+      operations: this.operations,
+    });
 
-        return (cb, ...params) => {
-            if (typeof cb !== "function") {
-                throw new Error('Update Callback must be of type "function"');
-            }
-            proxy.invokeCallback(cb, ...params);
-        }
-    }
+    return (cb, ...params) => {
+      if (typeof cb !== "function") {
+        throw new Error('Update Callback must be of type "function"');
+      }
+      proxy.invokeCallback(cb, ...params);
+    };
+  }
 }
 
 module.exports = {
-    UpdateEntity,
-    UpdateExpression
-}
+  UpdateEntity,
+  UpdateExpression,
+};
+
 },{"./operations":24,"./types":29,"./updateOperations":31}],31:[function(require,module,exports){
-const {AttributeTypes, ItemOperations} = require("./types");
+const { AttributeTypes, ItemOperations } = require("./types");
 
 const deleteOperations = {
-    canNest: false,
-    template: function del(options, attr, path, value) {
-        let operation = "";
-        let expression = "";
-        switch(attr.type) {
-            case AttributeTypes.any:
-            case AttributeTypes.set:
-                operation = ItemOperations.delete;
-                expression = `${path} ${value}`;
-                break;
-            default:
-                throw new Error(`Invalid Update Attribute Operation: "DELETE" Operation can only be performed on attributes with type "set" or "any".`);
-        }
-        return { operation, expression };
-    },
+  canNest: false,
+  template: function del(options, attr, path, value) {
+    let operation = "";
+    let expression = "";
+    switch (attr.type) {
+      case AttributeTypes.any:
+      case AttributeTypes.set:
+        operation = ItemOperations.delete;
+        expression = `${path} ${value}`;
+        break;
+      default:
+        throw new Error(
+          `Invalid Update Attribute Operation: "DELETE" Operation can only be performed on attributes with type "set" or "any".`,
+        );
+    }
+    return { operation, expression };
+  },
 };
 
 const UpdateOperations = {
-    ifNotExists: {
-        template: function if_not_exists(options, attr, path, value) {
-            const operation = ItemOperations.set;
-            const expression = `${path} = if_not_exists(${path}, ${value})`;
-            return {operation, expression};
-        }
+  ifNotExists: {
+    template: function if_not_exists(options, attr, path, value) {
+      const operation = ItemOperations.set;
+      const expression = `${path} = if_not_exists(${path}, ${value})`;
+      return { operation, expression };
     },
-    name: {
-        canNest: true,
-        template: function name(options, attr, path) {
-            return path;
-        }
+  },
+  name: {
+    canNest: true,
+    template: function name(options, attr, path) {
+      return path;
     },
-    value: {
-        canNest: true,
-        template: function value(options, attr, path, value) {
-            return value;
-        }
+  },
+  value: {
+    canNest: true,
+    template: function value(options, attr, path, value) {
+      return value;
     },
-    append: {
-        canNest: false,
-        template: function append(options, attr, path, value) {
-            let operation = "";
-            let expression = "";
-            switch(attr.type) {
-                case AttributeTypes.any:
-                case AttributeTypes.list:
-                    const defaultValue = options.createValue('default_value', []);
-                    expression = `${path} = list_append(if_not_exists(${path}, ${defaultValue}), ${value})`;
-                    operation = ItemOperations.set;
-                    break;
-                default:
-                    throw new Error(`Invalid Update Attribute Operation: "APPEND" Operation can only be performed on attributes with type "list" or "any".`);
-            }
-            return {operation, expression};
-        }
+  },
+  append: {
+    canNest: false,
+    template: function append(options, attr, path, value) {
+      let operation = "";
+      let expression = "";
+      switch (attr.type) {
+        case AttributeTypes.any:
+        case AttributeTypes.list:
+          const defaultValue = options.createValue("default_value", []);
+          expression = `${path} = list_append(if_not_exists(${path}, ${defaultValue}), ${value})`;
+          operation = ItemOperations.set;
+          break;
+        default:
+          throw new Error(
+            `Invalid Update Attribute Operation: "APPEND" Operation can only be performed on attributes with type "list" or "any".`,
+          );
+      }
+      return { operation, expression };
     },
-    add: {
-        canNest: false,
-        template: function add(options, attr, path, value, defaultValue) {
-            let operation = "";
-            let expression = "";
-            let type = attr.type;
-            if (type === AttributeTypes.any) {
-                type = typeof value === 'number'
-                    ? AttributeTypes.number
-                    : AttributeTypes.any;
-            }
-            switch(type) {
-                case AttributeTypes.any:
-                case AttributeTypes.set: {
-                    operation = ItemOperations.add;
-                    expression = `${path} ${value}`;
-                    break;
-                }
-                case AttributeTypes.number: {
-                    if (options.nestedValue) {
-                        operation = ItemOperations.set;
-                        expression = `${path} = ${path} + ${value}`;
-                    } else if (defaultValue !== undefined) {
-                        // const defaultValueName = options.createValue(`default_value`, defaultValue)
-                        operation = ItemOperations.set;
-                        expression = `${path} = (if_not_exists(${path}, ${defaultValue}) + ${value})`
-                    } else {
-                        operation = ItemOperations.add;
-                        expression = `${path} ${value}`;
-                    }
-                    break;
-                }
-                default:
-                    throw new Error(`Invalid Update Attribute Operation: "ADD" Operation can only be performed on attributes with type "number", "set", or "any".`);
-            }
-            return { operation, expression };
+  },
+  add: {
+    canNest: false,
+    template: function add(options, attr, path, value, defaultValue) {
+      let operation = "";
+      let expression = "";
+      let type = attr.type;
+      if (type === AttributeTypes.any) {
+        type =
+          typeof value === "number"
+            ? AttributeTypes.number
+            : AttributeTypes.any;
+      }
+      switch (type) {
+        case AttributeTypes.any:
+        case AttributeTypes.set: {
+          operation = ItemOperations.add;
+          expression = `${path} ${value}`;
+          break;
         }
+        case AttributeTypes.number: {
+          if (options.nestedValue) {
+            operation = ItemOperations.set;
+            expression = `${path} = ${path} + ${value}`;
+          } else if (defaultValue !== undefined) {
+            // const defaultValueName = options.createValue(`default_value`, defaultValue)
+            operation = ItemOperations.set;
+            expression = `${path} = (if_not_exists(${path}, ${defaultValue}) + ${value})`;
+          } else {
+            operation = ItemOperations.add;
+            expression = `${path} ${value}`;
+          }
+          break;
+        }
+        default:
+          throw new Error(
+            `Invalid Update Attribute Operation: "ADD" Operation can only be performed on attributes with type "number", "set", or "any".`,
+          );
+      }
+      return { operation, expression };
     },
-    subtract: {
-        canNest: false,
-        template: function subtract(options, attr, path, value, defaultValue = 0) {
-            let operation = "";
-            let expression = "";
-            switch(attr.type) {
-                case AttributeTypes.any:
-                case AttributeTypes.number: {
-                    let resolvedDefaultValue;
-                    if (typeof defaultValue === 'string' && defaultValue.startsWith(':')) {
-                        resolvedDefaultValue = defaultValue;
-                    } else if (defaultValue !== undefined) {
-                        resolvedDefaultValue = options.createValue('default_value', defaultValue);
-                    } else {
-                        resolvedDefaultValue = options.createValue('default_value', 0);
-                    }
-                    // const defaultValuePath = options.createValue('default_value', resolvedDefaultValue);
-                    operation = ItemOperations.set;
-                    expression = `${path} = (if_not_exists(${path}, ${resolvedDefaultValue}) - ${value})`;
-                    break;
-                }
-                default:
-                    throw new Error(`Invalid Update Attribute Operation: "SUBTRACT" Operation can only be performed on attributes with type "number" or "any".`);
-            }
+  },
+  subtract: {
+    canNest: false,
+    template: function subtract(options, attr, path, value, defaultValue = 0) {
+      let operation = "";
+      let expression = "";
+      switch (attr.type) {
+        case AttributeTypes.any:
+        case AttributeTypes.number: {
+          let resolvedDefaultValue;
+          if (
+            typeof defaultValue === "string" &&
+            defaultValue.startsWith(":")
+          ) {
+            resolvedDefaultValue = defaultValue;
+          } else if (defaultValue !== undefined) {
+            resolvedDefaultValue = options.createValue(
+              "default_value",
+              defaultValue,
+            );
+          } else {
+            resolvedDefaultValue = options.createValue("default_value", 0);
+          }
+          // const defaultValuePath = options.createValue('default_value', resolvedDefaultValue);
+          operation = ItemOperations.set;
+          expression = `${path} = (if_not_exists(${path}, ${resolvedDefaultValue}) - ${value})`;
+          break;
+        }
+        default:
+          throw new Error(
+            `Invalid Update Attribute Operation: "SUBTRACT" Operation can only be performed on attributes with type "number" or "any".`,
+          );
+      }
 
-            return {operation, expression};
-        }
+      return { operation, expression };
     },
-    set: {
-        canNest: false,
-        template: function set(options, attr, path, value) {
-            let operation = "";
-            let expression = "";
-            switch(attr.type) {
-                case AttributeTypes.set:
-                case AttributeTypes.list:
-                case AttributeTypes.map:
-                case AttributeTypes.enum:
-                case AttributeTypes.string:
-                case AttributeTypes.number:
-                case AttributeTypes.boolean:
-                case AttributeTypes.any:
-                    operation = ItemOperations.set;
-                    expression = `${path} = ${value}`;
-                    break;
-                default:
-                    throw new Error(`Invalid Update Attribute Operation: "SET" Operation can only be performed on attributes with type "list", "map", "string", "number", "boolean", or "any".`);
-            }
-            return {operation, expression};
-        }
+  },
+  set: {
+    canNest: false,
+    template: function set(options, attr, path, value) {
+      let operation = "";
+      let expression = "";
+      switch (attr.type) {
+        case AttributeTypes.set:
+        case AttributeTypes.list:
+        case AttributeTypes.map:
+        case AttributeTypes.enum:
+        case AttributeTypes.string:
+        case AttributeTypes.number:
+        case AttributeTypes.boolean:
+        case AttributeTypes.any:
+          operation = ItemOperations.set;
+          expression = `${path} = ${value}`;
+          break;
+        default:
+          throw new Error(
+            `Invalid Update Attribute Operation: "SET" Operation can only be performed on attributes with type "list", "map", "string", "number", "boolean", or "any".`,
+          );
+      }
+      return { operation, expression };
     },
-    remove: {
-        canNest: false,
-        template: function remove(options, attr, ...paths) {
-            let operation = "";
-            let expression = "";
-            switch(attr.type) {
-                case AttributeTypes.set:
-                case AttributeTypes.any:
-                case AttributeTypes.list:
-                case AttributeTypes.map:
-                case AttributeTypes.string:
-                case AttributeTypes.number:
-                case AttributeTypes.boolean:
-                case AttributeTypes.enum:
-                    operation = ItemOperations.remove;
-                    expression = paths.join(", ");
-                    break;
-                default: {
-                    throw new Error(`Invalid Update Attribute Operation: "REMOVE" Operation can only be performed on attributes with type "map", "list", "string", "number", "boolean", or "any".`);
-                }
-            }
-            return {operation, expression};
+  },
+  remove: {
+    canNest: false,
+    template: function remove(options, attr, ...paths) {
+      let operation = "";
+      let expression = "";
+      switch (attr.type) {
+        case AttributeTypes.set:
+        case AttributeTypes.any:
+        case AttributeTypes.list:
+        case AttributeTypes.map:
+        case AttributeTypes.string:
+        case AttributeTypes.number:
+        case AttributeTypes.boolean:
+        case AttributeTypes.enum:
+          operation = ItemOperations.remove;
+          expression = paths.join(", ");
+          break;
+        default: {
+          throw new Error(
+            `Invalid Update Attribute Operation: "REMOVE" Operation can only be performed on attributes with type "map", "list", "string", "number", "boolean", or "any".`,
+          );
         }
+      }
+      return { operation, expression };
     },
-    del: deleteOperations,
-    delete: deleteOperations
-}
+  },
+  del: deleteOperations,
+  delete: deleteOperations,
+};
 
 module.exports = {
-    UpdateOperations
-}
+  UpdateOperations,
+};
+
 },{"./types":29}],32:[function(require,module,exports){
 (function (Buffer){(function (){
 const t = require("./types");
@@ -14966,7 +16760,7 @@ function parseJSONPath(path = "") {
   }
   path = path.replace(/\[/g, ".");
   path = path.replace(/\]/g, "");
-  return path.split(".").filter(part => part !== '');
+  return path.split(".").filter((part) => part !== "");
 }
 
 function genericizeJSONPath(path = "") {
@@ -14992,9 +16786,10 @@ function getInstanceType(instance = {}) {
 
 function getModelVersion(model = {}) {
   let nameOnRoot = model && v.isStringHasLength(model.entity);
-  let nameInModelNamespace = model && model.model && v.isStringHasLength(model.model.entity);
+  let nameInModelNamespace =
+    model && model.model && v.isStringHasLength(model.model.entity);
   if (nameInModelNamespace) {
-    return t.ModelVersions.v1
+    return t.ModelVersions.v1;
   } else if (nameOnRoot) {
     return t.ModelVersions.beta;
   } else {
@@ -15002,7 +16797,10 @@ function getModelVersion(model = {}) {
   }
 }
 
-function applyBetaModelOverrides(model = {}, {service = "", version = "", table = ""} = {}) {
+function applyBetaModelOverrides(
+  model = {},
+  { service = "", version = "", table = "" } = {},
+) {
   let type = getModelVersion(model);
   if (type !== t.ModelVersions.beta) {
     throw new Error("Invalid model");
@@ -15034,7 +16832,7 @@ function batchItems(arr = [], size) {
 }
 
 function commaSeparatedString(array = [], prefix = '"', postfix = '"') {
-  return array.map(value => `${prefix}${value}${postfix}`).join(", ");
+  return array.map((value) => `${prefix}${value}${postfix}`).join(", ");
 }
 
 function formatStringCasing(str, casing, defaultCase) {
@@ -15043,9 +16841,8 @@ function formatStringCasing(str, casing, defaultCase) {
   }
   let strCase = defaultCase;
   if (v.isStringHasLength(casing) && typeof t.KeyCasing[casing] === "string") {
-    strCase = t.KeyCasing.default === casing
-        ? defaultCase
-        : t.KeyCasing[casing];
+    strCase =
+      t.KeyCasing.default === casing ? defaultCase : t.KeyCasing[casing];
   }
   switch (strCase) {
     case t.KeyCasing.upper:
@@ -15102,7 +16899,12 @@ class BatchGetOrderMaintainer {
     if (this.enabled) {
       for (let i = 0; i < parameters.length; i++) {
         const batchParams = parameters[i];
-        const recordKeys = (batchParams && batchParams.RequestItems && batchParams.RequestItems[this.table] && batchParams.RequestItems[this.table].Keys) || [];
+        const recordKeys =
+          (batchParams &&
+            batchParams.RequestItems &&
+            batchParams.RequestItems[this.table] &&
+            batchParams.RequestItems[this.table].Keys) ||
+          [];
         for (const recordKey of recordKeys) {
           const indexMapKey = this.keyFormatter(recordKey);
           this.batchIndexMap.set(indexMapKey, this.currentSlot++);
@@ -15113,40 +16915,45 @@ class BatchGetOrderMaintainer {
 }
 
 function getUnique(arr1, arr2) {
-  return Array.from(new Set([
-      ...arr1,
-      ...arr2
-  ]));
+  return Array.from(new Set([...arr1, ...arr2]));
 }
 
 const cursorFormatter = {
   serialize: (key) => {
     if (!key) {
       return null;
-    } else if (typeof val !== 'string') {
+    } else if (typeof val !== "string") {
       key = JSON.stringify(key);
     }
-    return Buffer.from(key).toString('base64url');
+    return Buffer.from(key).toString("base64url");
   },
   deserialize: (cursor) => {
     if (!cursor) {
       return undefined;
-    } else if (typeof cursor !== 'string') {
-      throw new Error(`Invalid cursor provided, expected type 'string' recieved: ${JSON.stringify(cursor)}`);
+    } else if (typeof cursor !== "string") {
+      throw new Error(
+        `Invalid cursor provided, expected type 'string' recieved: ${JSON.stringify(
+          cursor,
+        )}`,
+      );
     }
     try {
-      return JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
-    } catch(err) {
-      throw new Error('Unable to parse cursor');
+      return JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
+    } catch (err) {
+      throw new Error("Unable to parse cursor");
     }
-  }
-}
+  },
+};
 
-function removeFixings({prefix = '', postfix = '', value = ''} = {}) {
-  const start = value.toLowerCase().startsWith(prefix.toLowerCase()) ? prefix.length : 0;
-  const end = value.length - (value.toLowerCase().endsWith(postfix.toLowerCase()) ? postfix.length : 0);
+function removeFixings({ prefix = "", postfix = "", value = "" } = {}) {
+  const start = value.toLowerCase().startsWith(prefix.toLowerCase())
+    ? prefix.length
+    : 0;
+  const end =
+    value.length -
+    (value.toLowerCase().endsWith(postfix.toLowerCase()) ? postfix.length : 0);
 
-  let formatted = '';
+  let formatted = "";
   for (let i = start; i < end; i++) {
     formatted += value[i];
   }
@@ -15154,16 +16961,16 @@ function removeFixings({prefix = '', postfix = '', value = ''} = {}) {
   return formatted;
 }
 
-function addPadding({padding = {}, value = ''} = {}) {
+function addPadding({ padding = {}, value = "" } = {}) {
   return value.padStart(padding.length, padding.char);
 }
 
-function removePadding({padding = {}, value = ''} = {}) {
+function removePadding({ padding = {}, value = "" } = {}) {
   if (!padding.length || value.length >= padding.length) {
     return value;
   }
 
-  let formatted = '';
+  let formatted = "";
   let useRemaining = false;
   for (let i = 0; i < value.length; i++) {
     const char = value[i];
@@ -15178,8 +16985,8 @@ function removePadding({padding = {}, value = ''} = {}) {
   return formatted;
 }
 
-function shiftSortOrder(str = '', codePoint) {
-  let newString = '';
+function shiftSortOrder(str = "", codePoint) {
+  let newString = "";
   for (let i = 0; i < str.length; i++) {
     const isLast = i === str.length - 1;
     let char = str[i];
@@ -15192,7 +16999,7 @@ function shiftSortOrder(str = '', codePoint) {
 }
 
 function getFirstDefined(...params) {
-  return params.find(val => val !== undefined);
+  return params.find((val) => val !== undefined);
 }
 
 function regexpEscape(str) {
@@ -15224,269 +17031,269 @@ module.exports = {
 }).call(this)}).call(this,require("buffer").Buffer)
 },{"./errors":20,"./types":29,"./validations":33,"buffer":3}],33:[function(require,module,exports){
 const e = require("./errors");
-const {KeyCasing} = require("./types")
+const { KeyCasing } = require("./types");
 
 const Validator = require("jsonschema").Validator;
 Validator.prototype.customFormats.isFunction = function (input) {
-	return typeof input === "function";
+  return typeof input === "function";
 };
 Validator.prototype.customFormats.isFunctionOrString = function (input) {
-	return typeof input === "function" || typeof input === "string";
+  return typeof input === "function" || typeof input === "string";
 };
 Validator.prototype.customFormats.isFunctionOrRegexp = function (input) {
-	return typeof input === "function" || input instanceof RegExp;
+  return typeof input === "function" || input instanceof RegExp;
 };
 
 let v = new Validator();
 
 const Attribute = {
-	id: "/Attribute",
-	type: ["object", "string", "array"],
-	required: ["type"],
-	properties: {
-		type: {
-			// todo: only specific values
-			type: ["string", "array"],
-			// enum: ["string", "number", "boolean", "enum"],
-		},
-		field: {
-			type: "string",
-		},
-		hidden: {
-			type: "boolean"
-		},
-		watch: {
-			type: ["array", "string"],
-			items: {
-				type: "string",
-			}
-		},
-		label: {
-			type: "string",
-		},
-		readOnly: {
-			type: "boolean",
-		},
-		required: {
-			type: "boolean",
-		},
-		cast: {
-			type: "string",
-			enum: ["string", "number"],
-		},
-		default: {
-			type: "any",
-		},
-		validate: {
-			type: "any",
-			format: "isFunctionOrRegexp",
-		},
-		get: {
-			type: "any",
-			format: "isFunction",
-		},
-		set: {
-			type: "any",
-			format: "isFunction",
-		},
-		padding: {
-			type: "object",
-			required: ['length', 'char'],
-			properties: {
-				length: {
-					type: 'number'
-				},
-				char: {
-					type: 'string',
-				}
-			}
-		}
-	},
+  id: "/Attribute",
+  type: ["object", "string", "array"],
+  required: ["type"],
+  properties: {
+    type: {
+      // todo: only specific values
+      type: ["string", "array"],
+      // enum: ["string", "number", "boolean", "enum"],
+    },
+    field: {
+      type: "string",
+    },
+    hidden: {
+      type: "boolean",
+    },
+    watch: {
+      type: ["array", "string"],
+      items: {
+        type: "string",
+      },
+    },
+    label: {
+      type: "string",
+    },
+    readOnly: {
+      type: "boolean",
+    },
+    required: {
+      type: "boolean",
+    },
+    cast: {
+      type: "string",
+      enum: ["string", "number"],
+    },
+    default: {
+      type: "any",
+    },
+    validate: {
+      type: "any",
+      format: "isFunctionOrRegexp",
+    },
+    get: {
+      type: "any",
+      format: "isFunction",
+    },
+    set: {
+      type: "any",
+      format: "isFunction",
+    },
+    padding: {
+      type: "object",
+      required: ["length", "char"],
+      properties: {
+        length: {
+          type: "number",
+        },
+        char: {
+          type: "string",
+        },
+      },
+    },
+  },
 };
 
 const Index = {
-	id: "/Index",
-	type: "object",
-	properties: {
-		pk: {
-			type: "object",
-			required: true,
-			properties: {
-				field: {
-					type: "string",
-					required: true,
-				},
-				facets: {
-					type: ["array", "string"],
-					items: {
-						type: "string",
-					},
-					required: false,
-				},
-				composite: {
-					type: ["array"],
-					items: {
-						type: "string",
-					},
-					required: false,
-				},
-				template: {
-					type: "string",
-					required: false,
-				},
-				casing: {
-					type: "string",
-					enum: ["upper", "lower", "none", "default"],
-					required: false,
-				},
-				cast: {
-					type: "string",
-					enum: ["string", "number"],
-					required: false,
-				}
-			},
-		},
-		sk: {
-			type: "object",
-			required: ["field"],
-			properties: {
-				field: {
-					type: "string",
-					required: true,
-				},
-				facets: {
-					type: ["array", "string"],
-					required: false,
-					items: {
-						type: "string",
-					},
-				},
-				composite: {
-					type: ["array"],
-					required: false,
-					items: {
-						type: "string",
-					},
-				},
-				template: {
-					type: "string",
-					required: false,
-				},
-				casing: {
-					type: "string",
-					enum: ["upper", "lower", "none", "default"],
-					required: false,
-				},
-				cast: {
-					type: "string",
-					enum: ["string", "number"],
-					required: false,
-				}
-			},
-		},
-		index: {
-			type: "string",
-		},
-		collection: {
-			type: ["array", "string"]
-		},
-		type: {
-			type: 'string',
-			enum: ['clustered', 'isolated'],
-			required: false,
-		}
-	},
+  id: "/Index",
+  type: "object",
+  properties: {
+    pk: {
+      type: "object",
+      required: true,
+      properties: {
+        field: {
+          type: "string",
+          required: true,
+        },
+        facets: {
+          type: ["array", "string"],
+          items: {
+            type: "string",
+          },
+          required: false,
+        },
+        composite: {
+          type: ["array"],
+          items: {
+            type: "string",
+          },
+          required: false,
+        },
+        template: {
+          type: "string",
+          required: false,
+        },
+        casing: {
+          type: "string",
+          enum: ["upper", "lower", "none", "default"],
+          required: false,
+        },
+        cast: {
+          type: "string",
+          enum: ["string", "number"],
+          required: false,
+        },
+      },
+    },
+    sk: {
+      type: "object",
+      required: ["field"],
+      properties: {
+        field: {
+          type: "string",
+          required: true,
+        },
+        facets: {
+          type: ["array", "string"],
+          required: false,
+          items: {
+            type: "string",
+          },
+        },
+        composite: {
+          type: ["array"],
+          required: false,
+          items: {
+            type: "string",
+          },
+        },
+        template: {
+          type: "string",
+          required: false,
+        },
+        casing: {
+          type: "string",
+          enum: ["upper", "lower", "none", "default"],
+          required: false,
+        },
+        cast: {
+          type: "string",
+          enum: ["string", "number"],
+          required: false,
+        },
+      },
+    },
+    index: {
+      type: "string",
+    },
+    collection: {
+      type: ["array", "string"],
+    },
+    type: {
+      type: "string",
+      enum: ["clustered", "isolated"],
+      required: false,
+    },
+  },
 };
 
-const Modelv1= {
-	type: "object",
-	required: true,
-	properties: {
-		model: {
-			type: "object",
-			required: true,
-			properties: {
-				entity: {
-					type: "string",
-					required: true
-				},
-				version: {
-					type: "string",
-					required: true
-				},
-				service: {
-					type: "string",
-					required: true
-				}
-			}
-		},
-		table: {
-			type: "string",
-		},
-		attributes: {
-			type: "object",
-			patternProperties: {
-				["."]: { $ref: "/Attribute" },
-			},
-		},
-		indexes: {
-			type: "object",
-			minProperties: 1,
-			patternProperties: {
-				["."]: { $ref: "/Index" },
-			},
-		},
-		filters: { $ref: "/Filters" },
-	},
-	required: ["model", "attributes", "indexes"]
+const Modelv1 = {
+  type: "object",
+  required: true,
+  properties: {
+    model: {
+      type: "object",
+      required: true,
+      properties: {
+        entity: {
+          type: "string",
+          required: true,
+        },
+        version: {
+          type: "string",
+          required: true,
+        },
+        service: {
+          type: "string",
+          required: true,
+        },
+      },
+    },
+    table: {
+      type: "string",
+    },
+    attributes: {
+      type: "object",
+      patternProperties: {
+        ["."]: { $ref: "/Attribute" },
+      },
+    },
+    indexes: {
+      type: "object",
+      minProperties: 1,
+      patternProperties: {
+        ["."]: { $ref: "/Index" },
+      },
+    },
+    filters: { $ref: "/Filters" },
+  },
+  required: ["model", "attributes", "indexes"],
 };
 
 const ModelBeta = {
-	type: "object",
-	required: true,
-	properties: {
-		service: {
-			type: "string",
-			required: true,
-		},
-		entity: {
-			type: "string",
-			required: true,
-		},
-		table: {
-			type: "string",
-		},
-		version: {
-			type: "string",
-		},
-		attributes: {
-			type: "object",
-			patternProperties: {
-				["."]: { $ref: "/Attribute" },
-			},
-		},
-		indexes: {
-			type: "object",
-			minProperties: 1,
-			patternProperties: {
-				["."]: { $ref: "/Index" },
-			},
-		},
-		filters: { $ref: "/Filters" },
-	},
-	required: ["attributes", "indexes"]
+  type: "object",
+  required: true,
+  properties: {
+    service: {
+      type: "string",
+      required: true,
+    },
+    entity: {
+      type: "string",
+      required: true,
+    },
+    table: {
+      type: "string",
+    },
+    version: {
+      type: "string",
+    },
+    attributes: {
+      type: "object",
+      patternProperties: {
+        ["."]: { $ref: "/Attribute" },
+      },
+    },
+    indexes: {
+      type: "object",
+      minProperties: 1,
+      patternProperties: {
+        ["."]: { $ref: "/Index" },
+      },
+    },
+    filters: { $ref: "/Filters" },
+  },
+  required: ["attributes", "indexes"],
 };
 
 const Filters = {
-	id: "/Filters",
-	type: "object",
-	patternProperties: {
-		["."]: {
-			type: "any",
-			format: "isFunction",
-			message: "Requires function",
-		},
-	},
+  id: "/Filters",
+  type: "object",
+  patternProperties: {
+    ["."]: {
+      type: "any",
+      format: "isFunction",
+      message: "Requires function",
+    },
+  },
 };
 
 v.addSchema(Attribute, "/Attribute");
@@ -15496,273 +17303,307 @@ v.addSchema(ModelBeta, "/ModelBeta");
 v.addSchema(Modelv1, "/Modelv1");
 
 function validateModel(model = {}) {
-	/** start beta/v1 condition **/
-	let betaErrors = v.validate(model, "/ModelBeta").errors;
-	if (betaErrors.length) {
-	/** end/v1 condition **/
-		let errors = v.validate(model, "/Modelv1").errors;
-		if (errors.length) {
-			throw new e.ElectroError(e.ErrorCodes.InvalidModel,
-				errors
-					.map((err) => {
-						let message = `${err.property}`;
-						switch (err.argument) {
-							case "isFunction":
-								return `${message} must be a function`;
-							case "isFunctionOrString":
-								return `${message} must be either a function or string`;
-							case "isFunctionOrRegexp":
-								return `${message} must be either a function or Regexp`;
-							default:
-								return `${message} ${err.message}`;
-						}
-					})
-					.join(", "),
-			);
-		}
-	}
+  /** start beta/v1 condition **/
+  let betaErrors = v.validate(model, "/ModelBeta").errors;
+  if (betaErrors.length) {
+    /** end/v1 condition **/
+    let errors = v.validate(model, "/Modelv1").errors;
+    if (errors.length) {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidModel,
+        errors
+          .map((err) => {
+            let message = `${err.property}`;
+            switch (err.argument) {
+              case "isFunction":
+                return `${message} must be a function`;
+              case "isFunctionOrString":
+                return `${message} must be either a function or string`;
+              case "isFunctionOrRegexp":
+                return `${message} must be either a function or Regexp`;
+              default:
+                return `${message} ${err.message}`;
+            }
+          })
+          .join(", "),
+      );
+    }
+  }
 }
 
 function testModel(model) {
-	let isModel = false;
-	let error = "";
-	try {
-		validateModel(model);
-		isModel = true;
-	} catch(err) {
-		error = err.message;
-	}
-	return [isModel, error];
+  let isModel = false;
+  let error = "";
+  try {
+    validateModel(model);
+    isModel = true;
+  } catch (err) {
+    error = err.message;
+  }
+  return [isModel, error];
 }
 
 function isStringHasLength(str) {
-	return typeof str === "string" && str.length > 0;
+  return typeof str === "string" && str.length > 0;
 }
 
 function isObjectHasLength(obj) {
-	return typeof obj === "object" && Object.keys(obj).length > 0;
+  return typeof obj === "object" && Object.keys(obj).length > 0;
 }
 
 function isArrayHasLength(arr) {
-	return Array.isArray(arr) && arr.length > 0;
+  return Array.isArray(arr) && arr.length > 0;
 }
 
 function isNameEntityRecordType(entityRecord) {
-	return isObjectHasLength(entityRecord) && Object.values(entityRecord).find(value => {
-		return value._instance !== undefined;
-	})
+  return (
+    isObjectHasLength(entityRecord) &&
+    Object.values(entityRecord).find((value) => {
+      return value._instance !== undefined;
+    })
+  );
 }
 
 function isNameModelRecordType(modelRecord) {
-	return isObjectHasLength(modelRecord) && Object.values(modelRecord).find(value => {
-		return value.model
-			&& isStringHasLength(value.model.entity)
-			&& isStringHasLength(value.model.version)
-			&& isStringHasLength(value.model.service)
-	});
+  return (
+    isObjectHasLength(modelRecord) &&
+    Object.values(modelRecord).find((value) => {
+      return (
+        value.model &&
+        isStringHasLength(value.model.entity) &&
+        isStringHasLength(value.model.version) &&
+        isStringHasLength(value.model.service)
+      );
+    })
+  );
 }
 
 function isBetaServiceConfig(serviceConfig) {
-	return isObjectHasLength(serviceConfig)
-		&& (isStringHasLength(serviceConfig.service) || isStringHasLength(serviceConfig.name))
-		&& isStringHasLength(serviceConfig.version)
+  return (
+    isObjectHasLength(serviceConfig) &&
+    (isStringHasLength(serviceConfig.service) ||
+      isStringHasLength(serviceConfig.name)) &&
+    isStringHasLength(serviceConfig.version)
+  );
 }
 
 function isFunction(value) {
-	return typeof value === "function";
+  return typeof value === "function";
 }
 
 function stringArrayMatch(arr1, arr2) {
-	let areArrays = Array.isArray(arr1) && Array.isArray(arr2);
-	let match = areArrays && arr1.length === arr2.length;
-	for (let i = 0; i < arr1.length; i++) {
-		if (!match) {
-			break;
-		}
-		match = isStringHasLength(arr1[i]) && arr1[i] === arr2[i];
-	}
-	return match;
+  let areArrays = Array.isArray(arr1) && Array.isArray(arr2);
+  let match = areArrays && arr1.length === arr2.length;
+  for (let i = 0; i < arr1.length; i++) {
+    if (!match) {
+      break;
+    }
+    match = isStringHasLength(arr1[i]) && arr1[i] === arr2[i];
+  }
+  return match;
 }
 
 function isMatchingCasing(casing1, casing2) {
-	const equivalentCasings = [KeyCasing.default, KeyCasing.lower];
-	if (isStringHasLength(casing1) && isStringHasLength(casing2)) {
-		let isRealCase = KeyCasing[casing1.toLowerCase()] !== undefined;
-		let casingsMatch = casing1 === casing2;
-		let casingsAreEquivalent = [casing1, casing2].every(casing => {
-			return casing === KeyCasing.lower || casing === KeyCasing.default;
-		});
-		return isRealCase && (casingsMatch || casingsAreEquivalent);
-	} else if (isStringHasLength(casing1)) {
-		return equivalentCasings.includes(casing1.toLowerCase());
-	} else if (isStringHasLength(casing2)) {
-		return equivalentCasings.includes(casing2.toLowerCase());
-	} else {
-		return casing1 === undefined && casing2 === undefined;
-	}
+  const equivalentCasings = [KeyCasing.default, KeyCasing.lower];
+  if (isStringHasLength(casing1) && isStringHasLength(casing2)) {
+    let isRealCase = KeyCasing[casing1.toLowerCase()] !== undefined;
+    let casingsMatch = casing1 === casing2;
+    let casingsAreEquivalent = [casing1, casing2].every((casing) => {
+      return casing === KeyCasing.lower || casing === KeyCasing.default;
+    });
+    return isRealCase && (casingsMatch || casingsAreEquivalent);
+  } else if (isStringHasLength(casing1)) {
+    return equivalentCasings.includes(casing1.toLowerCase());
+  } else if (isStringHasLength(casing2)) {
+    return equivalentCasings.includes(casing2.toLowerCase());
+  } else {
+    return casing1 === undefined && casing2 === undefined;
+  }
 }
 
 module.exports = {
-	testModel,
-	isFunction,
-	stringArrayMatch,
-	isMatchingCasing,
-	isArrayHasLength,
-	isStringHasLength,
-	isObjectHasLength,
-	isBetaServiceConfig,
-	isNameModelRecordType,
-	isNameEntityRecordType,
-	model: validateModel
+  testModel,
+  isFunction,
+  stringArrayMatch,
+  isMatchingCasing,
+  isArrayHasLength,
+  isStringHasLength,
+  isObjectHasLength,
+  isBetaServiceConfig,
+  isNameModelRecordType,
+  isNameEntityRecordType,
+  model: validateModel,
 };
 
 },{"./errors":20,"./types":29,"jsonschema":9}],34:[function(require,module,exports){
-const {MethodTypes, ExpressionTypes, BuilderTypes} = require("./types");
-const {AttributeOperationProxy, ExpressionState, FilterOperations} = require("./operations");
+const { MethodTypes, ExpressionTypes, BuilderTypes } = require("./types");
+const {
+  AttributeOperationProxy,
+  ExpressionState,
+  FilterOperations,
+} = require("./operations");
 const e = require("./errors");
 
 class FilterExpression extends ExpressionState {
-	constructor(props) {
-		super(props);
-		this.expression = "";
-		this.type = BuilderTypes.filter;
-	}
+  constructor(props) {
+    super(props);
+    this.expression = "";
+    this.type = BuilderTypes.filter;
+  }
 
-	_trim(expression) {
-		if (typeof expression === "string" && expression.length > 0) {
-			return expression.replace(/\n|\r/g, "").trim();
-		}
-		return "";
-	}
+  _trim(expression) {
+    if (typeof expression === "string" && expression.length > 0) {
+      return expression.replace(/\n|\r/g, "").trim();
+    }
+    return "";
+  }
 
-	_isEmpty(expression) {
-		if (typeof expression !== "string") {
-			throw new Error("Invalid expression value type. Expected type string.");
-		}
-		return !expression.replace(/\n|\r|\w/g, "").trim();
-	}
+  _isEmpty(expression) {
+    if (typeof expression !== "string") {
+      throw new Error("Invalid expression value type. Expected type string.");
+    }
+    return !expression.replace(/\n|\r|\w/g, "").trim();
+  }
 
-	add(newExpression) {
-		let expression = "";
-		let existingExpression = this.expression;
-		if (typeof existingExpression === "string" && existingExpression.length > 0) {
-			newExpression = this._trim(newExpression);
-			let isEmpty = this._isEmpty(newExpression);
-			if (isEmpty) {
-				return existingExpression;
-			}
-			let existingNeedsParens = !existingExpression.startsWith("(") && !existingExpression.endsWith(")");
-			if (existingNeedsParens) {
-				existingExpression = `(${existingExpression})`;
-			}
-			expression = `${existingExpression} AND ${newExpression}`;
-		} else {
-			expression = this._trim(newExpression);
-		}
-		this.expression = expression;
-	}
+  add(newExpression) {
+    let expression = "";
+    let existingExpression = this.expression;
+    if (
+      typeof existingExpression === "string" &&
+      existingExpression.length > 0
+    ) {
+      newExpression = this._trim(newExpression);
+      let isEmpty = this._isEmpty(newExpression);
+      if (isEmpty) {
+        return existingExpression;
+      }
+      let existingNeedsParens =
+        !existingExpression.startsWith("(") &&
+        !existingExpression.endsWith(")");
+      if (existingNeedsParens) {
+        existingExpression = `(${existingExpression})`;
+      }
+      expression = `${existingExpression} AND ${newExpression}`;
+    } else {
+      expression = this._trim(newExpression);
+    }
+    this.expression = expression;
+  }
 
-	// applies operations without verifying them against known attributes. Used internally for key conditions.
-	unsafeSet(operation, name, ...values) {
-		const {template} = FilterOperations[operation] || {};
-		if (template === undefined) {
-			throw new Error(`Invalid operation: "${operation}". Please report this issue via a bug ticket.`);
-		}
-		const names = this.setName({}, name, name);
-		const valueExpressions = values.map(value => this.setValue(name, value));
-		const condition = template({}, names.expression, names.prop, ...valueExpressions);
-		this.add(condition);
-	}
+  // applies operations without verifying them against known attributes. Used internally for key conditions.
+  unsafeSet(operation, name, ...values) {
+    const { template } = FilterOperations[operation] || {};
+    if (template === undefined) {
+      throw new Error(
+        `Invalid operation: "${operation}". Please report this issue via a bug ticket.`,
+      );
+    }
+    const names = this.setName({}, name, name);
+    const valueExpressions = values.map((value) => this.setValue(name, value));
+    const condition = template(
+      {},
+      names.expression,
+      names.prop,
+      ...valueExpressions,
+    );
+    this.add(condition);
+  }
 
-	build() {
-		return this.expression;
-	}
+  build() {
+    return this.expression;
+  }
 }
 
 class WhereFactory {
   constructor(attributes = {}, operations = {}) {
-    this.attributes = {...attributes};
-    this.operations = {...operations};
+    this.attributes = { ...attributes };
+    this.operations = { ...operations };
   }
 
   getExpressionType(methodType) {
-  	switch (methodType) {
-		case MethodTypes.put:
-		case MethodTypes.create:
-		case MethodTypes.update:
-		case MethodTypes.patch:
-		case MethodTypes.delete:
-		case MethodTypes.remove:
-		case MethodTypes.upsert:
-		case MethodTypes.get:
-		case MethodTypes.check:
-			return ExpressionTypes.ConditionExpression
-		default:
-			return ExpressionTypes.FilterExpression
-	}
+    switch (methodType) {
+      case MethodTypes.put:
+      case MethodTypes.create:
+      case MethodTypes.update:
+      case MethodTypes.patch:
+      case MethodTypes.delete:
+      case MethodTypes.remove:
+      case MethodTypes.upsert:
+      case MethodTypes.get:
+      case MethodTypes.check:
+        return ExpressionTypes.ConditionExpression;
+      default:
+        return ExpressionTypes.FilterExpression;
+    }
   }
 
-	buildClause(cb) {
-		if (typeof cb !== "function") {
-			throw new e.ElectroError(e.ErrorCodes.InvalidWhere, 'Where callback must be of type "function"');
-		}
-		return (entity, state, ...params) => {
-			const type = this.getExpressionType(state.query.method);
-			const builder = state.query.filter[type];
-			const proxy = new AttributeOperationProxy({
-				builder,
-				attributes: this.attributes,
-				operations: this.operations
-			});
-			const expression = proxy.invokeCallback(cb, ...params);
-			if (typeof expression !== "string") {
-				throw new e.ElectroError(e.ErrorCodes.InvalidWhere, "Invalid response from where clause callback. Expected return result to be of type string");
-			}
-			builder.add(expression);
-			return state;
-		};
-	}
+  buildClause(cb) {
+    if (typeof cb !== "function") {
+      throw new e.ElectroError(
+        e.ErrorCodes.InvalidWhere,
+        'Where callback must be of type "function"',
+      );
+    }
+    return (entity, state, ...params) => {
+      const type = this.getExpressionType(state.query.method);
+      const builder = state.query.filter[type];
+      const proxy = new AttributeOperationProxy({
+        builder,
+        attributes: this.attributes,
+        operations: this.operations,
+      });
+      const expression = proxy.invokeCallback(cb, ...params);
+      if (typeof expression !== "string") {
+        throw new e.ElectroError(
+          e.ErrorCodes.InvalidWhere,
+          "Invalid response from where clause callback. Expected return result to be of type string",
+        );
+      }
+      builder.add(expression);
+      return state;
+    };
+  }
 
   injectWhereClauses(clauses = {}, filters = {}) {
-		let injected = { ...clauses };
-		let filterParents = Object.entries(injected)
-			.filter(clause => {
-				let [name, { children }] = clause;
-				return children.find(child => ['go', 'commit'].includes(child));
-			})
-			.map(([name]) => name);
-		let modelFilters = Object.keys(filters);
-		let filterChildren = [];
-		for (let [name, filter] of Object.entries(filters)) {
-			filterChildren.push(name);
-			injected[name] = {
-				name,
-				action: this.buildClause(filter),
-				children: ["params", "go", "commit", "where", ...modelFilters],
-			};
-		}
-		filterChildren.push("where");
-		injected["where"] = {
-			name: "where",
-			action: (entity, state, fn) => {
-				return this.buildClause(fn)(entity, state);
-			},
-			children: ["params", "go", "commit", "where", ...modelFilters],
-		};
-		for (let parent of filterParents) {
-			injected[parent] = { ...injected[parent] };
-			injected[parent].children = [
-				...filterChildren,
-				...injected[parent].children,
-			];
-		}
-		return injected;
-	}
+    let injected = { ...clauses };
+    let filterParents = Object.entries(injected)
+      .filter((clause) => {
+        let [name, { children }] = clause;
+        return children.find((child) => ["go", "commit"].includes(child));
+      })
+      .map(([name]) => name);
+    let modelFilters = Object.keys(filters);
+    let filterChildren = [];
+    for (let [name, filter] of Object.entries(filters)) {
+      filterChildren.push(name);
+      injected[name] = {
+        name,
+        action: this.buildClause(filter),
+        children: ["params", "go", "commit", "where", ...modelFilters],
+      };
+    }
+    filterChildren.push("where");
+    injected["where"] = {
+      name: "where",
+      action: (entity, state, fn) => {
+        return this.buildClause(fn)(entity, state);
+      },
+      children: ["params", "go", "commit", "where", ...modelFilters],
+    };
+    for (let parent of filterParents) {
+      injected[parent] = { ...injected[parent] };
+      injected[parent].children = [
+        ...filterChildren,
+        ...injected[parent].children,
+      ];
+    }
+    return injected;
+  }
 }
 
 module.exports = {
-	WhereFactory,
-	FilterExpression
+  WhereFactory,
+  FilterExpression,
 };
 
 },{"./errors":20,"./operations":24,"./types":29}]},{},[16]);
