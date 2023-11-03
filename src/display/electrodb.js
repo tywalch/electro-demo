@@ -7399,36 +7399,6 @@ class Entity {
     return this.model.version;
   }
 
-  // ownsItem(item) {
-  // 	return (
-  // 		item &&
-  // 		this.getName() === item[this.identifiers.entity] &&
-  // 		this.getVersion() === item[this.identifiers.version] &&
-  // 		validations.isStringHasLength(item[this.identifiers.entity]) &&
-  // 		validations.isStringHasLength(item[this.identifiers.version])
-  // 	) || !!this.ownsKeys(item)
-  // }
-
-  // ownsKeys({keys = {}}) {
-  // 	let {pk, sk} = this.model.prefixes[TableIndex];
-  // 	let hasSK = this.model.lookup.indexHasSortKeys[TableIndex];
-  // 	let pkMatch = typeof keys[pk.field] === "string" && keys[pk.field].startsWith(pk.prefix);
-  // 	let skMatch = pkMatch && !hasSK;
-  // 	if (pkMatch && hasSK) {
-  // 		skMatch = typeof keys[sk.field] === "string" && keys[sk.field].startsWith(sk.prefix);
-  // 	}
-  //
-  // 	return (pkMatch && skMatch &&
-  // 		this._formatKeysToItem(TableIndex, key) !== null);
-  // }
-
-  // ownsCursor({ cursor }) {
-  // 	if (typeof cursor === 'string') {
-  // 		cursor = u.cursorFormatter.deserialize(cursor);
-  // 	}
-  // 	return this.ownsKeys({ keys: cursor });
-  // }
-
   ownsItem(item) {
     return (
       item &&
@@ -7461,13 +7431,18 @@ class Entity {
   ownsKeys(key = {}) {
     let { pk, sk } = this.model.prefixes[TableIndex];
     let hasSK = this.model.lookup.indexHasSortKeys[TableIndex];
-    let pkMatch =
-      typeof key[pk.field] === "string" && key[pk.field].startsWith(pk.prefix);
+    const typeofPkProvided = typeof key[pk.field];
+    const pkPrefixMatch =
+      typeofPkProvided === "string" && key[pk.field].startsWith(pk.prefix);
+    const isNumericPk = typeofPkProvided === "number" && pk.cast === "number";
+    let pkMatch = pkPrefixMatch || isNumericPk;
     let skMatch = pkMatch && !hasSK;
     if (pkMatch && hasSK) {
-      skMatch =
-        typeof key[sk.field] === "string" &&
-        key[sk.field].startsWith(sk.prefix);
+      const typeofSkProvided = typeof key[sk.field];
+      const skPrefixMatch =
+        typeofSkProvided === "string" && key[sk.field].startsWith(sk.prefix);
+      const isNumericSk = typeofSkProvided === "number" && sk.cast === "number";
+      skMatch = skPrefixMatch || isNumericSk;
     }
 
     return (
@@ -7734,7 +7709,7 @@ class Entity {
   async go(method, parameters = {}, config = {}) {
     let stackTrace;
     if (!config.originalErr) {
-      stackTrace = new e.ElectroError(e.ErrorCodes.AWSError);
+      stackTrace = new e.ElectroError(e.ErrorCodes.AWSError).stack;
     }
     try {
       switch (method) {
@@ -7753,12 +7728,13 @@ class Entity {
         return Promise.reject(err);
       } else {
         if (err.__isAWSError) {
-          stackTrace.message = new e.ElectroError(
+          const error = new e.ElectroError(
             e.ErrorCodes.AWSError,
             `Error thrown by DynamoDB client: "${err.message}"`,
             err,
-          ).message;
-          return Promise.reject(stackTrace);
+          );
+          error.stack = stackTrace;
+          return Promise.reject(error);
         } else if (err.isElectroError) {
           return Promise.reject(err);
         } else {
@@ -8165,7 +8141,7 @@ class Entity {
   formatResponse(response, index, config = {}) {
     let stackTrace;
     if (!config.originalErr) {
-      stackTrace = new e.ElectroError(e.ErrorCodes.AWSError);
+      stackTrace = new e.ElectroError(e.ErrorCodes.AWSError).stack;
     }
     try {
       let results = {};
@@ -8253,11 +8229,17 @@ class Entity {
 
       return { data: results };
     } catch (err) {
-      if (config.originalErr || stackTrace === undefined) {
+      if (config.originalErr || stackTrace === undefined || err.isElectroError) {
         throw err;
       } else {
-        stackTrace.message = err.message;
-        throw stackTrace;
+        const error = new e.ElectroError(
+            e.ErrorCodes.AWSError,
+            err.message,
+            err,
+        );
+        error.stack = stackTrace;
+
+        throw error;
       }
     }
   }
@@ -8696,7 +8678,7 @@ class Entity {
   }
 
   _createKeyDeconstructor(prefixes = {}, labels = [], attributes = {}) {
-    let { prefix, isCustom, postfix } = prefixes;
+    let { prefix, isCustom, postfix, cast } = prefixes;
     let names = [];
     let types = [];
     let pattern = `^${this._regexpEscape(prefix || "")}`;
@@ -8727,16 +8709,19 @@ class Entity {
     let regex = new RegExp(pattern, "i");
 
     return ({ key } = {}) => {
-      if (!["string", "number"].includes(typeof key)) {
+      const typeofKey = typeof key;
+      if (!["string", "number"].includes(typeofKey)) {
         return null;
       }
       key = `${key}`;
+      const isNumeric =
+        cast === CastKeyOptions.number && typeofKey === "number";
       let match = key.match(regex);
       let results = {};
-      if (match) {
+      if (match || isNumeric) {
         for (let i = 0; i < names.length; i++) {
-          let key = names[i];
-          let value = match[i + 1];
+          let keyName = names[i];
+          let value = isNumeric ? key : match[i + 1];
           let type = types[i];
           switch (type) {
             case "number": {
@@ -8748,8 +8733,8 @@ class Entity {
               break;
             }
           }
-          if (key && value !== undefined) {
-            results[key] = value;
+          if (keyName && value !== undefined) {
+            results[keyName] = value;
           }
         }
       } else {
@@ -8780,7 +8765,7 @@ class Entity {
     let skComposites = {};
     if (indexHasSortKey) {
       const sk = keys[skName];
-      if (!sk) {
+      if (sk === undefined) {
         return null;
       }
       skComposites = deconstructors.sk({ key: sk });
@@ -9547,7 +9532,7 @@ class Entity {
           // TODO: This will only work with root attributes and should be refactored for nested attributes.
           update.set(attr.field, preparedUpdateValues[path]);
         } else {
-          // this could be fields added by electro that don't apeear in the schema
+          // this could be fields added by electro that don't appear in the schema
           update.set(path, preparedUpdateValues[path]);
         }
       }
@@ -9599,7 +9584,7 @@ class Entity {
         modifiedAttributeNames[primaryIndexAttribute] === undefined;
       if (isNotTablePK && isNotTableSK && wasNotAlreadyModified) {
         update.set(
-          primaryIndexAttribute,
+          attribute.field,
           primaryIndexAttributes[primaryIndexAttribute],
         );
       }
