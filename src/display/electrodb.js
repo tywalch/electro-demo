@@ -8229,13 +8229,17 @@ class Entity {
 
       return { data: results };
     } catch (err) {
-      if (config.originalErr || stackTrace === undefined || err.isElectroError) {
+      if (
+        config.originalErr ||
+        stackTrace === undefined ||
+        err.isElectroError
+      ) {
         throw err;
       } else {
         const error = new e.ElectroError(
-            e.ErrorCodes.AWSError,
-            err.message,
-            err,
+          e.ErrorCodes.AWSError,
+          err.message,
+          err,
         );
         error.stack = stackTrace;
 
@@ -12495,8 +12499,21 @@ class ExpressionState {
     return `${this.prefix}${this.counts[name]++}`;
   }
 
+  formatName(name = "") {
+    const nameWasNotANumber = isNaN(name);
+    name = `${name}`.replaceAll(/[^\w]/g, "");
+    if (name.length === 0) {
+      name = "p";
+    } else if (nameWasNotANumber !== isNaN(name)) {
+      // name became number due to replace
+      name = `p${name}`;
+    }
+    return name;
+  }
+
   // todo: make the structure: name, value, paths
   setName(paths, name, value) {
+    name = this.formatName(name);
     let json = "";
     let expression = "";
     const prop = `#${name}`;
@@ -12520,6 +12537,7 @@ class ExpressionState {
   }
 
   setValue(name, value) {
+    name = this.formatName(name);
     let valueCount = this.incrementName(name);
     let expression = `:${name}${valueCount}`;
     this.values[expression] = value;
