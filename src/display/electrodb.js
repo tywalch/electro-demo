@@ -7709,7 +7709,7 @@ class Entity {
   async go(method, parameters = {}, config = {}) {
     let stackTrace;
     if (!config.originalErr) {
-      stackTrace = new e.ElectroError(e.ErrorCodes.AWSError).stack;
+      stackTrace = new e.ElectroError(e.ErrorCodes.AWSError);
     }
     try {
       switch (method) {
@@ -7728,13 +7728,9 @@ class Entity {
         return Promise.reject(err);
       } else {
         if (err.__isAWSError) {
-          const error = new e.ElectroError(
-            e.ErrorCodes.AWSError,
-            `Error thrown by DynamoDB client: "${err.message}"`,
-            err,
-          );
-          error.stack = stackTrace;
-          return Promise.reject(error);
+          stackTrace.message = `Error thrown by DynamoDB client: "${err.message}" - For more detail on this error reference: https://electrodb.dev/en/reference/errors/#aws-error`;
+          stackTrace.cause = err;
+          return Promise.reject(stackTrace);
         } else if (err.isElectroError) {
           return Promise.reject(err);
         } else {
@@ -8141,7 +8137,7 @@ class Entity {
   formatResponse(response, index, config = {}) {
     let stackTrace;
     if (!config.originalErr) {
-      stackTrace = new e.ElectroError(e.ErrorCodes.AWSError).stack;
+      stackTrace = new e.ElectroError(e.ErrorCodes.AWSError);
     }
     try {
       let results = {};
@@ -8236,14 +8232,9 @@ class Entity {
       ) {
         throw err;
       } else {
-        const error = new e.ElectroError(
-          e.ErrorCodes.AWSError,
-          err.message,
-          err,
-        );
-        error.stack = stackTrace;
-
-        throw error;
+        stackTrace.message = `Error thrown by DynamoDB client: "${err.message}" - For more detail on this error reference: https://electrodb.dev/en/reference/errors/#aws-error`;
+        stackTrace.cause = err;
+        throw stackTrace;
       }
     }
   }
@@ -10446,6 +10437,9 @@ class Entity {
 
     // If keys are not custom, set the prefixes
     if (!keys.pk.isCustom) {
+      if (tableIndex.scope) {
+        pk = `${pk}_${tableIndex.scope}`;
+      }
       keys.pk.prefix = u.formatKeyCasing(pk, tableIndex.pk.casing);
     }
 
@@ -11066,6 +11060,7 @@ class Entity {
       let indexName = index.index || TableIndex;
       let indexType =
         typeof index.type === "string" ? index.type : IndexTypes.isolated;
+      let indexScope = index.scope || "";
       if (indexType === "clustered") {
         clusteredIndexes.add(accessPattern);
       }
@@ -11164,14 +11159,15 @@ class Entity {
         }
       }
 
-      let definition = {
+      let definition= {
         pk,
         sk,
-        collection,
         hasSk,
+        collection,
         customFacets,
-        index: indexName,
         type: indexType,
+        index: indexName,
+        scope: indexScope,
       };
 
       indexHasSubCollections[indexName] =
@@ -15311,6 +15307,7 @@ class Service {
     let pkFieldMatch = definition.pk.field === providedIndex.pk.field;
     let pkFacetLengthMatch =
       definition.pk.facets.length === providedIndex.pk.facets.length;
+    let scopeMatch = definition.scope === providedIndex.scope;
     let mismatchedFacetLabels = [];
     let collectionDifferences = [];
     let definitionIndexName = u.formatIndexNameForDisplay(definition.index);
@@ -15356,6 +15353,16 @@ class Service {
         });
         break;
       }
+    }
+
+    if (!scopeMatch) {
+      collectionDifferences.push(
+          `The index scope value provided "${
+              providedIndex.scope || "undefined"
+          }" does not match established index scope value "${
+              definition.scope || "undefined"
+          }" on index "${providedIndexName}". Index scope options must match across all entities participating in a collection`,
+      );
     }
 
     if (!isCustomMatchPK) {
@@ -17156,6 +17163,10 @@ const Index = {
           enum: ["string", "number"],
           required: false,
         },
+        scope: {
+          type: "string",
+          required: false,
+        }
       },
     },
     sk: {
