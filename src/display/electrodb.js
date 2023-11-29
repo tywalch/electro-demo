@@ -9627,7 +9627,7 @@ class Entity {
           (!attribute || !attribute.indexes || attribute.indexes.length === 0)
         ) {
           /*
-						// this should be considered but is likely overkill at best and unexpected at worst. 
+						// this should be considered but is likely overkill at best and unexpected at worst.
 						// It also is likely symbolic of a deeper issue. That said maybe it could be helpful
 						// in the future? It is unclear, if this were added, whether this should get the
 						// default value and then call the setter on the defaultValue. That would at least
@@ -10095,12 +10095,18 @@ class Entity {
         )}. If a composite attribute is readOnly and cannot be set, use the 'composite' chain method on update to supply the value for key formatting purposes.`,
       );
     }
+
     return complete;
   }
 
   _makeKeysFromAttributes(indexes, attributes) {
     let indexKeys = {};
     for (let [index, keyTypes] of Object.entries(indexes)) {
+      const shouldMakeKeys = this.model.indexes[this.model.translations.indexes.fromIndexToAccessPattern[index]].condition(attributes);
+      if (!shouldMakeKeys) {
+        continue;
+      }
+
       let keys = this._makeIndexKeys({
         index,
         pkAttributes: attributes,
@@ -10127,6 +10133,10 @@ class Entity {
   _makePutKeysFromAttributes(indexes, attributes) {
     let indexKeys = {};
     for (let index of indexes) {
+      const shouldMakeKeys = this.model.indexes[this.model.translations.indexes.fromIndexToAccessPattern[index]].condition(attributes);
+      if (!shouldMakeKeys) {
+        continue;
+      }
       indexKeys[index] = this._makeIndexKeys({
         index,
         pkAttributes: attributes,
@@ -10199,6 +10209,7 @@ class Entity {
       completeFacets.impactedIndexTypes,
       { ...set, ...keyAttributes },
     );
+
     let updatedKeys = {};
     let deletedKeys = [];
     let indexKey = {};
@@ -10242,6 +10253,7 @@ class Entity {
   _getIndexImpact(attributes = {}, included = {}) {
     let includedFacets = Object.keys(included);
     let impactedIndexes = {};
+    let skippedIndexes = new Set();
     let impactedIndexTypes = {};
     let completedIndexes = [];
     let facets = {};
@@ -10249,21 +10261,32 @@ class Entity {
       if (attributes[attribute] !== undefined) {
         facets[attribute] = attributes[attribute];
         indexes.forEach(({ index, type }) => {
-          impactedIndexes[index] = impactedIndexes[index] || {};
-          impactedIndexes[index][type] = impactedIndexes[index][type] || [];
-          impactedIndexes[index][type].push(attribute);
-          impactedIndexTypes[index] = impactedIndexTypes[index] || {};
-          impactedIndexTypes[index][type] =
-            this.model.translations.keys[index][type];
+            impactedIndexes[index] = impactedIndexes[index] || {};
+            impactedIndexes[index][type] = impactedIndexes[index][type] || [];
+            impactedIndexes[index][type].push(attribute);
+            impactedIndexTypes[index] = impactedIndexTypes[index] || {};
+            impactedIndexTypes[index][type] =
+                this.model.translations.keys[index][type];
         });
+      }
+    }
+
+    for (const indexName in impactedIndexes) {
+      const accessPattern = this.model.translations.indexes.fromIndexToAccessPattern[indexName];
+      const shouldMakeKeys = this.model.indexes[accessPattern].condition({ ...attributes, ...included });
+      if (!shouldMakeKeys) {
+        skippedIndexes.add(indexName);
       }
     }
 
     let incomplete = Object.entries(this.model.facets.byIndex)
       .map(([index, { pk, sk }]) => {
         let impacted = impactedIndexes[index];
-        let impact = { index, missing: [] };
-        if (impacted) {
+        let impact = {
+          index,
+          missing: []
+        };
+        if (impacted && !skippedIndexes.has(index)) {
           let missingPk =
             impacted[KeyTypes.pk] && impacted[KeyTypes.pk].length !== pk.length;
           let missingSk =
@@ -11061,6 +11084,14 @@ class Entity {
       let indexType =
         typeof index.type === "string" ? index.type : IndexTypes.isolated;
       let indexScope = index.scope || "";
+      if (index.index === undefined && v.isFunction(index.condition)) {
+        throw new e.ElectroError(
+            e.ErrorCodes.InvalidIndexCondition,
+            `The index option 'condition' is only allowed on secondary indexes`,
+        );
+      }
+      let indexCondition = index.condition || (() => true);
+
       if (indexType === "clustered") {
         clusteredIndexes.add(accessPattern);
       }
@@ -11168,6 +11199,7 @@ class Entity {
         type: indexType,
         index: indexName,
         scope: indexScope,
+        condition: indexCondition,
       };
 
       indexHasSubCollections[indexName] =
@@ -11977,6 +12009,12 @@ const ErrorCodes = {
     name: "DuplicateUpdateCompositesProvided",
     sym: ErrorCode,
   },
+  InvalidIndexCondition: {
+    code: 2011,
+    section: "invalid-index-option",
+    name: "InvalidIndexOption",
+    sym: ErrorCode,
+  },
   InvalidAttribute: {
     code: 3001,
     section: "invalid-attribute",
@@ -12780,16 +12818,13 @@ class AttributeOperationProxy {
           return AttributeOperationProxy.pathProxy(() => {
             const { commit, root, target, builder } = build();
             const attribute = target.getChild(prop);
+            const nestedAny = attribute.type === AttributeTypes.any &&
+                // if the name doesn't match that's because we are nested under 'any'
+                attribute.name !== prop;
             let field;
             if (attribute === undefined) {
-              throw new Error(
-                `Invalid attribute "${prop}" at path "${target.path}.${prop}"`,
-              );
-            } else if (
-              attribute === root &&
-              attribute.type === AttributeTypes.any
-            ) {
-              // This function is only called if a nested property is called. If this attribute is ultimately the root, don't use the root's field name
+              throw new Error(`Invalid attribute "${prop}" at path "${target.path}.${prop}"`);
+            } else if (nestedAny) {
               field = prop;
             } else {
               field = attribute.field;
@@ -12798,6 +12833,7 @@ class AttributeOperationProxy {
             return {
               root,
               builder,
+              nestedAny,
               target: attribute,
               commit: () => {
                 const paths = commit();
@@ -14355,18 +14391,6 @@ class Schema {
         case AttributeTypes.set:
           normalized[name] = new SetAttribute(definition);
           break;
-        case AttributeTypes.any:
-          if (attributeHasParent) {
-            throw new e.ElectroError(
-              e.ErrorCodes.InvalidAttributeDefinition,
-              `Invalid attribute "${definition.name}" defined within "${
-                parent.parentPath
-              }". Attributes with type ${u.commaSeparatedString([
-                AttributeTypes.any,
-                AttributeTypes.custom,
-              ])} are only supported as root level attributes.`,
-            );
-          }
         default:
           normalized[name] = new Attribute(definition);
       }
@@ -17218,6 +17242,11 @@ const Index = {
       enum: ["clustered", "isolated"],
       required: false,
     },
+    condition: {
+      type: "any",
+      required: false,
+      format: "isFunction",
+    }
   },
 };
 
