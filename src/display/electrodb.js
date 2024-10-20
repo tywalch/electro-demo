@@ -10313,7 +10313,6 @@ class Entity {
     if (skType === "number") {
       return Comparisons[comparison];
     } else if (
-      comparisonType === ComparisonTypes.attributes ||
       comparisonType === ComparisonTypes.v2
     ) {
       return KeyAttributesComparisons[comparison];
