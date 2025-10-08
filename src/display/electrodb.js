@@ -5809,21 +5809,19 @@ let clauses = {
             upsert.indexKey = indexKey;
 
             // only "set" data is used to make keys
-            const setFields = Object.entries(
-              entity.model.schema.translateToFields(setAttributes),
-            );
+            const setFields = entity.model.schema.translateToFields(setAttributes);
 
             // add the keys impacted except for the table index keys; they are upserted
             // automatically by dynamo
             for (const key in updatedKeys) {
               const value = updatedKeys[key];
               if (indexKey[key] === undefined) {
-                setFields.push([key, value]);
+                setFields[key] = value;
               }
             }
 
             entity._maybeApplyUpsertUpdate({
-              fields: setFields,
+              fields: Object.entries(setFields),
               operation: UpsertOperations.set,
               updateProxy,
               update,
@@ -7417,6 +7415,7 @@ const { Schema } = require("./schema");
 const {
   AllPages,
   KeyCasing,
+  DefaultKeyCasing,
   TableIndex,
   FormatToReturnValues,
   ReturnValues,
@@ -7880,8 +7879,10 @@ class Entity {
         if (err.__isAWSError) {
           stackTrace.message = `Error thrown by DynamoDB client: "${err.message}" - For more detail on this error reference: https://electrodb.dev/en/reference/errors/#aws-error`;
           stackTrace.cause = err;
+          e.applyParamsFn(stackTrace, err.__edb_params);
           return Promise.reject(stackTrace);
         } else if (err.isElectroError) {
+          e.applyParamsFn(err, err.__edb_params);
           return Promise.reject(err);
         } else {
           stackTrace.message = new e.ElectroError(
@@ -7889,6 +7890,7 @@ class Entity {
             err.message,
             err,
           ).message;
+          e.applyParamsFn(stackTrace, err.__edb_params);
           return Promise.reject(stackTrace);
         }
       }
@@ -7930,6 +7932,10 @@ class Entity {
       .catch((err) => {
         notifyQuery();
         notifyResults(err, false);
+        Object.defineProperty(err, '__edb_params', {
+          enumerable: false,
+          value: params,
+        });
         err.__isAWSError = true;
         throw err;
       });
@@ -8349,9 +8355,6 @@ class Entity {
               response.Item,
               config,
             );
-            if (Object.keys(results).length === 0) {
-              results = null;
-            }
           } else if (!config._objectOnEmpty) {
             results = null;
           }
@@ -8371,9 +8374,7 @@ class Entity {
                 item,
                 config,
               );
-              if (Object.keys(record).length > 0) {
-                results.push(record);
-              }
+              results.push(record);
             }
           }
         } else if (response.Attributes) {
@@ -8381,7 +8382,7 @@ class Entity {
             response.Attributes,
             config,
           );
-          if (Object.keys(results).length === 0) {
+          if (Object.keys(results).length === 0 && !config._objectOnEmpty) {
             results = null;
           }
         } else if (config._objectOnEmpty) {
@@ -8776,10 +8777,6 @@ class Entity {
     return this.config.table;
   }
 
-  getTableName() {
-    return this.config.table;
-  }
-
   _chain(state, clauses, clause) {
     let current = {};
     for (let child of clause.children) {
@@ -9060,6 +9057,7 @@ class Entity {
       order: undefined,
       hydrate: false,
       hydrator: (_entity, _indexName, items) => items,
+      _objectOnEmpty: false,
       _includeOnResponseItem: {},
     };
 
@@ -9426,7 +9424,10 @@ class Entity {
         );
         break;
       case MethodTypes.scan:
-        params = this._makeScanParam(filter[ExpressionTypes.FilterExpression]);
+        params = this._makeScanParam(
+          filter[ExpressionTypes.FilterExpression],
+          config,
+        );
         break;
       /* istanbul ignore next */
       default:
@@ -9642,7 +9643,7 @@ class Entity {
   }
 
   /* istanbul ignore next */
-  _makeScanParam(filter = {}) {
+  _makeScanParam(filter = {}, options = {}) {
     let indexBase = TableIndex;
     let hasSortKey = this.model.lookup.indexHasSortKeys[indexBase];
     let accessPattern =
@@ -9705,7 +9706,10 @@ class Entity {
       params.FilterExpression = filterExpressions.join(" AND ");
     }
 
-    return params;
+    return this._applyProjectionExpressions({
+      parameters: params,
+      config: options,
+    });
   }
 
   _makeSimpleIndexParams(partition, sort) {
@@ -10312,9 +10316,7 @@ class Entity {
   _getComparisonOperator(comparison, skType, comparisonType) {
     if (skType === "number") {
       return Comparisons[comparison];
-    } else if (
-      comparisonType === ComparisonTypes.v2
-    ) {
+    } else if (comparisonType === ComparisonTypes.v2) {
       return KeyAttributesComparisons[comparison];
     } else {
       return Comparisons[comparison];
@@ -10924,6 +10926,7 @@ class Entity {
     modelVersion,
     isClustered,
     schema,
+    prefixes = {},
   }) {
     /*
 			Collections will prefix the sort key so they can be queried with
@@ -10932,7 +10935,6 @@ class Entity {
 			of a customKey AND a collection, the collection is ignored to favor
 			the custom key.
 		*/
-
     let keys = {
       pk: {
         prefix: "",
@@ -10949,6 +10951,28 @@ class Entity {
         cast: tableIndex.sk ? tableIndex.sk.cast : undefined,
       },
     };
+
+    let previouslyDefinedPk = null;
+    let previouslyDefinedSk = null;
+    for (const [indexName, definition] of Object.entries(prefixes)) {
+      if (definition.pk.field === tableIndex.pk.field) {
+        previouslyDefinedPk = { indexName, definition: definition.pk };
+      } else if (definition.sk && definition.sk.field === tableIndex.pk.field) {
+        previouslyDefinedPk  = { indexName, definition: definition.sk };
+      }
+
+      if (tableIndex.sk) {
+        if (definition.pk.field === tableIndex.sk.field) {
+          previouslyDefinedSk = { indexName, definition: definition.pk };
+        } else if (definition.sk && definition.sk.field === tableIndex.sk.field) {
+          previouslyDefinedSk = { indexName, definition: definition.sk };
+        }
+      }
+
+      if (previouslyDefinedPk && (previouslyDefinedSk || !tableIndex.sk)) {
+        break;
+      }
+    }
 
     let pk = `$${service}`;
     let sk = "";
@@ -11039,6 +11063,37 @@ class Entity {
       } else {
         keys[castKey.type].cast = CastKeyOptions.string;
       }
+    }
+
+    if (previouslyDefinedPk) {
+      const casingMatch = u.toKeyCasingOption(keys.pk.casing) === u.toKeyCasingOption(previouslyDefinedPk.definition.casing);
+      if (!casingMatch) {
+        throw new e.ElectroError(
+          e.ErrorCodes.IncompatibleKeyCasing,
+          `Partition Key (pk) on Access Pattern '${u.formatIndexNameForDisplay(
+            tableIndex.index,
+          )}' is defined with the casing ${keys.pk.casing}, but the accessPattern '${u.formatIndexNameForDisplay(
+            previouslyDefinedPk.indexName,
+          )}' defines the same index field with the ${previouslyDefinedPk.definition.casing === DefaultKeyCasing ? '(default)' : ''} casing ${previouslyDefinedPk.definition.casing}. Key fields must have the same casing definitions across all indexes they are involved with.`,
+        );
+      }
+
+      keys.pk = previouslyDefinedPk.definition;
+    }
+
+    if (previouslyDefinedSk) {
+      const casingMatch = u.toKeyCasingOption(keys.sk.casing) === u.toKeyCasingOption(previouslyDefinedSk.definition.casing);
+      if (!casingMatch) {
+        throw new e.ElectroError(
+          e.ErrorCodes.IncompatibleKeyCasing,
+          `Sort Key (sk) on Access Pattern '${u.formatIndexNameForDisplay(
+            tableIndex.index,
+          )}' is defined with the casing ${keys.sk.casing}, but the accessPattern '${u.formatIndexNameForDisplay(
+            previouslyDefinedSk.indexName,
+          )}' defines the same index field with the ${previouslyDefinedSk.definition.casing === DefaultKeyCasing ? '(default)' : ''} casing ${previouslyDefinedSk.definition.casing}. Key fields must have the same casing definitions across all indexes they are involved with.`,
+        );
+      }
+      keys.sk = previouslyDefinedSk.definition;
     }
 
     return keys;
@@ -11177,17 +11232,21 @@ class Entity {
     if (!skAttributes.length) {
       skAttributes.push({});
     }
+
     let facets = this.model.facets.byIndex[index];
+
     let prefixes = this.model.prefixes[index];
     if (!prefixes) {
       throw new Error(`Invalid index: ${index}`);
     }
+
     let pk = this._makeKey(
       prefixes.pk,
       facets.pk,
       pkAttributes,
       this.model.facets.labels[index].pk,
     );
+
     let sk = [];
     let fulfilled = false;
     if (this.model.lookup.indexHasSortKeys[index]) {
@@ -11210,6 +11269,7 @@ class Entity {
         }
       }
     }
+
     return {
       pk: pk.key,
       sk,
@@ -11271,8 +11331,9 @@ class Entity {
     for (let i = 0; i < labels.length; i++) {
       const { name, label } = labels[i];
       const attribute = this.model.schema.getAttribute(name);
+
       let value = supplied[name];
-      if (supplied[name] === undefined && excludeLabelTail) {
+      if (value === undefined && excludeLabelTail) {
         break;
       }
 
@@ -11285,11 +11346,14 @@ class Entity {
       } else {
         key = `${key}#${label}_`;
       }
+
       // Undefined facet value means we cant build any more of the key
       if (supplied[name] === undefined) {
         break;
       }
+
       foundCount++;
+
       key = `${key}${value}`;
     }
 
@@ -11653,6 +11717,7 @@ class Entity {
         pk: false,
         sk: false,
       };
+
       const pkCasing =
         KeyCasing[index.pk.casing] === undefined
           ? KeyCasing.default
@@ -11681,6 +11746,7 @@ class Entity {
         facets: parsedPKAttributes.attributes,
         isCustom: parsedPKAttributes.isCustom,
         facetLabels: parsedPKAttributes.labels,
+        template: index.pk.template,
       };
       let sk = {};
       let parsedSKAttributes = {};
@@ -11699,6 +11765,7 @@ class Entity {
           facets: parsedSKAttributes.attributes,
           isCustom: parsedSKAttributes.isCustom,
           facetLabels: parsedSKAttributes.labels,
+          template: index.sk.template,
         };
         facets.fields.push(sk.field);
       }
@@ -11814,10 +11881,12 @@ class Entity {
         const definition = Object.values(facets.byField[pk.field]).find(
           (definition) => definition.index !== indexName,
         );
+
         const definitionsMatch = validations.stringArrayMatch(
           pk.facets,
           definition.facets,
         );
+
         if (!definitionsMatch) {
           throw new e.ElectroError(
             e.ErrorCodes.InconsistentIndexDefinition,
@@ -11832,6 +11901,20 @@ class Entity {
             )}'. Key fields must have the same composite attribute definitions across all indexes they are involved with`,
           );
         }
+
+        const keyTemplatesMatch = pk.template === definition.template
+
+        if (!keyTemplatesMatch) {
+          throw new e.ElectroError(
+            e.ErrorCodes.IncompatibleKeyCompositeAttributeTemplate,
+            `Partition Key (pk) on Access Pattern '${u.formatIndexNameForDisplay(
+              accessPattern,
+            )}' is defined with the template ${pk.template || '(undefined)'}, but the accessPattern '${u.formatIndexNameForDisplay(
+              definition.index,
+            )}' defines this field with the key labels ${definition.template || '(undefined)'}'. Key fields must have the same template definitions across all indexes they are involved with`,
+          );
+        }
+
         seenIndexFields[pk.field].push({ accessPattern, type: "pk" });
       } else {
         seenIndexFields[pk.field] = [];
@@ -11849,28 +11932,15 @@ class Entity {
             }' as the field name for both the PK and SK. Fields used for indexes need to be unique to avoid conflicts.`,
           );
         } else if (seenIndexFields[sk.field] !== undefined) {
-          const isAlsoDefinedAsPK = seenIndexFields[sk.field].find(
-            (field) => field.type === "pk",
-          );
-          if (isAlsoDefinedAsPK) {
-            throw new e.ElectroError(
-              e.ErrorCodes.InconsistentIndexDefinition,
-              `The Sort Key (sk) on Access Pattern '${u.formatIndexNameForDisplay(
-                accessPattern,
-              )}' references the field '${
-                pk.field
-              }' which is already referenced by the Access Pattern(s) '${u.formatIndexNameForDisplay(
-                isAlsoDefinedAsPK.accessPattern,
-              )}' as a Partition Key. Fields mapped to Partition Keys cannot be also mapped to Sort Keys.`,
-            );
-          }
           const definition = Object.values(facets.byField[sk.field]).find(
             (definition) => definition.index !== indexName,
           );
+
           const definitionsMatch = validations.stringArrayMatch(
             sk.facets,
             definition.facets,
-          );
+          )
+
           if (!definitionsMatch) {
             throw new e.ElectroError(
               e.ErrorCodes.DuplicateIndexFields,
@@ -11885,6 +11955,20 @@ class Entity {
               )}'. Key fields must have the same composite attribute definitions across all indexes they are involved with`,
             );
           }
+
+          const keyTemplatesMatch = sk.template === definition.template
+
+          if (!keyTemplatesMatch) {
+            throw new e.ElectroError(
+              e.ErrorCodes.IncompatibleKeyCompositeAttributeTemplate,
+              `Sort Key (sk) on Access Pattern '${u.formatIndexNameForDisplay(
+                accessPattern,
+              )}' is defined with the template ${sk.template || '(undefined)'}, but the accessPattern '${u.formatIndexNameForDisplay(
+                definition.index,
+              )}' defines this field with the key labels ${definition.template || '(undefined)'}'. Key fields must have the same template definitions across all indexes they are involved with`,
+            );
+          }
+
           seenIndexFields[sk.field].push({ accessPattern, type: "sk" });
         } else {
           seenIndexFields[sk.field] = [];
@@ -12009,6 +12093,7 @@ class Entity {
         modelVersion,
         isClustered: clusteredIndexes.has(accessPattern),
         schema,
+        prefixes,
       });
     }
     return prefixes;
@@ -12453,6 +12538,12 @@ const ErrorCodes = {
     name: "InvalidIndexCompositeWithAttributeName",
     sym: ErrorCode,
   },
+  IncompatibleKeyCasing: {
+    code: 1020,
+    section: "incompatible-key-casing",
+    name: "IncompatibleKeyCasing",
+    sym: ErrorCode,
+  },
   InvalidListenerProvided: {
     code: 1020,
     section: "invalid-listener-provided",
@@ -12485,7 +12576,7 @@ const ErrorCodes = {
   },
   IncompleteCompositeAttributes: {
     code: 2002,
-    section: "incomplete-composite-attributes",
+    section: "missing-composite-attributes",
     name: "IncompleteCompositeAttributes",
     sym: ErrorCode,
   },
@@ -12606,7 +12697,7 @@ function makeMessage(message, section) {
 }
 
 class ElectroError extends Error {
-  constructor(code, message, cause) {
+  constructor(code, message, cause, params = null) {
     super(message, { cause });
     let detail = ErrorCodes.UnknownError;
     if (code && code.sym === ErrorCode) {
@@ -12624,7 +12715,19 @@ class ElectroError extends Error {
     this.code = detail.code;
     this.date = Date.now();
     this.isElectroError = true;
+    applyParamsFn(this, params);
   }
+}
+
+function applyParamsFn(error, params = null) {
+  Object.defineProperty(error, 'params', {
+    enumerable: false,
+    writable: true,
+    configurable: true,
+    value: () => {
+      return params;
+    }
+  });
 }
 
 class ElectroValidationError extends ElectroError {
@@ -12715,6 +12818,7 @@ class ElectroAttributeValidationError extends ElectroError {
 module.exports = {
   ErrorCodes,
   ElectroError,
+  applyParamsFn,
   ElectroValidationError,
   ElectroUserValidationError,
   ElectroAttributeValidationError,
@@ -13058,6 +13162,7 @@ class ExpressionState {
     this.expression = "";
     this.prefix = prefix || "";
     this.refs = {};
+    this.formattedNameToOriginalNameMap = new Map();
   }
 
   incrementName(name) {
@@ -13069,14 +13174,28 @@ class ExpressionState {
 
   formatName(name = "") {
     const nameWasNotANumber = isNaN(name);
-    name = `${name}`.replaceAll(/[^\w]/g, "");
-    if (name.length === 0) {
-      name = "p";
-    } else if (nameWasNotANumber !== isNaN(name)) {
+    const originalName = `${name}`;
+    let formattedName = originalName.replaceAll(/[^\w]/g, "");
+
+    if (formattedName.length === 0) {
+      formattedName = "p";
+    } else if (nameWasNotANumber !== isNaN(formattedName)) {
       // name became number due to replace
-      name = `p${name}`;
+      formattedName = `p${formattedName}`;
     }
-    return name;
+
+    const originalFormattedName = formattedName;
+    let nameSuffix = 1;
+
+    while (
+      this.formattedNameToOriginalNameMap.has(formattedName) &&
+      this.formattedNameToOriginalNameMap.get(formattedName) !== originalName
+    ) {
+      formattedName = `${originalFormattedName}_${++nameSuffix}`;
+    }
+
+    this.formattedNameToOriginalNameMap.set(formattedName, originalName);
+    return formattedName;
   }
 
   // todo: make the structure: name, value, paths
@@ -13700,19 +13819,23 @@ class Attribute {
 
   _makeGet(get) {
     this._checkGetSet(get, "get");
-    const getter = get || ((attr) => attr);
-    return (value, siblings) => {
+    const getter = get
+      ? (value, getSiblings) => get(value, getSiblings())
+      : (attr) => attr;
+    return (value, getSiblings) => {
       if (this.hidden) {
         return;
       }
       value = this.unformat(value);
-      return getter(value, siblings);
+      return getter(value, getSiblings);
     };
   }
 
   _makeSet(set) {
     this._checkGetSet(set, "set");
-    return set || ((attr) => attr);
+    return set
+      ? (value, getSiblings) => set(value, getSiblings())
+      : (attr) => attr;
   }
 
   _makeApplyFixings({
@@ -14096,19 +14219,19 @@ class MapAttribute extends Attribute {
 
   _makeGet(get, properties) {
     this._checkGetSet(get, "get");
-    const getter =
-      get ||
-      ((val) => {
-        const isEmpty = !val || Object.keys(val).length === 0;
-        const isNotRequired = !this.required;
-        const doesNotHaveDefault = this.default === undefined;
-        const isRoot = this.isRoot;
-        if (isEmpty && isRoot && isNotRequired && doesNotHaveDefault) {
-          return undefined;
-        }
-        return val;
-      });
-    return (values, siblings) => {
+    const getter = get
+      ? (value, getSiblings) => get(value, getSiblings())
+      : (val) => {
+          const isEmpty = !val || Object.keys(val).length === 0;
+          const isNotRequired = !this.required;
+          const doesNotHaveDefault = this.default === undefined;
+          const isRoot = this.isRoot;
+          if (isEmpty && isRoot && isNotRequired && doesNotHaveDefault) {
+            return undefined;
+          }
+          return val;
+        };
+    return (values, getSiblings) => {
       const data = {};
 
       if (this.hidden) {
@@ -14119,60 +14242,62 @@ class MapAttribute extends Attribute {
         if (!get) {
           return undefined;
         }
-        return getter(data, siblings);
+        return getter(data, getSiblings);
       }
 
       for (const name of Object.keys(properties.attributes)) {
         const attribute = properties.attributes[name];
         if (values[attribute.field] !== undefined) {
-          let results = attribute.get(values[attribute.field], { ...values });
+          let results = attribute.get(values[attribute.field], () => ({
+            ...values,
+          }));
           if (results !== undefined) {
             data[name] = results;
           }
         }
       }
 
-      return getter(data, siblings);
+      return getter(data, getSiblings);
     };
   }
 
   _makeSet(set, properties) {
     this._checkGetSet(set, "set");
-    const setter =
-      set ||
-      ((val) => {
-        const isEmpty = !val || Object.keys(val).length === 0;
-        const isNotRequired = !this.required;
-        const doesNotHaveDefault = this.default === undefined;
-        const defaultIsValue = this.default === val;
-        const isRoot = this.isRoot;
-        if (defaultIsValue) {
-          return val;
-        } else if (isEmpty && isRoot && isNotRequired && doesNotHaveDefault) {
-          return undefined;
-        } else {
-          return val;
-        }
-      });
+    const setter = set
+      ? (val, getSiblings) => set(val, getSiblings())
+      : (val) => {
+          const isEmpty = !val || Object.keys(val).length === 0;
+          const isNotRequired = !this.required;
+          const doesNotHaveDefault = this.default === undefined;
+          const defaultIsValue = this.default === val;
+          const isRoot = this.isRoot;
+          if (defaultIsValue) {
+            return val;
+          } else if (isEmpty && isRoot && isNotRequired && doesNotHaveDefault) {
+            return undefined;
+          } else {
+            return val;
+          }
+        };
 
-    return (values, siblings) => {
+    return (values, getSiblings) => {
       const data = {};
       if (values === undefined) {
         if (!set) {
           return undefined;
         }
-        return setter(values, siblings);
+        return setter(values, getSiblings);
       }
       for (const name of Object.keys(properties.attributes)) {
         const attribute = properties.attributes[name];
         if (values[name] !== undefined) {
-          const results = attribute.set(values[name], { ...values });
+          const results = attribute.set(values[name], () => ({ ...values }));
           if (results !== undefined) {
             data[attribute.field] = results;
           }
         }
       }
-      return setter(data, siblings);
+      return setter(data, getSiblings);
     };
   }
 
@@ -14308,9 +14433,11 @@ class ListAttribute extends Attribute {
   _makeGet(get, items) {
     this._checkGetSet(get, "get");
 
-    const getter = get || ((attr) => attr);
+    const getter = get
+      ? (value, getSiblings) => get(value, getSiblings())
+      : (attr) => attr;
 
-    return (values, siblings) => {
+    return (values, getSiblings) => {
       const data = [];
 
       if (this.hidden) {
@@ -14318,38 +14445,40 @@ class ListAttribute extends Attribute {
       }
 
       if (values === undefined) {
-        return getter(data, siblings);
+        return getter(data, getSiblings);
       }
 
       for (let value of values) {
-        const results = items.get(value, [...values]);
+        const results = items.get(value, () => [...values]);
         if (results !== undefined) {
           data.push(results);
         }
       }
 
-      return getter(data, siblings);
+      return getter(data, getSiblings);
     };
   }
 
   _makeSet(set, items) {
     this._checkGetSet(set, "set");
-    const setter = set || ((attr) => attr);
-    return (values, siblings) => {
+    const setter = set
+      ? (value, getSiblings) => set(value, getSiblings())
+      : (attr) => attr;
+    return (values, getSiblings) => {
       const data = [];
 
       if (values === undefined) {
-        return setter(values, siblings);
+        return setter(values, getSiblings);
       }
 
       for (const value of values) {
-        const results = items.set(value, [...values]);
+        const results = items.set(value, () => [...values]);
         if (results !== undefined) {
           data.push(results);
         }
       }
 
-      return setter(data, siblings);
+      return setter(data, getSiblings);
     };
   }
 
@@ -14543,14 +14672,16 @@ class SetAttribute extends Attribute {
 
   _makeGet(get, items) {
     this._checkGetSet(get, "get");
-    const getter = get || ((attr) => attr);
-    return (values, siblings) => {
+    const getter = get
+      ? (value, getSiblings) => get(value, getSiblings())
+      : (attr) => attr;
+    return (values, getSiblings) => {
       if (values !== undefined) {
         const data = this.fromDDBSet(values);
-        return getter(data, siblings);
+        return getter(data, getSiblings);
       }
       const data = this.fromDDBSet(values);
-      const results = getter(data, siblings);
+      const results = getter(data, getSiblings);
       if (results !== undefined) {
         // if not undefined, try to convert, else no need to return
         return this.fromDDBSet(results);
@@ -14560,9 +14691,11 @@ class SetAttribute extends Attribute {
 
   _makeSet(set, items) {
     this._checkGetSet(set, "set");
-    const setter = set || ((attr) => attr);
-    return (values, siblings) => {
-      const results = setter(this.fromDDBSet(values), siblings);
+    const setter = set
+      ? (value, getSiblings) => set(value, getSiblings())
+      : (attr) => attr;
+    return (values, getSiblings) => {
+      const results = setter(this.fromDDBSet(values), getSiblings);
       if (results !== undefined) {
         return this.toDDBSet(results);
       }
@@ -15048,12 +15181,13 @@ class Schema {
 
   _applyAttributeMutation(method, include, avoid, payload) {
     let data = { ...payload };
+    const getSiblings = () => ({ ...payload });
     for (let path of Object.keys(include)) {
       // this.attributes[attribute] !== undefined | Attribute exists as actual attribute. If `includeKeys` is turned on for example this will include values that do not have a presence in the model and therefore will not have a `.get()` method
       // avoid[attribute] === undefined           | Attribute shouldn't be in the avoided
       const attribute = this.getAttribute(path);
       if (attribute !== undefined && avoid[path] === undefined) {
-        data[path] = attribute[method](payload[path], { ...payload });
+        data[path] = attribute[method](payload[path], getSiblings);
       }
     }
     return data;
@@ -16930,6 +17064,8 @@ const KeyCasing = {
   default: "default",
 };
 
+const DefaultKeyCasing = KeyCasing.lower;
+
 const EventSubscriptionTypes = ["query", "results"];
 
 const TerminalOperation = {
@@ -17013,6 +17149,7 @@ module.exports = {
   TransactionMethods,
   UpsertOperations,
   BatchWriteTypes,
+  DefaultKeyCasing,
 };
 
 },{}],31:[function(require,module,exports){
@@ -17331,7 +17468,6 @@ module.exports = {
 },{"./types":30}],33:[function(require,module,exports){
 (function (Buffer){(function (){
 const t = require("./types");
-const e = require("./errors");
 const v = require("./validations");
 
 function parseJSONPath(path = "") {
@@ -17437,8 +17573,24 @@ function formatStringCasing(str, casing, defaultCase) {
   }
 }
 
+function toKeyCasingOption(casing) {
+  switch(casing) {
+    case t.KeyCasing.upper:
+      return t.KeyCasing.upper;
+    case t.KeyCasing.none:
+      return t.KeyCasing.none;
+    case t.KeyCasing.lower:
+      return t.KeyCasing.lower;
+    case t.KeyCasing.default:
+    case undefined:
+      return t.DefaultKeyCasing;
+    default:
+      throw new Error(`Unknown casing option: ${casing}`);
+  }
+}
+
 function formatKeyCasing(str, casing) {
-  return formatStringCasing(str, casing, t.KeyCasing.lower);
+  return formatStringCasing(str, casing, t.DefaultKeyCasing);
 }
 
 function formatAttributeCasing(str, casing) {
@@ -17526,19 +17678,16 @@ const cursorFormatter = {
 };
 
 function removeFixings({ prefix = "", postfix = "", value = "" } = {}) {
-  const start = value.toLowerCase().startsWith(prefix.toLowerCase())
-    ? prefix.length
-    : 0;
+  if (prefix === "" && postfix === "") return value;
+
+  const valueLower = value.toLowerCase();
+
+  const start = valueLower.startsWith(prefix.toLowerCase()) ? prefix.length : 0;
   const end =
     value.length -
-    (value.toLowerCase().endsWith(postfix.toLowerCase()) ? postfix.length : 0);
+    (valueLower.endsWith(postfix.toLowerCase()) ? postfix.length : 0);
 
-  let formatted = "";
-  for (let i = start; i < end; i++) {
-    formatted += value[i];
-  }
-
-  return formatted;
+  return value.slice(start, end);
 }
 
 function addPadding({ padding = {}, value = "" } = {}) {
@@ -17600,6 +17749,7 @@ module.exports = {
   getModelVersion,
   formatKeyCasing,
   cursorFormatter,
+  toKeyCasingOption,
   genericizeJSONPath,
   commaSeparatedString,
   formatAttributeCasing,
@@ -17609,7 +17759,7 @@ module.exports = {
 };
 
 }).call(this)}).call(this,require("buffer").Buffer)
-},{"./errors":21,"./types":30,"./validations":34,"buffer":3}],34:[function(require,module,exports){
+},{"./types":30,"./validations":34,"buffer":3}],34:[function(require,module,exports){
 const e = require("./errors");
 const { KeyCasing } = require("./types");
 
