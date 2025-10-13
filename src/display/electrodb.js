@@ -5360,7 +5360,6 @@ const {
   AttributeOperationProxy,
   UpdateOperations,
   FilterOperationNames,
-  UpdateOperationNames,
 } = require("./operations");
 const { UpdateExpression } = require("./update");
 const { FilterExpression } = require("./where");
@@ -5817,6 +5816,8 @@ let clauses = {
               const value = updatedKeys[key];
               if (indexKey[key] === undefined) {
                 setFields[key] = value;
+              } else {
+                delete setFields[key];
               }
             }
 
