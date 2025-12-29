@@ -8817,7 +8817,7 @@ class Entity {
     if (isNaN(value) || value < 1) {
       throw new e.ElectroError(
         e.ErrorCodes.InvalidConcurrencyOption,
-        "Query option 'concurrency' must be of type 'number' and greater than zero.",
+        "Query option 'concurrent' must be of type 'number' and greater than zero.",
       );
     }
     return value;
@@ -9552,7 +9552,10 @@ class Entity {
 
   _batchGetParams(state, config = {}) {
     let table = config.table || this.getTableName();
-    let userDefinedParams = config.params || {};
+    let userDefinedParams = this._applyProjectionExpressions({
+      parameters: config.params || {},
+      config,
+    });
 
     // TableName is added when the config provided includes "table"
     // this is evaluated upstream so we remove it to avoid forming
@@ -11198,8 +11201,9 @@ class Entity {
           this.model.facets.labels[index] &&
           Array.isArray(this.model.facets.labels[index].sk);
         let labels = hasLabels ? this.model.facets.labels[index].sk : [];
+        const hasFacets = Object.keys(skFacet).length > 0;
         let sortKey = this._makeKey(prefixes.sk, facets.sk, skFacet, labels, {
-          excludeLabelTail: true,
+          excludeLabelTail: hasFacets,
           excludePostfix,
           transform,
         });
