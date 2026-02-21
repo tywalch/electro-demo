@@ -2,7 +2,13 @@
 
 set -e
 
-checkRepoIsReady() {
+checkRepoIsReady() {\
+  git branch --show-current | grep -q '^master$'
+  if [ $? -eq 0 ]; then
+    echo "Repository is on the master branch"
+    exit 1
+  fi
+
   git status --porcelain | grep -q '^'
   if [ $? -eq 0 ]; then
     echo "Repository has uncommitted changes"
