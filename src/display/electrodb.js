@@ -5371,6 +5371,72 @@ const v = require("./validations");
 const e = require("./errors");
 const u = require("./util");
 
+function handleNonIsolatedCollection(
+  entity,
+  state,
+  collection = "",
+  facets /* istanbul ignore next */ = {},
+) {
+  if (state.getError() !== null) {
+    return state;
+  }
+  try {
+    const { pk, sk } = state.getCompositeAttributes();
+    return state
+      .setMethod(MethodTypes.query)
+      .setCollection(collection)
+      .setPK(entity._expectFacets(facets, pk))
+      .ifSK(() => {
+        const { composites, unused } = state.identifyCompositeAttributes(
+          facets,
+          sk,
+          pk,
+        );
+        state.setSK(composites);
+        state.beforeBuildParams(({ options, state }) => {
+          const accessPattern =
+            entity.model.translations.indexes.fromIndexToAccessPattern[
+              state.query.index
+            ];
+
+          if (
+            options.compare === ComparisonTypes.attributes ||
+            options.compare === ComparisonTypes.v2
+          ) {
+            if (
+              !entity.model.indexes[accessPattern].sk.isFieldRef &&
+              sk.length > 1
+            ) {
+              state.filterProperties(FilterOperationNames.eq, {
+                ...unused,
+                ...composites,
+              });
+            }
+          }
+        });
+      })
+      .whenOptions(({ options, state }) => {
+        if (!options.ignoreOwnership && !state.getParams()) {
+          state.query.options.expressions.names = {
+            ...state.query.options.expressions.names,
+            ...state.query.options.identifiers.names,
+          };
+          state.query.options.expressions.values = {
+            ...state.query.options.expressions.values,
+            ...state.query.options.identifiers.values,
+          };
+          state.query.options.expressions.expression =
+            state.query.options.expressions.expression.length > 1
+              ? `(${state.query.options.expressions.expression}) AND ${state.query.options.identifiers.expression}`
+              : `${state.query.options.identifiers.expression}`;
+        }
+      });
+  } catch (err) {
+    state.setError(err);
+    return state;
+  }
+}
+
 const methodChildren = {
   upsert: [
     "upsertSet",
@@ -5435,6 +5501,7 @@ let clauses = {
       "scan",
       "collection",
       "clusteredCollection",
+      "compositeCollection",
       "create",
       "remove",
       "patch",
@@ -5442,6 +5509,23 @@ let clauses = {
       "batchDelete",
       "batchGet",
     ],
+  },
+  compositeCollection: {
+    name: "compositeCollection",
+    action(
+      entity,
+      state,
+      collection = "",
+      facets /* istanbul ignore next */ = {},
+    ) {
+      return handleNonIsolatedCollection(
+        entity,
+        state.setType(QueryTypes.composite_collection),
+        collection,
+        facets,
+      );
+    },
+    children: ["between", "gte", "gt", "lte", "lt", "begins", "params", "go"],
   },
   clusteredCollection: {
     name: "clusteredCollection",
@@ -5451,65 +5535,12 @@ let clauses = {
       collection = "",
       facets /* istanbul ignore next */ = {},
     ) {
-      if (state.getError() !== null) {
-        return state;
-      }
-      try {
-        const { pk, sk } = state.getCompositeAttributes();
-        return state
-          .setType(QueryTypes.clustered_collection)
-          .setMethod(MethodTypes.query)
-          .setCollection(collection)
-          .setPK(entity._expectFacets(facets, pk))
-          .ifSK(() => {
-            const { composites, unused } = state.identifyCompositeAttributes(
-              facets,
-              sk,
-              pk,
-            );
-            state.setSK(composites);
-            state.beforeBuildParams(({ options, state }) => {
-              const accessPattern =
-                entity.model.translations.indexes.fromIndexToAccessPattern[
-                  state.query.index
-                ];
-
-              if (
-                options.compare === ComparisonTypes.attributes ||
-                options.compare === ComparisonTypes.v2
-              ) {
-                if (
-                  !entity.model.indexes[accessPattern].sk.isFieldRef &&
-                  sk.length > 1
-                ) {
-                  state.filterProperties(FilterOperationNames.eq, {
-                    ...unused,
-                    ...composites,
-                  });
-                }
-              }
-            });
-          })
-          .whenOptions(({ options, state }) => {
-            if (!options.ignoreOwnership && !state.getParams()) {
-              state.query.options.expressions.names = {
-                ...state.query.options.expressions.names,
-                ...state.query.options.identifiers.names,
-              };
-              state.query.options.expressions.values = {
-                ...state.query.options.expressions.values,
-                ...state.query.options.identifiers.values,
-              };
-              state.query.options.expressions.expression =
-                state.query.options.expressions.expression.length > 1
-                  ? `(${state.query.options.expressions.expression}) AND ${state.query.options.identifiers.expression}`
-                  : `${state.query.options.identifiers.expression}`;
-            }
-          });
-      } catch (err) {
-        state.setError(err);
-        return state;
-      }
+      return handleNonIsolatedCollection(
+        entity,
+        state.setType(QueryTypes.clustered_collection),
+        collection,
+        facets,
+      );
     },
     children: ["between", "gte", "gt", "lte", "lt", "begins", "params", "go"],
   },
@@ -7457,7 +7488,7 @@ const {
   IndexProjectionOptions,
 } = require("./types");
 const { FilterFactory } = require("./filters");
-const { FilterOperations, formatExpressionName } = require("./operations");
+const { FilterOperations, ExpressionState, formatExpressionName } = require("./operations");
 const { WhereFactory } = require("./where");
 const { clauses, ChainState } = require("./clauses");
 const { EventManager } = require("./events");
@@ -7736,6 +7767,8 @@ class Entity {
     const chain = this._makeChain(index, clauses, clauses.index, chainOptions);
     if (options.indexType === IndexTypes.clustered) {
       return chain.clusteredCollection(collection, facets);
+    } else if (options.indexType === IndexTypes.composite) {
+      return chain.compositeCollection(collection, facets);
     } else {
       return chain.collection(collection, facets);
     }
@@ -7856,21 +7889,19 @@ class Entity {
   }
 
   async transactWrite(parameters, config) {
-    let response = await this._exec(
+    return this._exec(
       MethodTypes.transactWrite,
       parameters,
       config,
     );
-    return response;
   }
 
   async transactGet(parameters, config) {
-    let response = await this._exec(
+    return this._exec(
       MethodTypes.transactGet,
       parameters,
       config,
     );
-    return response;
   }
 
   async go(method, parameters = {}, config = {}) {
@@ -8459,12 +8490,13 @@ class Entity {
     let keys = {};
     const secondaryIndexStrictMode =
       options.strict === "all" || options.strict === "pk" ? "pk" : "none";
-    for (const { index } of Object.values(this.model.indexes)) {
+    for (const index of Object.values(this.model.indexes)) {
+      const indexName = index.index;
       const indexKeys = this._fromCompositeToKeysByIndex(
-        { indexName: index, provided },
+        { indexName, provided },
         {
           strict:
-            index === TableIndex ? options.strict : secondaryIndexStrictMode,
+            indexName === TableIndex ? options.strict : secondaryIndexStrictMode,
         },
       );
       if (indexKeys) {
@@ -8648,20 +8680,27 @@ class Entity {
   ) {
     let allKeys = {};
 
-    const indexKeys = this._deconstructIndex({
-      index: indexName,
-      keys: provided,
-    });
-    if (!indexKeys) {
-      throw new e.ElectroError(
-        e.ErrorCodes.InvalidConversionKeysProvided,
-        `Provided keys did not include valid properties for the index "${indexName}"`,
-      );
+    if (this._getIndexType(indexName) === IndexTypes.composite) {
+      const item = this.model.schema.translateFromFields(provided);
+      allKeys = {
+        ...this._findFacets(item, this.model.facets.byIndex[indexName].pk),
+        ...this._findFacets(item, this.model.facets.byIndex[indexName].sk),
+      }
+    } else {
+      const indexKeys = this._deconstructIndex({
+        index: indexName,
+        keys: provided,
+      });
+      if (!indexKeys) {
+        throw new e.ElectroError(
+          e.ErrorCodes.InvalidConversionKeysProvided,
+          `Provided keys did not include valid properties for the index "${indexName}"`,
+        );
+      }
+      allKeys = {
+        ...indexKeys,
+      };
     }
-
-    allKeys = {
-      ...indexKeys,
-    };
 
     let tableKeys;
     if (indexName !== TableIndex) {
@@ -8707,9 +8746,16 @@ class Entity {
     );
   }
 
+  _getIndexType(indexName) {
+    return this.model.facets.byIndex[indexName].type;
+  }
+
   _trimKeysToIndex({ indexName = TableIndex, provided }) {
     if (!provided) {
       return null;
+    }
+    if (this.model.facets.byIndex[indexName].type === IndexTypes.composite) {
+      return provided;
     }
 
     const pkName = this.model.translations.keys[indexName].pk;
@@ -8739,13 +8785,17 @@ class Entity {
       );
     }
 
-    const pkName = this.model.translations.keys[indexName].pk;
-    const skName = this.model.translations.keys[indexName].sk;
-
-    return (
-      provided[pkName] !== undefined &&
-      (!skName || provided[skName] !== undefined)
-    );
+    if (this._getIndexType(indexName) === IndexTypes.composite) {
+      const item = this.model.schema.translateFromFields(provided);
+      return this.model.facets.byIndex[indexName].pk.every((attr) => item[attr] !== undefined);
+    } else {
+      const pkName = this.model.translations.keys[indexName].pk;
+      const skName = this.model.translations.keys[indexName].sk;
+      return (
+        provided[pkName] !== undefined &&
+        (!skName || provided[skName] !== undefined)
+      );
+    }
   }
 
   _formatReturnPager(config, lastEvaluatedKey) {
@@ -9009,11 +9059,18 @@ class Entity {
 
   _constructPagerIndex(index = TableIndex, item, options = {}) {
     let pkAttributes = options.relaxedPk
-      ? item
+      ? this._findFacets(item, this.model.facets.byIndex[index].pk)
       : this._expectFacets(item, this.model.facets.byIndex[index].pk);
     let skAttributes = options.relaxedSk
-      ? item
+      ? this._findFacets(item, this.model.facets.byIndex[index].sk)
       : this._expectFacets(item, this.model.facets.byIndex[index].sk);
+
+    if (this._getIndexType(index) === IndexTypes.composite) {
+      return this.model.schema.translateToFields({
+        ...pkAttributes,
+        ...skAttributes,
+      });
+    }
 
     let keys = this._makeIndexKeys({
       index,
@@ -9681,20 +9738,20 @@ class Entity {
     return key;
   }
 
-  getIdentifierExpressions(alias = this.getName()) {
-    let name = this.getName();
-    let version = this.getVersion();
-    return {
-      names: {
-        [`#${this.identifiers.entity}`]: this.identifiers.entity,
-        [`#${this.identifiers.version}`]: this.identifiers.version,
-      },
-      values: {
-        [`:${this.identifiers.entity}_${alias}`]: name,
-        [`:${this.identifiers.version}_${alias}`]: version,
-      },
-      expression: `(#${this.identifiers.entity} = :${this.identifiers.entity}_${alias} AND #${this.identifiers.version} = :${this.identifiers.version}_${alias})`,
-    };
+  applyIdentifierExpressionState(expressionState, alias) {
+    const name = this.getName();
+    const version = this.getVersion();
+    const nameRef = expressionState.setName({}, this.identifiers.entity, this.identifiers.entity);
+    const versionRef = expressionState.setName({}, this.identifiers.version, this.identifiers.version);
+    const nameVal = expressionState.setValue(
+      `${this.identifiers.entity}_${alias || name}`,
+      name,
+    );
+    const versionVal = expressionState.setValue(
+      `${this.identifiers.version}_${alias || name}`,
+      version,
+    );
+    return `(${nameRef.expression} = ${nameVal} AND ${versionRef.expression} = ${versionVal})`;
   }
 
   /* istanbul ignore next */
@@ -10106,7 +10163,7 @@ class Entity {
     }
     expressions.UpdateExpression = `${operation.toUpperCase()} ${expressions.UpdateExpression.join(
       ", ",
-    )}`;
+    )}`.trim();
     return expressions;
   }
 
@@ -10133,61 +10190,236 @@ class Entity {
     }
   }
 
-  /* istanbul ignore next */
-  _queryParams(state = {}, options = {}) {
-    const indexKeys = this._makeQueryKeys(state, options);
-    let parameters = {};
+
+  _compositeQueryParams(state = {}, options = {}) {
+    // todo: review "_consolidateQueryFacets"
+    const consolidated = this._consolidateQueryFacets(
+      state.query.keys.sk,
+    ) || [];
+
+    const pkAttributes = state.query.keys.pk;
+    const skAttributes = consolidated[0] || {};
+
+    // provided has length, isArray?
+    const provided = state.query.keys.provided;
+    const all = state.query.facets.all || [];
+    const queryType = state.query.type;
+    const expressionState = new ExpressionState({ prefix: "k_" });
+
+    const expressions = [];
+    if (queryType === QueryTypes.between) {
+      for (const [name, value] of Object.entries(pkAttributes)) {
+        const field = this.model.schema.getFieldName(name);
+        const nameRef = expressionState.setName({}, name, field);
+        const valueRef = expressionState.setValue(name, value);
+        expressions.push(`${nameRef.expression} = ${valueRef}`);
+      }
+      let is = {}
+      let start = {}
+      let end = {};
+      (state.query.keys.sk || []).forEach(({type, facets}) => {
+        if (type === QueryTypes.is || type === QueryTypes.composite_collection) {
+          is = facets;
+        } else if (type === QueryTypes.between) {
+          start = facets;
+        } else if (type === QueryTypes.and) {
+          end = facets;
+        } else {
+          // todo: improve error handling
+          throw new Error('Internal error: Invalid sort key type in composite between query');
+        }
+      });
+
+      let lastFound;
+      const skNames = state.query.facets.sk || [];
+      for (const name of skNames) {
+        if (is[name] !== undefined) {
+          lastFound = name;
+        } else if (start[name] !== undefined && end[name] !== undefined) {
+          lastFound = name;
+        } else if (start[name] !== undefined || end[name] !== undefined) {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidQueryParameters,
+            `Invalid attribute combination provided to between query. Between queries on composite indexes must have the same attribute for start and end values until the last sort key attribute. The provided attribute ${name} is missing ${start[name] !== undefined ? 'an end' : 'a start'} value. This is a DynamoDB constraint.`
+          );
+        } else {
+          break;
+        }
+      }
+
+      for (let i = 0; i < skNames.length; i++) {
+        const name = skNames[i];
+        if (lastFound === name) {
+          const startValue = start[name];
+          const endValue = end[name];
+          const field = this.model.schema.getFieldName(name);
+          const nameRef = expressionState.setName({}, name, field);
+          const startValueRef = expressionState.setValue(name, startValue);
+          const endValueRef = expressionState.setValue(name, endValue);
+          expressions.push(`${nameRef.expression} BETWEEN ${startValueRef} AND ${endValueRef}`);
+        } else if (is[name] !== undefined) {
+          const value = is[name];
+          const field = this.model.schema.getFieldName(name);
+          const nameRef = expressionState.setName({}, name, field);
+          const valueRef = expressionState.setValue(name, value);
+          expressions.push(`${nameRef.expression} = ${valueRef}`);
+        } else if (start[name] !== undefined && end[name] !== undefined) {
+          if (start[name] !== end[name]) {
+            throw new e.ElectroError(
+              e.ErrorCodes.InvalidQueryParameters,
+              `Invalid attribute combination provided to between query. Between queries on composite indexes must have the same attribute for start and end values until the last sort key attribute. The provided attribute ${name} has different start and end values. This is a DynamoDB constraint.`
+            );
+          }
+          const value = start[name];
+          const field = this.model.schema.getFieldName(name);
+          const nameRef = expressionState.setName({}, name, field);
+          const valueRef = expressionState.setValue(name, value);
+          expressions.push(`${nameRef.expression} = ${valueRef}`);
+        }
+      }
+    } else {
+      const attrs = [];
+      for (const { type, name } of all) {
+        const value = type === "pk" ? pkAttributes[name] : skAttributes[name];
+        if (value === undefined) {
+          break;
+        }
+        attrs.push({type, name, value});
+      }
+      for (let i = 0; i < attrs.length; i++) {
+        const { type, name, value } = attrs[i];
+        const field = this.model.schema.getFieldName(name);
+        const nameRef = expressionState.setName({}, name, field);
+        const valueRef = expressionState.setValue(name, value);
+        const shouldApplyEq = !(type === "sk" && i === attrs.length - 1)
+        if (shouldApplyEq) {
+          expressions.push(`${nameRef.expression} = ${valueRef}`);
+          continue;
+        }
+        switch (queryType) {
+          case QueryTypes.is:
+          case QueryTypes.eq:
+          case QueryTypes.collection:
+          case QueryTypes.composite_collection:
+            expressions.push(`${nameRef.expression} = ${valueRef}`);
+            break;
+          case QueryTypes.begins:
+            expressions.push(`begins_with(${nameRef.expression}, ${valueRef})`);
+            break;
+          case QueryTypes.gt:
+            expressions.push(`${nameRef.expression} > ${valueRef}`);
+            break;
+          case QueryTypes.gte:
+            expressions.push(`${nameRef.expression} >= ${valueRef}`);
+            break;
+          case QueryTypes.lt:
+            expressions.push(`${nameRef.expression} < ${valueRef}`);
+            break;
+          case QueryTypes.lte:
+            expressions.push(`${nameRef.expression} <= ${valueRef}`);
+            break;
+          case QueryTypes.between: {
+            const second = consolidated[consolidated.length - 1];
+            const value2 = second[name];
+            const valueRef2 = expressionState.setValue(name, value2);
+            expressions.push(`${nameRef.expression} BETWEEN ${valueRef} AND ${valueRef2}`);
+            break;
+          }
+          // todo: clean up here
+          case QueryTypes.clustered_collection:
+          default:
+            // todo: improve error handling
+            throw new Error('Not supported')
+        }
+      }
+    }
+
+    const filter = state.query.filter[ExpressionTypes.FilterExpression];
+    const customExpressions = {
+      names: (state.query.options.expressions && state.query.options.expressions.names) || {},
+      values: (state.query.options.expressions && state.query.options.expressions.values) || {},
+      expression: (state.query.options.expressions && state.query.options.expressions.expression) || "",
+    };
+
+    // identifiers are added via custom expressions on collection queries inside `clauses/handleNonIsolatedCollection`
+    // Don't duplicate filters if they are provided.
+    const identifierExpression = !options.ignoreOwnership && !customExpressions.expression ? this.applyIdentifierExpressionState(expressionState) : '';
+
+    const params = {
+      IndexName: state.query.index,
+      KeyConditionExpression: expressions.join(' AND '),
+      TableName: this.getTableName(),
+      ExpressionAttributeNames: this._mergeExpressionsAttributes(
+        filter.getNames(),
+        expressionState.getNames(),
+        customExpressions.names,
+      ),
+      ExpressionAttributeValues: this._mergeExpressionsAttributes(
+        filter.getValues(),
+        expressionState.getValues(),
+        customExpressions.values,
+      ),
+    }
+
+    let filerExpressions = [customExpressions.expression || "", filter.build(), identifierExpression]
+      .map(s => s.trim())
+      .filter(Boolean)
+      .join(" AND ");
+
+    if (filerExpressions.length) {
+      params.FilterExpression = filerExpressions;
+    }
+
+    return params;
+  }
+
+  _makeQueryParams(state = {}, options = {}, indexKeys) {
     switch (state.query.type) {
       case QueryTypes.is:
-        parameters = this._makeIsQueryParams(
+        return this._makeIsQueryParams(
           state.query,
           state.query.index,
           state.query.filter[ExpressionTypes.FilterExpression],
           indexKeys.pk,
           ...indexKeys.sk,
         );
-        break;
       case QueryTypes.begins:
-        parameters = this._makeBeginsWithQueryParams(
+        return this._makeBeginsWithQueryParams(
           state.query.options,
           state.query.index,
           state.query.filter[ExpressionTypes.FilterExpression],
           indexKeys.pk,
           ...indexKeys.sk,
         );
-        break;
       case QueryTypes.collection:
-        parameters = this._makeBeginsWithQueryParams(
+        return this._makeBeginsWithQueryParams(
           state.query.options,
           state.query.index,
           state.query.filter[ExpressionTypes.FilterExpression],
           indexKeys.pk,
           this._getCollectionSk(state.query.collection),
         );
-        break;
       case QueryTypes.clustered_collection:
-        parameters = this._makeBeginsWithQueryParams(
+        return this._makeBeginsWithQueryParams(
           state.query.options,
           state.query.index,
           state.query.filter[ExpressionTypes.FilterExpression],
           indexKeys.pk,
           ...indexKeys.sk,
         );
-        break;
       case QueryTypes.between:
-        parameters = this._makeBetweenQueryParams(
+        return this._makeBetweenQueryParams(
           state.query.options,
           state.query.index,
           state.query.filter[ExpressionTypes.FilterExpression],
           indexKeys.pk,
           ...indexKeys.sk,
         );
-        break;
       case QueryTypes.gte:
       case QueryTypes.gt:
       case QueryTypes.lte:
       case QueryTypes.lt:
-        parameters = this._makeComparisonQueryParams(
+        return this._makeComparisonQueryParams(
           state.query.index,
           state.query.type,
           state.query.filter[ExpressionTypes.FilterExpression],
@@ -10195,9 +10427,19 @@ class Entity {
           options,
           state.query.options,
         );
-        break;
       default:
         throw new Error(`Invalid query type: ${state.query.type}`);
+    }
+  }
+
+  /* istanbul ignore next */
+  _queryParams(state = {}, options = {}) {
+    const indexKeys = this._makeQueryKeys(state, options);
+    let parameters;
+    if (state.query.options.indexType !== IndexTypes.composite) {
+      parameters = this._makeQueryParams(state, options, indexKeys);
+    } else {
+      parameters = this._compositeQueryParams(state, options);
     }
 
     const appliedParameters = this._applyParameterOptions({
@@ -10488,8 +10730,12 @@ class Entity {
   _makeKeysFromAttributes(indexes, attributes, conditions) {
     let indexKeys = {};
     for (let [index, keyTypes] of Object.entries(indexes)) {
+      if (this.model.lookup.compositeIndexes.has(index)) {
+        continue;
+      }
+
       const shouldMakeKeys =
-        !this._indexConditionIsDefined(index) || conditions[index];
+        (!this._indexConditionIsDefined(index) || conditions[index]);
       if (!shouldMakeKeys && index !== TableIndex) {
         continue;
       }
@@ -10709,6 +10955,11 @@ class Entity {
       if (attributes[attribute] !== undefined) {
         facets[attribute] = attributes[attribute];
         indexes.forEach((definition) => {
+          // composite indexes do not have keys
+          if (definition.type === IndexTypes.composite) {
+            return;
+          }
+
           const { index, type } = definition;
           impactedIndexes[index] = impactedIndexes[index] || {};
           impactedIndexes[index][type] = impactedIndexes[index][type] || [];
@@ -10727,9 +10978,12 @@ class Entity {
 
     // this function is used to determine key impact for update `set`, update `delete`, and `put`. This block is currently only used by update `set`
     if (utilizeIncludedOnlyIndexes) {
-      for (const [index, { pk, sk }] of Object.entries(
+      for (const [index, { pk, sk, type }] of Object.entries(
         this.model.facets.byIndex,
       )) {
+        if (type === IndexTypes.composite) {
+          continue;
+        }
         // The main table index is handled somewhere else (messy I know), and we only want to do this processing if an
         // index condition is defined for backwards compatibility. Backwards compatibility is not required for this
         // change, but I have paranoid concerns of breaking changes around sparse indexes.
@@ -10791,10 +11045,12 @@ class Entity {
       }
     }
 
-    let indexesWithMissingComposites = Object.entries(
-      this.model.facets.byIndex,
-    ).map(([index, definition]) => {
-      const { pk, sk } = definition;
+    let indexesWithMissingComposites = [];
+    for (const [index, definition] of Object.entries(this.model.facets.byIndex)) {
+      const { pk, sk, type  } = definition;
+      if (type === IndexTypes.composite) {
+        continue;
+      }
       let impacted = impactedIndexes[index];
       let impact = {
         index,
@@ -10832,8 +11088,8 @@ class Entity {
         }
       }
 
-      return impact;
-    });
+      indexesWithMissingComposites.push(impact);
+    }
 
     let incomplete = [];
     for (const { index, missing, definition } of indexesWithMissingComposites) {
@@ -10960,7 +11216,11 @@ class Entity {
     }
   }
 
-  _findProperties(obj, properties) {
+  _findFacets(obj, properties) {
+    return Object.fromEntries(this._findProperties(obj, properties));
+  }
+
+  _findProperties(obj, properties = []) {
     return properties.map((name) => [name, obj[name]]);
   }
 
@@ -11131,8 +11391,8 @@ class Entity {
           e.ErrorCodes.IncompatibleKeyCasing,
           `Partition Key (pk) on Access Pattern '${u.formatIndexNameForDisplay(
             tableIndex.index,
-          )}' is defined with the casing ${keys.pk.casing}, but the accessPattern '${u.formatIndexNameForDisplay(
-            previouslyDefinedPk.indexName,
+          )}' is defined with the casing ${keys.pk.casing}, but the Access Pattern '${u.formatIndexNameForDisplay(
+            previouslyDefinedPk.definition.accessPattern,
           )}' defines the same index field with the ${previouslyDefinedPk.definition.casing === DefaultKeyCasing ? '(default)' : ''} casing ${previouslyDefinedPk.definition.casing}. Key fields must have the same casing definitions across all indexes they are involved with.`,
         );
       }
@@ -11147,8 +11407,8 @@ class Entity {
           e.ErrorCodes.IncompatibleKeyCasing,
           `Sort Key (sk) on Access Pattern '${u.formatIndexNameForDisplay(
             tableIndex.index,
-          )}' is defined with the casing ${keys.sk.casing}, but the accessPattern '${u.formatIndexNameForDisplay(
-            previouslyDefinedSk.indexName,
+          )}' is defined with the casing ${keys.sk.casing}, but the Access Pattern '${u.formatIndexNameForDisplay(
+            previouslyDefinedSk.definition.accessPattern,
           )}' defines the same index field with the ${previouslyDefinedSk.definition.casing === DefaultKeyCasing ? '(default)' : ''} casing ${previouslyDefinedSk.definition.casing}. Key fields must have the same casing definitions across all indexes they are involved with.`,
         );
       }
@@ -11256,7 +11516,6 @@ class Entity {
           this.model.facets.labels[index] &&
           Array.isArray(this.model.facets.labels[index].sk);
         let labels = hasLabels ? this.model.facets.labels[index].sk : [];
-        // const hasFacets = Object.keys(skFacet).length > 0;
         let sortKey = this._makeKey(prefixes.sk, facets.sk, skFacet, labels, {
           excludeLabelTail: true,
           excludePostfix,
@@ -11701,6 +11960,7 @@ class Entity {
     let indexHasSortKeys = {};
     let indexHasSubCollections = {};
     let clusteredIndexes = new Set();
+    let compositeIndexes = new Set();
     let indexAccessPatternTransaction = {
       fromAccessPatternToIndex: {},
       fromIndexToAccessPattern: {},
@@ -11744,9 +12004,48 @@ class Entity {
       let conditionDefined = v.isFunction(index.condition);
       let indexCondition = index.condition || (() => true);
 
-      if (indexType === "clustered") {
+      if (indexType === IndexTypes.clustered) {
+        // todo: make contents consistent with "compositeIndexes" below
+        // this is not consistent with "compositeIndexes" (which uses the index name), this should be fixed in the future.
         clusteredIndexes.add(accessPattern);
+      } else if (indexType === IndexTypes.composite) {
+        if (indexName === TableIndex) {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidIndexDefinition,
+            `The Access Pattern "${accessPattern}" cannot be defined as a composite index. AWS DynamoDB does not allow for composite indexes on the main table index.`,
+          );
+        }
+        if (conditionDefined) {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidIndexCondition,
+            `The Access Pattern "${accessPattern}" is defined as a "${indexType}" index, but a condition callback is defined. Composite indexes do not support the use of a condition callback.`,
+          );
+        }
+        if (index.scope !== undefined) {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidIndexCondition,
+            `The Access Pattern "${accessPattern}" is defined as a "${indexType}" index, but a "scope" value was defined. Composite indexes do not support the use of scope.`,
+          );
+        }
+        if (index.pk.field !== undefined || (index.sk && index.sk.field !== undefined)) {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidIndexDefinition,
+            `The Access Pattern "${accessPattern}" is defined as a "${indexType}" index, but the Partition Key or Sort Key is defined with a field property. Composite indexes do not support the use of a field property, their attributes defined in the composite array define the indexes member attributes.`,
+          );
+        }
+        // this is not consistent with "clusteredIndexes" (which uses the access pattern name), but it is more correct given the naming.
+        compositeIndexes.add(indexName);
       }
+
+      if (indexType !== IndexTypes.composite) {
+        if (index.pk.field === undefined || (index.sk && index.sk.field === undefined)) {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidIndexDefinition,
+            `The Access Pattern "${accessPattern}" is defined as a "${indexType}" index, but the Partition Key or Sort Key is defined without a field property. Unless using composite attributes, indexes must be defined with a field property that maps to the field name on the DynamoDB table KeySchema.`,
+          );
+        }
+      }
+
       if (seenIndexes[indexName] !== undefined) {
         if (indexName === TableIndex) {
           throw new e.ElectroError(
@@ -11773,6 +12072,22 @@ class Entity {
           )}', contains a collection definition without a defined SK. Collections can only be defined on indexes with a defined SK.`,
         );
       }
+
+      if (indexType !== IndexTypes.composite) {
+        if (hasSk && index.sk.field === undefined) {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidIndexCompositeAttributes,
+            `The ${accessPattern} Access pattern is defined as a "${indexType}" index, but a Sort Key is defined without a Range Key field mapping.`,
+          );
+        }
+        if (index.pk.field === undefined) {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidIndexCompositeAttributes,
+            `The ${accessPattern} Access pattern is defined as a "${indexType}" index, but a Partition Key is defined without a HasKey field mapping.`,
+          );
+        }
+      }
+
       let collection = index.collection || "";
       let customFacets = {
         pk: false,
@@ -11946,13 +12261,16 @@ class Entity {
       facets.attributes = [...facets.attributes, ...attributes];
       facets.projections = [...facets.projections, ...projections];
 
-      facets.fields.push(pk.field);
+      if (definition.type !== IndexTypes.composite) {
+        facets.fields.push(pk.field);
+      }
 
       facets.byIndex[indexName] = {
         customFacets,
         pk: pk.facets,
         sk: sk.facets,
         all: attributes,
+        type: index.type,
         collection: index.collection,
         hasSortKeys: !!indexHasSortKeys[indexName],
         hasSubCollections: !!indexHasSubCollections[indexName],
@@ -11962,110 +12280,111 @@ class Entity {
         },
       };
 
-      facets.byField = facets.byField || {};
-      facets.byField[pk.field] = facets.byField[pk.field] || {};
-      facets.byField[pk.field][indexName] = pk;
-      if (sk.field) {
-        facets.byField[sk.field] = facets.byField[sk.field] || {};
-        facets.byField[sk.field][indexName] = sk;
-      }
-
-      if (seenIndexFields[pk.field] !== undefined) {
-        const definition = Object.values(facets.byField[pk.field]).find(
-          (definition) => definition.index !== indexName,
-        );
-
-        const definitionsMatch = validations.stringArrayMatch(
-          pk.facets,
-          definition.facets,
-        );
-
-        if (!definitionsMatch) {
-          throw new e.ElectroError(
-            e.ErrorCodes.InconsistentIndexDefinition,
-            `Partition Key (pk) on Access Pattern '${u.formatIndexNameForDisplay(
-              accessPattern,
-            )}' is defined with the composite attribute(s) ${u.commaSeparatedString(
-              pk.facets,
-            )}, but the accessPattern '${u.formatIndexNameForDisplay(
-              definition.index,
-            )}' defines this field with the composite attributes ${u.commaSeparatedString(
-              definition.facets,
-            )}'. Key fields must have the same composite attribute definitions across all indexes they are involved with`,
-          );
+      if (definition.type !== IndexTypes.composite) {
+        facets.byField = facets.byField || {};
+        facets.byField[pk.field] = facets.byField[pk.field] || {};
+        facets.byField[pk.field][indexName] = pk;
+        if (sk.field) {
+          facets.byField[sk.field] = facets.byField[sk.field] || {};
+          facets.byField[sk.field][indexName] = sk;
         }
 
-        const keyTemplatesMatch = pk.template === definition.template
-
-        if (!keyTemplatesMatch) {
-          throw new e.ElectroError(
-            e.ErrorCodes.IncompatibleKeyCompositeAttributeTemplate,
-            `Partition Key (pk) on Access Pattern '${u.formatIndexNameForDisplay(
-              accessPattern,
-            )}' is defined with the template ${pk.template || '(undefined)'}, but the accessPattern '${u.formatIndexNameForDisplay(
-              definition.index,
-            )}' defines this field with the key labels ${definition.template || '(undefined)'}'. Key fields must have the same template definitions across all indexes they are involved with`,
-          );
-        }
-
-        seenIndexFields[pk.field].push({ accessPattern, type: "pk" });
-      } else {
-        seenIndexFields[pk.field] = [];
-        seenIndexFields[pk.field].push({ accessPattern, type: "pk" });
-      }
-
-      if (sk.field) {
-        if (sk.field === pk.field) {
-          throw new e.ElectroError(
-            e.ErrorCodes.DuplicateIndexFields,
-            `The Access Pattern '${u.formatIndexNameForDisplay(
-              accessPattern,
-            )}' references the field '${
-              sk.field
-            }' as the field name for both the PK and SK. Fields used for indexes need to be unique to avoid conflicts.`,
-          );
-        } else if (seenIndexFields[sk.field] !== undefined) {
-          const definition = Object.values(facets.byField[sk.field]).find(
+        if (seenIndexFields[pk.field] !== undefined) {
+          const definition = Object.values(facets.byField[pk.field]).find(
             (definition) => definition.index !== indexName,
           );
 
           const definitionsMatch = validations.stringArrayMatch(
-            sk.facets,
+            pk.facets,
             definition.facets,
-          )
-
+          );
           if (!definitionsMatch) {
             throw new e.ElectroError(
-              e.ErrorCodes.DuplicateIndexFields,
-              `Sort Key (sk) on Access Pattern '${u.formatIndexNameForDisplay(
+              e.ErrorCodes.InconsistentIndexDefinition,
+              `Partition Key (pk) on Access Pattern '${u.formatIndexNameForDisplay(
                 accessPattern,
               )}' is defined with the composite attribute(s) ${u.commaSeparatedString(
-                sk.facets,
-              )}, but the accessPattern '${u.formatIndexNameForDisplay(
-                definition.index,
+                pk.facets,
+              )}, but the Access Pattern '${u.formatIndexNameForDisplay(
+                definition.accessPattern,
               )}' defines this field with the composite attributes ${u.commaSeparatedString(
                 definition.facets,
               )}'. Key fields must have the same composite attribute definitions across all indexes they are involved with`,
             );
           }
 
-          const keyTemplatesMatch = sk.template === definition.template
+          const keyTemplatesMatch = pk.template === definition.template
 
           if (!keyTemplatesMatch) {
             throw new e.ElectroError(
               e.ErrorCodes.IncompatibleKeyCompositeAttributeTemplate,
-              `Sort Key (sk) on Access Pattern '${u.formatIndexNameForDisplay(
+              `Partition Key (pk) on Access Pattern '${u.formatIndexNameForDisplay(
                 accessPattern,
-              )}' is defined with the template ${sk.template || '(undefined)'}, but the accessPattern '${u.formatIndexNameForDisplay(
-                definition.index,
+              )}' is defined with the template ${pk.template || '(undefined)'}, but the Access Pattern '${u.formatIndexNameForDisplay(
+                definition.accessPattern,
               )}' defines this field with the key labels ${definition.template || '(undefined)'}'. Key fields must have the same template definitions across all indexes they are involved with`,
             );
           }
 
-          seenIndexFields[sk.field].push({ accessPattern, type: "sk" });
+          seenIndexFields[pk.field].push({ accessPattern, type: "pk" });
         } else {
-          seenIndexFields[sk.field] = [];
-          seenIndexFields[sk.field].push({ accessPattern, type: "sk" });
+          seenIndexFields[pk.field] = [];
+          seenIndexFields[pk.field].push({ accessPattern, type: "pk" });
+        }
+
+        if (sk.field) {
+          if (sk.field === pk.field) {
+            throw new e.ElectroError(
+              e.ErrorCodes.DuplicateIndexFields,
+              `The Access Pattern '${u.formatIndexNameForDisplay(
+                accessPattern,
+              )}' references the field '${
+                sk.field
+              }' as the field name for both the PK and SK. Fields used for indexes need to be unique to avoid conflicts.`,
+            );
+          } else if (seenIndexFields[sk.field] !== undefined) {
+            const definition = Object.values(facets.byField[sk.field]).find(
+              (definition) => definition.index !== indexName,
+            );
+
+            const definitionsMatch = validations.stringArrayMatch(
+              sk.facets,
+              definition.facets,
+            )
+
+            if (!definitionsMatch) {
+              throw new e.ElectroError(
+                e.ErrorCodes.DuplicateIndexFields,
+                `Sort Key (sk) on Access Pattern '${u.formatIndexNameForDisplay(
+                  accessPattern,
+                )}' is defined with the composite attribute(s) ${u.commaSeparatedString(
+                  sk.facets,
+                )}, but the Access Pattern '${u.formatIndexNameForDisplay(
+                  definition.accessPattern,
+                )}' defines this field with the composite attributes ${u.commaSeparatedString(
+                  definition.facets,
+                )}'. Key fields must have the same composite attribute definitions across all indexes they are involved with`,
+              );
+            }
+
+            const keyTemplatesMatch = sk.template === definition.template
+
+            if (!keyTemplatesMatch) {
+              throw new e.ElectroError(
+                e.ErrorCodes.IncompatibleKeyCompositeAttributeTemplate,
+                `Sort Key (sk) on Access Pattern '${u.formatIndexNameForDisplay(
+                  accessPattern,
+                )}' is defined with the template ${sk.template || '(undefined)'}, but the Access Pattern '${u.formatIndexNameForDisplay(
+                  definition.accessPattern,
+                )}' defines this field with the key labels ${definition.template || '(undefined)'}'. Key fields must have the same template definitions across all indexes they are involved with`,
+              );
+            }
+
+            seenIndexFields[sk.field].push({ accessPattern, type: "sk" });
+          } else {
+            seenIndexFields[sk.field] = [];
+            seenIndexFields[sk.field].push({ accessPattern, type: "sk" });
+          }
         }
       }
 
@@ -12137,6 +12456,7 @@ class Entity {
       subCollections,
       indexHasSortKeys,
       clusteredIndexes,
+      compositeIndexes,
       indexHasSubCollections,
       indexes: normalized,
       indexField: indexFieldTranslation,
@@ -12342,6 +12662,7 @@ class Entity {
       subCollections,
       indexCollection,
       clusteredIndexes,
+      compositeIndexes,
       indexHasSortKeys,
       indexAccessPattern,
       indexHasSubCollections,
@@ -12415,6 +12736,7 @@ class Entity {
       modelVersion,
       subCollections,
       lookup: {
+        compositeIndexes,
         clusteredIndexes,
         indexHasSortKeys,
         indexHasSubCollections,
@@ -12642,34 +12964,40 @@ const ErrorCodes = {
     name: "IncompatibleKeyCasing",
     sym: ErrorCode,
   },
-  InvalidClientProvided: {
-    code: 1021,
-    section: "invalid-client-provided",
-    name: "InvalidClientProvided",
-    sym: ErrorCode,
-  },
-  InconsistentIndexDefinition: {
-    code: 1022,
-    section: "inconsistent-index-definition",
-    name: "Inconsistent Index Definition",
-    sym: ErrorCode,
-  },
   InvalidListenerProvided: {
-    code: 1023,
+    code: 1021,
     section: "invalid-listener-provided",
     name: "InvalidListenerProvided",
     sym: ErrorCode,
   },
   InvalidLoggerProvided: {
+    code: 1022,
+    section: "invalid-logger-provided",
+    name: "InvalidLoggerProvided",
+    sym: ErrorCode,
+  },
+  InvalidClientProvided: {
+    code: 1023,
+    section: "invalid-client-provided",
+    name: "InvalidClientProvided",
+    sym: ErrorCode,
+  },
+  InconsistentIndexDefinition: {
     code: 1024,
-    section: "invalid-listener-provided",
-    name: "InvalidListenerProvided",
+    section: "inconsistent-index-definition",
+    name: "Inconsistent Index Definition",
     sym: ErrorCode,
   },
   InvalidProjectionDefinition: {
     code: 1025,
     section: "invalid-projection-definition",
     name: "InvalidProjectionDefinition",
+    sym: ErrorCode,
+  },
+  InvalidIndexDefinition: {
+    code: 1026,
+    section: "invalid-index-definition",
+    name: "InvalidIndexDefinition",
     sym: ErrorCode,
   },
   MissingAttribute: {
@@ -12742,6 +13070,12 @@ const ErrorCodes = {
     code: 2012,
     section: "invalid-index-composite-attributes-provided",
     name: "IncompleteIndexCompositesAttributesProvided",
+    sym: ErrorCode,
+  },
+  InvalidQueryParameters: {
+    code: 2013,
+    section: "invalid-query-parameters",
+    name: "InvalidQueryParameters",
     sym: ErrorCode,
   },
   InvalidAttribute: {
@@ -13338,9 +13672,9 @@ class ExpressionState {
   }
 
   setValue(name, value) {
-    name = this.formatName(name);
-    let valueCount = this.incrementName(name);
-    let expression = `:${name}${valueCount}`;
+    const formated = this.formatName(name);
+    let valueCount = this.incrementName(formated);
+    let expression = `:${formated}${valueCount}`;
     this.values[expression] = value;
     return expression;
   }
@@ -15564,7 +15898,7 @@ const {
   DataOptions, IndexProjectionOptions,
 } = require("./types");
 const { FilterFactory } = require("./filters");
-const { FilterOperations } = require("./operations");
+const { FilterOperations, ExpressionState } = require("./operations");
 const { WhereFactory } = require("./where");
 const v = require("./validations");
 const c = require("./client");
@@ -15827,9 +16161,11 @@ class Service {
 
     this.entities[name] = entity;
     for (let collection of this.entities[name].model.collections) {
-      // todo: this used to be inside the collection callback, it does not do well being ran multiple times
-      // this forlook adds the entity filters multiple times
-      this._addCollectionEntity(collection, name, this.entities[name]);
+      this._addCollectionEntity(
+        collection,
+        name,
+        this.entities[name],
+      );
       this.collections[collection] = (...facets) => {
         return this._makeCollectionChain(
           {
@@ -16207,7 +16543,10 @@ class Service {
       );
     }
 
-    if (definition.type === "clustered") {
+    if (
+      definition.type === IndexTypes.clustered ||
+      definition.type === IndexTypes.composite
+    ) {
       for (
         let i = 0;
         i <
@@ -16481,11 +16820,12 @@ class Service {
 
     if (
       providedSubCollections.length > 1 &&
-      providedType === IndexTypes.clustered
+      (providedType === IndexTypes.clustered ||
+        providedType === IndexTypes.composite)
     ) {
       throw new e.ElectroError(
         e.ErrorCodes.InvalidJoin,
-        `Clustered indexes do not support sub-collections. The sub-collection "${collectionName}", on Entity "${entityName}" must be defined as either an individual collection name or the index must be redefined as an isolated cluster`,
+        `"${providedType}" indexes do not support sub-collections. The sub-collection "${collectionName}", on Entity "${entityName}" must be defined as either an individual collection name or the index must be redefined as an "${IndexTypes.isolated}" index`,
       );
     }
     const existingRequiredIndex =
@@ -16545,7 +16885,11 @@ class Service {
     }
   }
 
-  _addCollectionEntity(collection = "", name = "", entity = {}) {
+  _addCollectionEntity(
+    collection = "",
+    name = "",
+    entity = {},
+  ) {
     let providedIndex = this._getEntityIndexFromCollectionName(
       collection,
       entity,
@@ -16555,11 +16899,7 @@ class Service {
       entities: {},
       keys: {},
       attributes: {},
-      identifiers: {
-        names: {},
-        values: {},
-        expression: "",
-      },
+      identifiers: new ExpressionState({ prefix: "_c" }),
       index: undefined,
       table: "",
       collection: [],
@@ -16608,10 +16948,12 @@ class Service {
         this.collectionSchema[collection].keys,
       );
     this.collectionSchema[collection].entities[name] = entity;
+
     this.collectionSchema[collection].identifiers =
       this._processEntityIdentifiers(
         this.collectionSchema[collection].identifiers,
-        entity.getIdentifierExpressions(name),
+        name,
+        entity,
       );
     this.collectionSchema[collection].index =
       this._processEntityCollectionIndex(
@@ -16652,20 +16994,16 @@ class Service {
     }
   }
 
-  _processEntityIdentifiers(existing = {}, { names, values, expression } = {}) {
-    let identifiers = {};
-    if (names) {
-      identifiers.names = Object.assign({}, existing.names, names);
-    }
-    if (values) {
-      identifiers.values = Object.assign({}, existing.values, values);
-    }
+  _processEntityIdentifiers(state, alias, entity) {
+    const expression = entity.applyIdentifierExpressionState(state, alias);
     if (expression) {
-      identifiers.expression = [existing.expression, expression]
+      const combined = [state.getExpression().trim(), expression.trim()]
         .filter(Boolean)
         .join(" OR ");
+      state.setExpression(combined);
     }
-    return identifiers;
+
+    return state;
   }
 }
 
@@ -16949,6 +17287,7 @@ const QueryTypes = {
   between: "between",
   collection: "collection",
   clustered_collection: "clustered_collection",
+  composite_collection: "composite_collection",
   is: "is",
 };
 
@@ -17007,6 +17346,7 @@ const MethodTypeTranslation = {
 const IndexTypes = {
   isolated: "isolated",
   clustered: "clustered",
+  composite: "composite",
 };
 
 const Comparisons = {
@@ -17147,6 +17487,7 @@ const ItemOperations = {
   subtract: "subtract",
   append: "append",
   ifNotExists: "ifNotExists",
+  none: "",
 };
 
 const UpsertOperations = {
@@ -17936,7 +18277,7 @@ module.exports = {
 }).call(this)}).call(this,require("buffer").Buffer)
 },{"./types":30,"./validations":34,"buffer":3}],34:[function(require,module,exports){
 const e = require("./errors");
-const { KeyCasing, IndexProjectionOptions } = require("./types");
+const { KeyCasing, IndexProjectionOptions, IndexTypes } = require("./types");
 
 const Validator = require("jsonschema").Validator;
 Validator.prototype.customFormats.isFunction = function (input) {
@@ -18026,7 +18367,7 @@ const Index = {
       properties: {
         field: {
           type: "string",
-          required: true,
+          required: false,
         },
         facets: {
           type: ["array", "string"],
@@ -18064,11 +18405,10 @@ const Index = {
     },
     sk: {
       type: "object",
-      required: ["field"],
       properties: {
         field: {
           type: "string",
-          required: true,
+          required: false,
         },
         facets: {
           type: ["array", "string"],
@@ -18108,7 +18448,7 @@ const Index = {
     },
     type: {
       type: "string",
-      enum: ["clustered", "isolated"],
+      enum: Object.values(IndexTypes),
       required: false,
     },
     condition: {
@@ -18127,7 +18467,6 @@ const Index = {
 
 const Modelv1 = {
   type: "object",
-  required: true,
   properties: {
     model: {
       type: "object",
@@ -18170,7 +18509,6 @@ const Modelv1 = {
 
 const ModelBeta = {
   type: "object",
-  required: true,
   properties: {
     service: {
       type: "string",
@@ -18349,7 +18687,7 @@ function isMatchingProjection(received, expected) {
   if (isStringHasLength(received) && isStringHasLength(expected)) {
     return received === expected;
   } else if (Array.isArray(received) && Array.isArray(expected)) {
-    return received.length === expected.length && expected.every((attribute) => received.includes(attribute));
+    return true;
   } else {
     return isValueOrUndefined(received, IndexProjectionOptions.all) && isValueOrUndefined(expected, IndexProjectionOptions.all)
   }
