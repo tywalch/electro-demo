@@ -8376,6 +8376,8 @@ class Entity {
   is(item, config) {
     return (
       config.ignoreOwnership &&
+      config.attributes &&
+      config.attributes.length > 0 &&
       !this._itemIncludesKeys(item)
     ) || (
       (config.ignoreOwnership || config.hydrate) &&
@@ -8474,8 +8476,8 @@ class Entity {
       return null;
     }
     const config = {
-      ...(options || {}),
       ignoreOwnership: true,
+      ...(options || {}),
     };
     return this.formatResponse(item, TableIndex, config);
   }
