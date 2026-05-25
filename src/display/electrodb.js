@@ -7117,77 +7117,161 @@ class DocumentClientV2Wrapper {
     this.__v = "v2";
   }
 
-  get(params) {
-    return this.client.get(params);
-  }
-
-  put(params) {
-    return this.client.put(params);
-  }
-
-  update(params) {
-    return this.client.update(params);
-  }
-
-  delete(params) {
-    return this.client.delete(params);
-  }
-
-  batchWrite(params) {
-    return this.client.batchWrite(params);
-  }
-
-  batchGet(params) {
-    return this.client.batchGet(params);
-  }
-
-  scan(params) {
-    return this.client.scan(params);
-  }
-
-  query(params) {
-    return this.client.query(params);
-  }
-
-  _transact(transactionRequest) {
-    let cancellationReasons;
-    transactionRequest.on("extractError", (response) => {
-      try {
-        cancellationReasons = JSON.parse(
-          response.httpResponse.body.toString(),
-        ).CancellationReasons;
-      } catch (err) {}
-    });
-
+  _wrapRequest(makeRequest, signal) {
     return {
-      async promise() {
-        return transactionRequest.promise().catch((err) => {
-          if (err) {
-            if (Array.isArray(cancellationReasons)) {
-              return {
-                canceled: cancellationReasons.map((reason) => {
-                  if (reason.Item) {
-                    return unmarshallItem(reason);
-                  }
-                  return reason;
-                }),
-              };
-            }
-            throw err;
+      promise: () => {
+        return new Promise((resolve, reject) => {
+          if (signal && signal.aborted) {
+            return reject(
+              new ElectroError(
+                ErrorCodes.OperationAborted,
+                "The operation was aborted",
+              ),
+            );
           }
+
+          const request = makeRequest();
+
+          const onAbort = () => {
+            request.abort();
+            reject(
+              new ElectroError(
+                ErrorCodes.OperationAborted,
+                "The operation was aborted",
+              ),
+            );
+          };
+
+          if (signal) {
+            signal.addEventListener("abort", onAbort, { once: true });
+          }
+
+          request
+            .promise()
+            .then((result) => {
+              if (signal) {
+                signal.removeEventListener("abort", onAbort);
+              }
+              resolve(result);
+            })
+            .catch((err) => {
+              if (signal) {
+                signal.removeEventListener("abort", onAbort);
+              }
+              reject(err);
+            });
         });
       },
     };
   }
 
-  transactWrite(params) {
-    const transactionRequest = this.client.transactWrite(params);
-    return this._transact(transactionRequest);
+  get(params, options = {}) {
+    return this._wrapRequest(() => this.client.get(params), options.abortSignal);
   }
 
-  transactGet(params) {
-    const transactionRequest = this.client.transactGet(params);
-    return this._transact(transactionRequest);
+  put(params, options = {}) {
+    return this._wrapRequest(() => this.client.put(params), options.abortSignal);
+  }
+
+  update(params, options = {}) {
+    return this._wrapRequest(() => this.client.update(params), options.abortSignal);
+  }
+
+  delete(params, options = {}) {
+    return this._wrapRequest(() => this.client.delete(params), options.abortSignal);
+  }
+
+  batchWrite(params, options = {}) {
+    return this._wrapRequest(() => this.client.batchWrite(params), options.abortSignal);
+  }
+
+  batchGet(params, options = {}) {
+    return this._wrapRequest(() => this.client.batchGet(params), options.abortSignal);
+  }
+
+  scan(params, options = {}) {
+    return this._wrapRequest(() => this.client.scan(params), options.abortSignal);
+  }
+
+  query(params, options = {}) {
+    return this._wrapRequest(() => this.client.query(params), options.abortSignal);
+  }
+
+  _transact(makeTransactionRequest, signal) {
+    return {
+      promise: () => {
+        return new Promise((resolve, reject) => {
+          if (signal && signal.aborted) {
+            return reject(
+              new ElectroError(
+                ErrorCodes.OperationAborted,
+                "The operation was aborted",
+              ),
+            );
+          }
+
+          const transactionRequest = makeTransactionRequest();
+          let cancellationReasons;
+          transactionRequest.on("extractError", (response) => {
+            try {
+              cancellationReasons = JSON.parse(
+                response.httpResponse.body.toString(),
+              ).CancellationReasons;
+            } catch (err) {}
+          });
+
+          const onAbort = () => {
+            transactionRequest.abort();
+            reject(
+              new ElectroError(
+                ErrorCodes.OperationAborted,
+                "The operation was aborted",
+              ),
+            );
+          };
+
+          if (signal) {
+            signal.addEventListener("abort", onAbort, { once: true });
+          }
+
+          transactionRequest
+            .promise()
+            .then((result) => {
+              if (signal) {
+                signal.removeEventListener("abort", onAbort);
+              }
+              resolve(result);
+            })
+            .catch((err) => {
+              if (signal) {
+                signal.removeEventListener("abort", onAbort);
+              }
+              if (err) {
+                if (Array.isArray(cancellationReasons)) {
+                  resolve({
+                    canceled: cancellationReasons.map((reason) => {
+                      if (reason.Item) {
+                        return unmarshallItem(reason);
+                      }
+                      return reason;
+                    }),
+                  });
+                } else {
+                  reject(err);
+                }
+              }
+            });
+        });
+      },
+    };
+  }
+
+  transactWrite(params, options = {}) {
+    return this._transact(() => this.client.transactWrite(params), options.abortSignal);
+  }
+
+  transactGet(params, options = {}) {
+    return this._transact(() => this.client.transactGet(params), options.abortSignal);
   }
 
   createSet(value, ...rest) {
@@ -7210,68 +7294,84 @@ class DocumentClientV3Wrapper {
     this.__v = "v3";
   }
 
-  promiseWrap(fn) {
+  promiseWrap(fn, signal) {
     return {
       promise: async () => {
-        return fn();
+        if (signal && signal.aborted) {
+          throw new ElectroError(
+            ErrorCodes.OperationAborted,
+            "The operation was aborted",
+          );
+        }
+        try {
+          return await fn();
+        } catch (err) {
+          if (signal && signal.aborted) {
+            throw new ElectroError(
+              ErrorCodes.OperationAborted,
+              "The operation was aborted",
+            );
+          }
+          throw err;
+        }
       },
     };
   }
 
-  get(params) {
+  get(params, options = {}) {
     return this.promiseWrap(() => {
       const command = new this.lib.GetCommand(params);
-      return this.client.send(command);
-    });
+      return this.client.send(command, { abortSignal: options.abortSignal });
+    }, options.abortSignal);
   }
-  put(params) {
+  put(params, options = {}) {
     return this.promiseWrap(() => {
       const command = new this.lib.PutCommand(params);
-      return this.client.send(command);
-    });
+      return this.client.send(command, { abortSignal: options.abortSignal });
+    }, options.abortSignal);
   }
-  update(params) {
+  update(params, options = {}) {
     return this.promiseWrap(() => {
       const command = new this.lib.UpdateCommand(params);
-      return this.client.send(command);
-    });
+      return this.client.send(command, { abortSignal: options.abortSignal });
+    }, options.abortSignal);
   }
-  delete(params) {
-    return this.promiseWrap(async () => {
+  delete(params, options = {}) {
+    return this.promiseWrap(() => {
       const command = new this.lib.DeleteCommand(params);
-      return this.client.send(command);
-    });
+      return this.client.send(command, { abortSignal: options.abortSignal });
+    }, options.abortSignal);
   }
-  batchWrite(params) {
-    return this.promiseWrap(async () => {
+  batchWrite(params, options = {}) {
+    return this.promiseWrap(() => {
       const command = new this.lib.BatchWriteCommand(params);
-      return this.client.send(command);
-    });
+      return this.client.send(command, { abortSignal: options.abortSignal });
+    }, options.abortSignal);
   }
-  batchGet(params) {
-    return this.promiseWrap(async () => {
+  batchGet(params, options = {}) {
+    return this.promiseWrap(() => {
       const command = new this.lib.BatchGetCommand(params);
-      return this.client.send(command);
-    });
+      return this.client.send(command, { abortSignal: options.abortSignal });
+    }, options.abortSignal);
   }
-  scan(params) {
-    return this.promiseWrap(async () => {
+  scan(params, options = {}) {
+    return this.promiseWrap(() => {
       const command = new this.lib.ScanCommand(params);
-      return this.client.send(command);
-    });
+      return this.client.send(command, { abortSignal: options.abortSignal });
+    }, options.abortSignal);
   }
-  query(params) {
-    return this.promiseWrap(async () => {
+  query(params, options = {}) {
+    return this.promiseWrap(() => {
       const command = new this.lib.QueryCommand(params);
-      return this.client.send(command);
-    });
+      return this.client.send(command, { abortSignal: options.abortSignal });
+    }, options.abortSignal);
   }
 
-  transactWrite(params) {
-    return this.promiseWrap(async () => {
+  transactWrite(params, options = {}) {
+    return this.promiseWrap(() => {
       const command = new this.lib.TransactWriteCommand(params);
       return this.client
-        .send(command)
+        .send(command, { abortSignal: options.abortSignal })
         .then((result) => {
           return result;
         })
@@ -7288,13 +7388,13 @@ class DocumentClientV3Wrapper {
           }
           throw err;
         });
-    });
+    }, options.abortSignal);
   }
-  transactGet(params) {
-    return this.promiseWrap(async () => {
+  transactGet(params, options = {}) {
+    return this.promiseWrap(() => {
       const command = new this.lib.TransactGetCommand(params);
       return this.client
-        .send(command)
+        .send(command, { abortSignal: options.abortSignal })
         .then((result) => {
           return result;
         })
@@ -7311,7 +7411,7 @@ class DocumentClientV3Wrapper {
           }
           throw err;
         });
-    });
+    }, options.abortSignal);
   }
   createSet(value) {
     if (Array.isArray(value)) {
@@ -7972,7 +8072,8 @@ class Entity {
     };
     const dynamoDBMethod = MethodTypeTranslation[method];
     const client = config.client || this.client;
-    return client[dynamoDBMethod](params)
+    const clientOptions = { abortSignal: config.abortSignal };
+    return client[dynamoDBMethod](params, clientOptions)
       .promise()
       .then((results) => {
         notifyQuery();
@@ -7986,7 +8087,10 @@ class Entity {
           enumerable: false,
           value: params,
         });
-        err.__isAWSError = true;
+        // Only mark as AWS error if it's not already an ElectroError
+        if (!err.isElectroError) {
+          err.__isAWSError = true;
+        }
         throw err;
       });
   }
@@ -7999,6 +8103,12 @@ class Entity {
     let concurrent = this._normalizeConcurrencyValue(config.concurrent);
     let concurrentOperations = u.batchItems(parameters, concurrent);
     for (let operation of concurrentOperations) {
+      if (config.abortSignal && config.abortSignal.aborted) {
+        throw new e.ElectroError(
+          e.ErrorCodes.OperationAborted,
+          "The operation was aborted",
+        );
+      }
       await Promise.all(
         operation.map(async (params) => {
           let response = await this._exec(
@@ -8074,6 +8184,12 @@ class Entity {
       : [];
     let unprocessedAll = [];
     for (let operation of concurrentOperations) {
+      if (config.abortSignal && config.abortSignal.aborted) {
+        throw new e.ElectroError(
+          e.ErrorCodes.OperationAborted,
+          "The operation was aborted",
+        );
+      }
       await Promise.all(
         operation.map(async (params) => {
           let response = await this._exec(MethodTypes.batchGet, params, config);
@@ -8156,6 +8272,12 @@ class Entity {
       config.hydrate &&
       (method === MethodTypes.query || method === MethodTypes.scan);
     do {
+      if (config.abortSignal && config.abortSignal.aborted) {
+        throw new e.ElectroError(
+          e.ErrorCodes.OperationAborted,
+          "The operation was aborted",
+        );
+      }
       let response = await this._exec(
         method,
         { ExclusiveStartKey, ...parameters },
@@ -9137,6 +9259,7 @@ class Entity {
       hydrator: (_entity, _indexName, items) => items,
       _objectOnEmpty: false,
       _includeOnResponseItem: {},
+      abortSignal: undefined,
     };
 
     // Auto-set ignoreOwnership: true for INCLUDE or KEYS_ONLY indexes
@@ -9391,6 +9514,16 @@ class Entity {
 
       if (option.client !== undefined) {
         config.client = c.normalizeClient(option.client);
+      }
+
+      if (option.abortSignal !== undefined) {
+        if (!validations.isAbortSignal(option.abortSignal)) {
+          throw new e.ElectroError(
+            e.ErrorCodes.InvalidOptions,
+            "Invalid 'abortSignal' option provided. Expected an AbortSignal-like object with an 'aborted' boolean and 'addEventListener'/'removeEventListener' methods.",
+          );
+        }
+        config.abortSignal = option.abortSignal;
       }
 
       if (option._includeOnResponseItem) {
@@ -13095,6 +13228,12 @@ const ErrorCodes = {
     code: 4001,
     section: "aws-error",
     name: "AWSError",
+    sym: ErrorCode,
+  },
+  OperationAborted: {
+    code: 4002,
+    section: "operation-aborted",
+    name: "OperationAborted",
     sym: ErrorCode,
   },
   UnknownError: {
@@ -18569,10 +18708,10 @@ v.addSchema(Modelv1, "/Modelv1");
 
 function validateModel(model = {}) {
   /** start beta/v1 condition **/
-  let betaErrors = v.validate(model, "/ModelBeta").errors;
+  let betaErrors = v.validate(model, ModelBeta).errors;
   if (betaErrors.length) {
     /** end/v1 condition **/
-    let errors = v.validate(model, "/Modelv1").errors;
+    let errors = v.validate(model, Modelv1).errors;
     if (errors.length) {
       throw new e.ElectroError(
         e.ErrorCodes.InvalidModel,
@@ -18656,6 +18795,16 @@ function isFunction(value) {
   return typeof value === "function";
 }
 
+function isAbortSignal(value) {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    typeof value.aborted === "boolean" &&
+    typeof value.addEventListener === "function" &&
+    typeof value.removeEventListener === "function"
+  );
+}
+
 function stringArrayMatch(arr1, arr2) {
   let areArrays = Array.isArray(arr1) && Array.isArray(arr2);
   let match = areArrays && arr1.length === arr2.length;
@@ -18703,6 +18852,7 @@ function isMatchingProjection(received, expected) {
 module.exports = {
   testModel,
   isFunction,
+  isAbortSignal,
   stringArrayMatch,
   isMatchingProjection,
   isMatchingCasing,
