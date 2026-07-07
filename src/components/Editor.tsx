@@ -29,8 +29,13 @@ function syncModels(monaco: Monaco, files: PlaygroundFile[]) {
   }
   for (const file of files) {
     const uri = monaco.Uri.parse(fileUri(file.name));
-    if (!monaco.editor.getModel(uri)) {
+    const model = monaco.editor.getModel(uri);
+    if (!model) {
       monaco.editor.createModel(file.content, "typescript", uri);
+    } else if (model.getValue() !== file.content) {
+      // On rename the editor wrapper can create an empty model at the new
+      // path before this sync runs; restore the file's content from state.
+      model.setValue(file.content);
     }
   }
 }
@@ -49,6 +54,10 @@ export function Editor({ files, activeFile, onChange, onReady }: EditorProps) {
   const handleBeforeMount = (monaco: Monaco) => {
     monaco.editor.defineTheme(ELECTRODB_THEME_NAME, electrodbTheme);
     const ts = monaco.languages.typescript;
+    // Without eager sync the TypeScript worker only knows about models that
+    // have been attached to an editor, so imports of files whose tabs were
+    // never opened report "Cannot find module".
+    ts.typescriptDefaults.setEagerModelSync(true);
     ts.typescriptDefaults.setCompilerOptions({
       strict: true,
       noImplicitAny: true,

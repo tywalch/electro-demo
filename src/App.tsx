@@ -5,7 +5,7 @@ import { Editor } from "./components/Editor";
 import { FileTabs } from "./components/FileTabs";
 import { GithubCorner } from "./components/GithubCorner";
 import { compileFiles } from "./lib/compile";
-import { nextFileName, normalizeFileName } from "./lib/files";
+import { nextUntitledName, normalizeFileName } from "./lib/files";
 import { buildHash, DEFAULT_FILE_NAME, parseHash, replaceLocationHash } from "./lib/hash";
 import { initialCode } from "./lib/initialCode";
 import { runProgram } from "./lib/runtime";
@@ -95,42 +95,32 @@ export default function App() {
     [scheduleRun],
   );
 
-  const handleAdd = useCallback(() => {
+  const handleAdd = useCallback((): string => {
     const current = filesRef.current;
-    const suggestion = nextFileName(current);
-    const input = window.prompt("New file name", suggestion);
-    if (input === null) {
-      return;
-    }
-    const result = normalizeFileName(input, current);
-    if ("error" in result) {
-      window.alert(result.error);
-      return;
-    }
-    setFiles([...current, { name: result.name, content: "" }]);
-    setActiveFile(result.name);
+    const name = nextUntitledName(current);
+    setFiles([...current, { name, content: "" }]);
+    setActiveFile(name);
     scheduleRun();
+    return name;
   }, [scheduleRun]);
 
   const handleRename = useCallback(
-    (name: string) => {
+    (name: string, nextName: string): string | null => {
       const current = filesRef.current;
-      const input = window.prompt("Rename file", name);
-      if (input === null || input === name) {
-        return;
-      }
-      const result = normalizeFileName(input, current, name);
+      const result = normalizeFileName(nextName, current, name);
       if ("error" in result) {
-        window.alert(result.error);
-        return;
+        return result.error;
       }
-      setFiles(
-        current.map((file) =>
-          file.name === name ? { ...file, name: result.name } : file,
-        ),
-      );
-      setActiveFile((active) => (active === name ? result.name : active));
-      scheduleRun();
+      if (result.name !== name) {
+        setFiles(
+          current.map((file) =>
+            file.name === name ? { ...file, name: result.name } : file,
+          ),
+        );
+        setActiveFile((active) => (active === name ? result.name : active));
+        scheduleRun();
+      }
+      return null;
     },
     [scheduleRun],
   );

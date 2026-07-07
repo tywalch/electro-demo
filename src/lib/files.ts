@@ -29,12 +29,12 @@ export function normalizeFileName(
   return { name };
 }
 
-export function nextFileName(files: PlaygroundFile[]): string {
-  let index = files.length + 1;
-  let name = `file${index}.ts`;
+export function nextUntitledName(files: PlaygroundFile[]): string {
+  let name = "untitled.ts";
+  let index = 1;
   while (files.some((file) => file.name === name)) {
     index += 1;
-    name = `file${index}.ts`;
+    name = `untitled${index}.ts`;
   }
   return name;
 }

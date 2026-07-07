@@ -140,6 +140,21 @@ footer > h4 > a {
   color: #4781b7;
 }
 
+.file-tab .file-name-input {
+  background-color: #0d1117;
+  border: 1px solid #388bfd;
+  border-radius: 2px;
+  color: #c9d1d9;
+  font: 12px "JetBrains Mono", monospace;
+  padding: 0 2px;
+  margin: -1px 0;
+  outline: none;
+}
+
+.file-tab .file-name-input.invalid {
+  border-color: #f85149;
+}
+
 .file-tab .close-file,
 .add-file {
   border: none;
