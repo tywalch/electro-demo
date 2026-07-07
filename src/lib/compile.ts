@@ -17,10 +17,13 @@ export async function compileFiles(
   for (const file of files) {
     const output = await client.getEmitOutput(fileUri(file.name));
     const js = output.outputFiles.find((out) => out.name.endsWith(".js"))?.text;
+    const map = output.outputFiles.find((out) =>
+      out.name.endsWith(".js.map"),
+    )?.text;
     if (js === undefined) {
       throw new Error(`Unable to compile ${file.name}`);
     }
-    compiled.push({ name: file.name, js });
+    compiled.push({ name: file.name, js, map });
   }
   return compiled;
 }

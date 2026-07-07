@@ -1,14 +1,22 @@
-import type { OutputItem } from "./types";
+import { originalPosition, parseSourceMap } from "./sourceMap";
+import type { OutputItem, QueryOrigin } from "./types";
 
 export interface CompiledModule {
   /** The editor file name, e.g. "entity.ts" */
   name: string;
   /** The CommonJS output emitted by the TypeScript worker */
   js: string;
+  /** The V3 source map for `js`, when emitted */
+  map?: string;
 }
 
 const EMPTY_MESSAGE =
   "Write Entity or Service queries in the left pane to see generated params appear here!";
+
+// Executed modules are tagged with this scheme via //# sourceURL so stack
+// frames from user code are recognizable and carry the editor file name.
+const SOURCE_URL_SCHEME = "playground:///";
+const STACK_FRAME_PATTERN = /playground:\/\/\/([^\s:)]+):(\d+):(\d+)/;
 
 function normalizePath(path: string): string {
   const parts: string[] = [];
@@ -74,6 +82,75 @@ function getElectroDBModule(): Record<string, unknown> {
   };
 }
 
+function moduleBody(module: CompiledModule): string {
+  // The emitted sourceMappingURL comment points at a file that does not
+  // exist; strip it and tag the code so stack frames name the editor file.
+  const cleaned = module.js.replace(/^\/\/# sourceMappingURL=.*$/gm, "");
+  return `${cleaned}\n//# sourceURL=${SOURCE_URL_SCHEME}${module.name}`;
+}
+
+/**
+ * Measures how many lines the engine's `new Function` wrapper prepends to
+ * the function body, so stack-frame line numbers can be mapped back to
+ * compiled-module lines. (V8 prepends two lines; measured for portability.)
+ */
+function measureFunctionLineOffset(): number {
+  try {
+    const probe = new Function(
+      `return new Error("probe").stack;\n//# sourceURL=${SOURCE_URL_SCHEME}__probe__`,
+    );
+    const stack = String(probe());
+    const match = stack.match(/playground:\/\/\/__probe__:(\d+)/);
+    if (match) {
+      return parseInt(match[1], 10) - 1;
+    }
+  } catch {
+    // fall through to the V8 default
+  }
+  return 2;
+}
+
+function createOriginResolver(
+  modules: CompiledModule[],
+): (stack?: string) => QueryOrigin | undefined {
+  const baseOffset = measureFunctionLineOffset();
+  const entryName = modules[0]?.name;
+  const maps = new Map(
+    modules.map((module) => [
+      module.name,
+      module.map ? parseSourceMap(module.map) : null,
+    ]),
+  );
+  return (stack) => {
+    if (!stack) {
+      return undefined;
+    }
+    const match = stack.match(STACK_FRAME_PATTERN);
+    if (!match) {
+      return undefined;
+    }
+    const [, file, lineText, columnText] = match;
+    if (!maps.has(file)) {
+      return undefined;
+    }
+    // The entry module body gains one extra line from the async wrapper.
+    const offset = file === entryName ? baseOffset + 1 : baseOffset;
+    const jsLine = parseInt(lineText, 10) - offset;
+    const jsColumn = parseInt(columnText, 10);
+    if (jsLine < 1) {
+      return undefined;
+    }
+    const mappings = maps.get(file);
+    if (mappings) {
+      const position = originalPosition(mappings, jsLine, jsColumn);
+      if (position) {
+        return { file, line: position.line, column: position.column };
+      }
+    }
+    return { file, line: jsLine, column: jsColumn };
+  };
+}
+
 interface ModuleRecord {
   exports: Record<string, unknown>;
 }
@@ -106,7 +183,7 @@ export function executeProgram(modules: CompiledModule[]): Promise<unknown> {
     cache.set(name, record);
     const localRequire = (request: string) =>
       requireModule(resolveRequest(name, request, moduleNames));
-    const factory = new Function("require", "module", "exports", file.js);
+    const factory = new Function("require", "module", "exports", moduleBody(file));
     factory(localRequire, record, record.exports);
     return record.exports;
   }
@@ -119,7 +196,7 @@ export function executeProgram(modules: CompiledModule[]): Promise<unknown> {
     "require",
     "module",
     "exports",
-    `return (async () => {\n${entry.js}\n})();`,
+    `return (async () => {\n${moduleBody(entry)}\n})();`,
   );
   return Promise.resolve(factory(localRequire, record, record.exports));
 }
@@ -127,7 +204,9 @@ export function executeProgram(modules: CompiledModule[]): Promise<unknown> {
 /**
  * Runs the program while capturing playground output (generated parameters
  * and info/error messages) through the headless listener installed on the
- * vendored ElectroDB playground bundle.
+ * vendored ElectroDB playground bundle. Params entries are annotated with
+ * the source position of the call that produced them when it can be
+ * resolved from the captured stack.
  */
 export async function runProgram(modules: CompiledModule[]): Promise<OutputItem[]> {
   const playground = window.ElectroDB;
@@ -140,13 +219,15 @@ export async function runProgram(modules: CompiledModule[]): Promise<OutputItem[
       },
     ];
   }
+  const resolveOrigin = createOriginResolver(modules);
   let items: OutputItem[] = [];
   const restore = playground.configure({
-    onParams: ({ label, params }) => {
+    onParams: ({ label, params, stack }) => {
       items.push({
         kind: "params",
         label: label ?? null,
         json: JSON.stringify(params, null, 4),
+        origin: resolveOrigin(stack),
       });
     },
     onMessage: ({ type, html }) => {

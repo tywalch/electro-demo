@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { Monaco } from "@monaco-editor/react";
-import { Display } from "./components/Display";
-import { Editor } from "./components/Editor";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Monaco, OnMount } from "@monaco-editor/react";
+import { Display, type DisplayFocus } from "./components/Display";
+import { Editor, type QueryMarker } from "./components/Editor";
 import { FileTabs } from "./components/FileTabs";
 import { GithubCorner } from "./components/GithubCorner";
 import { compileFiles } from "./lib/compile";
@@ -9,7 +9,9 @@ import { nextUntitledName, normalizeFileName } from "./lib/files";
 import { buildHash, DEFAULT_FILE_NAME, parseHash, replaceLocationHash } from "./lib/hash";
 import { initialCode } from "./lib/initialCode";
 import { runProgram } from "./lib/runtime";
-import type { OutputItem, PlaygroundFile } from "./lib/types";
+import type { OutputItem, PlaygroundFile, QueryOrigin } from "./lib/types";
+
+type CodeEditor = Parameters<OnMount>[0];
 
 const RUN_DEBOUNCE_MS = 900;
 
@@ -31,7 +33,10 @@ export default function App() {
     { kind: "message", type: "info", html: "<h3>Loading the editor…</h3>" },
   ]);
 
+  const [paramsFocus, setParamsFocus] = useState<DisplayFocus | null>(null);
+
   const monacoRef = useRef<Monaco | null>(null);
+  const editorRef = useRef<CodeEditor | null>(null);
   const filesRef = useRef(files);
   filesRef.current = files;
   const runIdRef = useRef(0);
@@ -78,11 +83,66 @@ export default function App() {
   useEffect(() => () => window.clearTimeout(timerRef.current), []);
 
   const handleReady = useCallback(
-    (monaco: Monaco) => {
+    (monaco: Monaco, editor: CodeEditor) => {
       monacoRef.current = monaco;
+      editorRef.current = editor;
       void run();
     },
     [run],
+  );
+
+  // A glyph icon in the editor gutter was clicked: scroll the matching
+  // params block into view on the right.
+  const handleRevealParams = useCallback((index: number) => {
+    setParamsFocus((previous) => ({
+      index,
+      nonce: (previous?.nonce ?? 0) + 1,
+    }));
+  }, []);
+
+  // The icon on a params block was clicked: focus the query that created it.
+  const handleRevealSource = useCallback((origin: QueryOrigin) => {
+    setActiveFile(origin.file);
+    // Allow the tab switch to swap the editor model before revealing.
+    window.setTimeout(() => {
+      const monaco = monacoRef.current;
+      const editor = editorRef.current;
+      if (!monaco || !editor) {
+        return;
+      }
+      editor.revealLineInCenter(origin.line);
+      editor.setPosition({ lineNumber: origin.line, column: origin.column });
+      editor.focus();
+      const model = editor.getModel();
+      if (model && origin.line <= model.getLineCount()) {
+        const ids = model.deltaDecorations(
+          [],
+          [
+            {
+              range: new monaco.Range(origin.line, 1, origin.line, 1),
+              options: { isWholeLine: true, className: "query-line-flash" },
+            },
+          ],
+        );
+        window.setTimeout(() => model.deltaDecorations(ids, []), 1600);
+      }
+    }, 80);
+  }, []);
+
+  const queryMarkers = useMemo<QueryMarker[]>(
+    () =>
+      output.flatMap((item, index) =>
+        item.kind === "params" && item.origin
+          ? [
+              {
+                file: item.origin.file,
+                line: item.origin.line,
+                itemIndex: index,
+              },
+            ]
+          : [],
+      ),
+    [output],
   );
 
   const handleChange = useCallback(
@@ -162,13 +222,19 @@ export default function App() {
           <Editor
             files={files}
             activeFile={activeFile}
+            queryMarkers={queryMarkers}
             onChange={handleChange}
             onReady={handleReady}
+            onRevealParams={handleRevealParams}
           />
         </div>
       </div>
       <div className="display">
-        <Display items={output} />
+        <Display
+          items={output}
+          focus={paramsFocus}
+          onRevealSource={handleRevealSource}
+        />
       </div>
       <footer>
         <h4>

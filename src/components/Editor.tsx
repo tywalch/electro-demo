@@ -1,15 +1,25 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import MonacoEditor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import electrodbTypes from "../assets/electrodb.d.ts?raw";
 import { fileUri } from "../lib/compile";
 import { ELECTRODB_THEME_NAME, electrodbTheme } from "../lib/monacoTheme";
 import type { PlaygroundFile } from "../lib/types";
 
+/** A line in an editor file that produced a params block in the output */
+export interface QueryMarker {
+  file: string;
+  line: number;
+  /** Index of the corresponding item in the output list */
+  itemIndex: number;
+}
+
 export interface EditorProps {
   files: PlaygroundFile[];
   activeFile: string;
+  queryMarkers: QueryMarker[];
   onChange(name: string, content: string): void;
-  onReady(monaco: Monaco): void;
+  onReady(monaco: Monaco, editor: Parameters<OnMount>[0]): void;
+  onRevealParams(itemIndex: number): void;
 }
 
 // Every editor file gets its own monaco model so the TypeScript language
@@ -40,16 +50,77 @@ function syncModels(monaco: Monaco, files: PlaygroundFile[]) {
   }
 }
 
-export function Editor({ files, activeFile, onChange, onReady }: EditorProps) {
+export function Editor({
+  files,
+  activeFile,
+  queryMarkers,
+  onChange,
+  onReady,
+  onRevealParams,
+}: EditorProps) {
   const monacoRef = useRef<Monaco | null>(null);
   const filesRef = useRef(files);
   filesRef.current = files;
+  const markersRef = useRef(queryMarkers);
+  markersRef.current = queryMarkers;
+  const activeFileRef = useRef(activeFile);
+  activeFileRef.current = activeFile;
+  const onRevealParamsRef = useRef(onRevealParams);
+  onRevealParamsRef.current = onRevealParams;
+  const decorationIdsRef = useRef(new Map<string, string[]>());
+
+  const applyQueryDecorations = useCallback(() => {
+    const monaco = monacoRef.current;
+    if (!monaco) {
+      return;
+    }
+    const byFile = new Map<string, QueryMarker[]>();
+    for (const marker of markersRef.current) {
+      const markers = byFile.get(marker.file) ?? [];
+      // One glyph per line; clicking navigates to the first params block.
+      if (!markers.some((existing) => existing.line === marker.line)) {
+        markers.push(marker);
+      }
+      byFile.set(marker.file, markers);
+    }
+    for (const model of monaco.editor.getModels()) {
+      const uri = model.uri.toString();
+      if (!uri.startsWith("file:///") || uri.includes("node_modules")) {
+        continue;
+      }
+      const name = model.uri.path.replace(/^\//, "");
+      const markers = byFile.get(name) ?? [];
+      const previous = decorationIdsRef.current.get(uri) ?? [];
+      const ids = model.deltaDecorations(
+        previous,
+        markers
+          .filter((marker) => marker.line <= model.getLineCount())
+          .map((marker) => ({
+            range: new monaco.Range(marker.line, 1, marker.line, 1),
+            options: {
+              glyphMarginClassName: "query-glyph",
+              glyphMarginHoverMessage: {
+                value: "Show the generated parameters for this query",
+              },
+              stickiness:
+                monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+            },
+          })),
+      );
+      decorationIdsRef.current.set(uri, ids);
+    }
+  }, []);
 
   useEffect(() => {
     if (monacoRef.current) {
       syncModels(monacoRef.current, files);
+      applyQueryDecorations();
     }
-  }, [files]);
+  }, [files, applyQueryDecorations]);
+
+  useEffect(() => {
+    applyQueryDecorations();
+  }, [queryMarkers, applyQueryDecorations]);
 
   const handleBeforeMount = (monaco: Monaco) => {
     monaco.editor.defineTheme(ELECTRODB_THEME_NAME, electrodbTheme);
@@ -63,6 +134,7 @@ export function Editor({ files, activeFile, onChange, onReady }: EditorProps) {
       noImplicitAny: true,
       esModuleInterop: true,
       allowNonTsExtensions: true,
+      sourceMap: true,
       target: ts.ScriptTarget.ES2017,
       module: ts.ModuleKind.CommonJS,
       moduleResolution: ts.ModuleResolutionKind.NodeJs,
@@ -77,8 +149,25 @@ export function Editor({ files, activeFile, onChange, onReady }: EditorProps) {
   const handleMount: OnMount = (editor, monaco) => {
     monacoRef.current = monaco;
     syncModels(monaco, filesRef.current);
+    applyQueryDecorations();
+    editor.onMouseDown((event) => {
+      if (
+        event.target.type ===
+          monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN &&
+        event.target.position
+      ) {
+        const line = event.target.position.lineNumber;
+        const marker = markersRef.current.find(
+          (candidate) =>
+            candidate.file === activeFileRef.current && candidate.line === line,
+        );
+        if (marker) {
+          onRevealParamsRef.current(marker.itemIndex);
+        }
+      }
+    });
     editor.focus();
-    onReady(monaco);
+    onReady(monaco, editor);
   };
 
   return (
@@ -94,6 +183,7 @@ export function Editor({ files, activeFile, onChange, onReady }: EditorProps) {
         fontFamily: "JetBrains Mono, monospace",
         automaticLayout: true,
         scrollBeyondLastLine: false,
+        glyphMargin: true,
       }}
     />
   );
