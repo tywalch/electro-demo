@@ -208,9 +208,10 @@ footer > h4 > a {
   min-width: 0;
 }
 
-/* the label markup carries its own bottom margin; spacing is handled by
-   the header so the icon centers against the text */
-.output-item-header h2 {
+/* the label markup carries its own bottom margin (via .display-wrapper h2);
+   spacing is handled by the header instead so the icon centers against the
+   text rather than against text + margin */
+.display-wrapper .output-item-header h2 {
   margin-bottom: 0;
 }
 
