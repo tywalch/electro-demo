@@ -199,23 +199,32 @@ footer > h4 > a {
 
 .output-item-header {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .output-item-header .output-item-label {
   min-width: 0;
 }
 
+/* the label markup carries its own bottom margin; spacing is handled by
+   the header so the icon centers against the text */
+.output-item-header h2 {
+  margin-bottom: 0;
+}
+
 .reveal-source {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: 1px solid #21262d;
   border-radius: 4px;
   color: #8b949e;
   cursor: pointer;
-  padding: 4px 5px 2px;
-  margin-top: 1px;
+  padding: 4px;
 }
 
 .reveal-source:hover {
