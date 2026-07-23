@@ -15,7 +15,7 @@ The playground is a React + TypeScript app built with Vite:
 ```bash
 npm install
 npm run dev        # start the Vite dev server
-npm run build      # compile netlify functions + production build to dist/
+npm run build      # production build to dist/
 npm run typecheck  # tsc --noEmit
 ```
 
