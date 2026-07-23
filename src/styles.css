@@ -199,7 +199,7 @@ footer > h4 > a {
 
 .output-item-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   margin-bottom: 10px;
 }
@@ -209,10 +209,11 @@ footer > h4 > a {
 }
 
 /* the label markup carries its own bottom margin (via .display-wrapper h2);
-   spacing is handled by the header instead so the icon centers against the
-   text rather than against text + margin */
+   spacing is handled by the header instead so the icon aligns to the text
+   rather than to text + margin */
 .display-wrapper .output-item-header h2 {
   margin-bottom: 0;
+  line-height: var(--output-label-line-height);
 }
 
 .reveal-source {
@@ -220,12 +221,17 @@ footer > h4 > a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* the icon leads the label, which wraps to several lines, so it is sized to
+     the label's first line box and centers against that line rather than
+     against the whole wrapped block */
+  box-sizing: border-box;
+  height: calc(var(--output-label-font-size) * var(--output-label-line-height));
   background: none;
   border: 1px solid #21262d;
   border-radius: 4px;
   color: #8b949e;
   cursor: pointer;
-  padding: 4px;
+  padding: 0 4px;
 }
 
 .reveal-source:hover {
@@ -244,11 +250,15 @@ footer > h4 > a {
 .display-wrapper {
   max-width: 100%;
   width: 100%;
+  /* shared by the output label and the reveal icon that leads it, so the icon
+     stays aligned to the label's first line if the heading is ever resized */
+  --output-label-font-size: 1.3rem;
+  --output-label-line-height: 1.4;
 }
 
 .display-wrapper h2 {
   margin: 0 0 10px;
-  font-size: 1.3rem;
+  font-size: var(--output-label-font-size);
   text-align: left;
   color: #eaecec;
   font-family: "Poppins", sans-serif;
