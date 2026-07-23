@@ -114,7 +114,6 @@ function createOriginResolver(
   modules: CompiledModule[],
 ): (stack?: string) => QueryOrigin | undefined {
   const baseOffset = measureFunctionLineOffset();
-  const entryName = modules[0]?.name;
   const maps = new Map(
     modules.map((module) => [
       module.name,
@@ -133,8 +132,8 @@ function createOriginResolver(
     if (!maps.has(file)) {
       return undefined;
     }
-    // The entry module body gains one extra line from the async wrapper.
-    const offset = file === entryName ? baseOffset + 1 : baseOffset;
+    // Every module body gains one extra line from its async wrapper.
+    const offset = baseOffset + 1;
     const jsLine = parseInt(lineText, 10) - offset;
     const jsColumn = parseInt(columnText, 10);
     if (jsLine < 1) {
@@ -155,17 +154,44 @@ interface ModuleRecord {
   exports: Record<string, unknown>;
 }
 
+const REQUIRE_PATTERN = /\brequire\((["'])([^"'\n]+)\1\)/g;
+
+/** Static require() specifiers in a module's emitted CommonJS body */
+function scanRequires(js: string): string[] {
+  const specifiers = new Set<string>();
+  for (const match of js.matchAll(REQUIRE_PATTERN)) {
+    specifiers.add(match[2]);
+  }
+  return [...specifiers];
+}
+
 /**
  * Links and executes the compiled editor files as CommonJS modules. The first
  * file is the program entry point; the remaining files only execute when
- * imported. The entry module body is wrapped in an async function so
- * top-level await is supported there.
+ * imported (directly or transitively) from it.
+ *
+ * Every module body runs inside an async wrapper so top-level await works in
+ * any file. Because `require()` is synchronous, modules are pre-executed in
+ * dependency order (statically scanned from the emitted `require()` calls)
+ * and awaited before their dependents run, so imports always observe
+ * fully-resolved exports. A module that awaits nothing completes its body
+ * synchronously, which keeps the on-demand `require()` fallback correct for
+ * anything the static scan cannot see.
  */
-export function executeProgram(modules: CompiledModule[]): Promise<unknown> {
+export async function executeProgram(modules: CompiledModule[]): Promise<unknown> {
   const byName = new Map(modules.map((module) => [module.name, module]));
   const moduleNames = new Set(byName.keys());
   const cache = new Map<string, ModuleRecord>();
   const entry = modules[0];
+
+  function createFactory(file: CompiledModule): Function {
+    return new Function(
+      "require",
+      "module",
+      "exports",
+      `return (async () => {\n${moduleBody(file)}\n})();`,
+    );
+  }
 
   function requireModule(name: string): unknown {
     if (name === "electrodb") {
@@ -183,22 +209,49 @@ export function executeProgram(modules: CompiledModule[]): Promise<unknown> {
     cache.set(name, record);
     const localRequire = (request: string) =>
       requireModule(resolveRequest(name, request, moduleNames));
-    const factory = new Function("require", "module", "exports", moduleBody(file));
-    factory(localRequire, record, record.exports);
+    createFactory(file)(localRequire, record, record.exports);
     return record.exports;
   }
 
-  const record: ModuleRecord = { exports: {} };
-  cache.set(entry.name, record);
-  const localRequire = (request: string) =>
-    requireModule(resolveRequest(entry.name, request, moduleNames));
-  const factory = new Function(
-    "require",
-    "module",
-    "exports",
-    `return (async () => {\n${moduleBody(entry)}\n})();`,
-  );
-  return Promise.resolve(factory(localRequire, record, record.exports));
+  async function executeModule(
+    name: string,
+    executing: Set<string>,
+  ): Promise<unknown> {
+    if (cache.has(name) || executing.has(name)) {
+      return undefined;
+    }
+    const file = byName.get(name);
+    if (!file) {
+      return undefined;
+    }
+    executing.add(name);
+    for (const request of scanRequires(file.js)) {
+      if (request === "electrodb") {
+        continue;
+      }
+      let resolved: string;
+      try {
+        resolved = resolveRequest(name, request, moduleNames);
+      } catch {
+        // Unresolvable specifier (or a stray require() in a string or
+        // comment): leave it for the module's own require() call to report.
+        continue;
+      }
+      await executeModule(resolved, executing);
+    }
+    executing.delete(name);
+    if (cache.has(name)) {
+      // A dependency cycle sync-executed this module while it was pending.
+      return undefined;
+    }
+    const record: ModuleRecord = { exports: {} };
+    cache.set(name, record);
+    const localRequire = (request: string) =>
+      requireModule(resolveRequest(name, request, moduleNames));
+    return createFactory(file)(localRequire, record, record.exports);
+  }
+
+  return executeModule(entry.name, new Set());
 }
 
 /**
