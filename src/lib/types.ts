@@ -12,7 +12,7 @@ export interface QueryOrigin {
 
 export type OutputItem =
   | { kind: "params"; label: string | null; json: string; origin?: QueryOrigin }
-  | { kind: "message"; type: "info" | "error"; html: string };
+  | { kind: "message"; type: "info" | "error"; text: string };
 
 export interface PlaygroundListener {
   onParams(event: {

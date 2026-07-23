@@ -18,7 +18,7 @@ html,
 .container {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: 25px 165px 1fr 0.03fr;
+  grid-template-rows: 25px 125px 1fr 0.03fr;
   gap: 2px 8px;
   grid-auto-flow: row;
   grid-template-areas:
@@ -79,7 +79,7 @@ a {
 }
 
 img {
-  max-width: 600px;
+  max-width: 480px;
   width: 100%;
 }
 
@@ -174,6 +174,83 @@ footer > h4 > a {
 .add-file {
   font-size: 18px;
   padding: 2px 8px;
+}
+
+/* Delete confirmation popover, anchored above the tab's close button.
+   Rendered in a portal with inline fixed coordinates (the tab strip sits in
+   an overflow-hidden grid cell that would clip it). */
+
+.delete-popover {
+  position: fixed;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background-color: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(1, 4, 9, 0.8);
+  color: #c9d1d9;
+  font: 12px "JetBrains Mono", monospace;
+  cursor: default;
+  white-space: nowrap;
+}
+
+/* caret pointing down at the close button */
+.delete-popover::before {
+  content: "";
+  position: absolute;
+  bottom: -5px;
+  left: 14px;
+  width: 8px;
+  height: 8px;
+  background-color: #161b22;
+  border-bottom: 1px solid #30363d;
+  border-right: 1px solid #30363d;
+  transform: rotate(45deg);
+}
+
+.delete-popover-message b {
+  color: #eaecec;
+}
+
+.delete-popover-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.delete-popover-confirm,
+.delete-popover-cancel {
+  border-radius: 4px;
+  cursor: pointer;
+  font: 12px "JetBrains Mono", monospace;
+  padding: 3px 10px;
+}
+
+.delete-popover-confirm {
+  background: none;
+  border: 1px solid #f85149;
+  color: #f85149;
+}
+
+.delete-popover-confirm:hover,
+.delete-popover-confirm:focus-visible {
+  background-color: #f85149;
+  color: #0d1117;
+}
+
+.delete-popover-cancel {
+  background: none;
+  border: 1px solid #30363d;
+  color: #8b949e;
+}
+
+.delete-popover-cancel:hover,
+.delete-popover-cancel:focus-visible {
+  color: #c9d1d9;
+  border-color: #8b949e;
 }
 
 /* Query <-> params linking */

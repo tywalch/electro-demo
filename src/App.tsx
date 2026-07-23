@@ -19,18 +19,11 @@ const initialFiles: PlaygroundFile[] = parseHash(location.hash) ?? [
   { name: DEFAULT_FILE_NAME, content: initialCode },
 ];
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
 export default function App() {
   const [files, setFiles] = useState<PlaygroundFile[]>(initialFiles);
   const [activeFile, setActiveFile] = useState(initialFiles[0].name);
   const [output, setOutput] = useState<OutputItem[]>([
-    { kind: "message", type: "info", html: "<h3>Loading the editor…</h3>" },
+    { kind: "message", type: "info", text: "Loading the editor…" },
   ]);
 
   const [paramsFocus, setParamsFocus] = useState<DisplayFocus | null>(null);
@@ -69,7 +62,7 @@ export default function App() {
         {
           kind: "message",
           type: "error",
-          html: `<h3>${escapeHtml(message)}</h3>`,
+          text: message,
         },
       ]);
     }
@@ -189,9 +182,6 @@ export default function App() {
     (name: string) => {
       const current = filesRef.current;
       if (current.length <= 1) {
-        return;
-      }
-      if (!window.confirm(`Delete ${name}?`)) {
         return;
       }
       const remaining = current.filter((file) => file.name !== name);
