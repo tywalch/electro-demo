@@ -1,15 +1,13 @@
 {
   "name": "electro-demo",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Source for the ElectroDB in-browser demo",
-  "main": "index.js",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "browserify": "browserify ./src/electrodb.js -o ./src/display/electrodb.js",
-    "start": "python -m SimpleHTTPServer 3002",
-    "compile:share": "tsc ./netlify/functions/share/*.ts --outDir ./netlify/functions/share --esModuleInterop",
-    "compile": "npm run compile:share",
-    "build": "npm run compile"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
@@ -23,19 +21,21 @@
   },
   "homepage": "https://github.com/tywalch/electro-demo#readme",
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.100.0",
-    "@netlify/functions": "^1.0.0",
-    "@types/aws-sdk": "^2.7.0",
-    "@types/moment": "^2.13.0",
-    "aws-sdk": "^2.1148.0",
+    "@monaco-editor/react": "^4.6.0",
     "electrodb": "^1.8.4",
-    "moment": "^2.29.3",
-    "uuid": "^8.3.2"
+    "lz-string": "^1.5.0",
+    "prismjs": "^1.29.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@types/node": "^17.0.39",
-    "@types/uuid": "^8.3.4",
-    "browserify": "^17.0.0",
-    "typescript": "^4.7.3"
+    "@types/node": "^20.14.0",
+    "@types/prismjs": "^1.26.3",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "monaco-editor": "^0.50.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.0"
   }
 }

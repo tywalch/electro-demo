@@ -43,11 +43,12 @@ checkRepoIsReady() {\
 }
 
 cd ../electrodb
-checkRepoIsReady
+# checkRepoIsReady
 npm run build
 cd ../
-cp -nf ./electrodb/playground/bundle.js ./electro-demo/src/display/electrodb.js
+cp -f ./electrodb/playground/bundle.js ./electro-demo/public/vendor/electrodb-playground.js
+cp -f ./electrodb/index.d.ts ./electro-demo/src/assets/electrodb.d.ts
 cd electro-demo
-git add src/display/electrodb.js
+git add public/vendor/electrodb-playground.js src/assets/electrodb.d.ts
 git commit -m "new electrodb build"
 git push
