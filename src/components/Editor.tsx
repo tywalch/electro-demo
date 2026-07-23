@@ -129,6 +129,14 @@ export function Editor({
     // have been attached to an editor, so imports of files whose tabs were
     // never opened report "Cannot find module".
     ts.typescriptDefaults.setEagerModelSync(true);
+    // The runtime executes every module body inside an async wrapper, so
+    // top-level await works in any editor file despite the CommonJS module
+    // setting. Suppress the language-service errors that would forbid it:
+    // 1375 ("'await' ... only allowed at the top level of a module") and
+    // 1378 ("top-level 'await' ... requires module es2022/esnext/...").
+    ts.typescriptDefaults.setDiagnosticsOptions({
+      diagnosticCodesToIgnore: [1375, 1378],
+    });
     ts.typescriptDefaults.setCompilerOptions({
       strict: true,
       noImplicitAny: true,
