@@ -215,7 +215,7 @@ export async function runProgram(modules: CompiledModule[]): Promise<OutputItem[
       {
         kind: "message",
         type: "error",
-        html: "<h3>The ElectroDB playground bundle failed to load. Try refreshing the page.</h3>",
+        text: "The ElectroDB playground bundle failed to load. Try refreshing the page.",
       },
     ];
   }
@@ -230,8 +230,8 @@ export async function runProgram(modules: CompiledModule[]): Promise<OutputItem[
         origin: resolveOrigin(stack),
       });
     },
-    onMessage: ({ type, html }) => {
-      items.push({ kind: "message", type, html });
+    onMessage: ({ type, text }) => {
+      items.push({ kind: "message", type, text });
     },
     onClear: () => {
       items = [];
@@ -253,7 +253,7 @@ export async function runProgram(modules: CompiledModule[]): Promise<OutputItem[
     items.push({
       kind: "message",
       type: "info",
-      html: `<h3>${EMPTY_MESSAGE}</h3>`,
+      text: EMPTY_MESSAGE,
     });
   }
   return items;
